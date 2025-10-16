@@ -1,0 +1,67 @@
+image: node:22.15.0-alpine
+
+stages:
+  - deploy
+
+variables:
+  YARN_CACHE_FOLDER: '$CI_PROJECT_DIR/cache/yarn'
+
+.rules:
+  rules:
+    - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
+    - if: ($CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push")
+  interruptible: true
+
+.cache_template: &cache_config
+  key:
+    files:
+      - yarn.lock
+  paths:
+    - cache/yarn
+    - node_modules
+    - frontend/node_modules
+    - backend/node_modules
+
+deploy_to_production:
+  stage: deploy
+  # This section runs before the main script
+  before_script:
+    # Your image is Alpine Linux, so we use 'apk' to install sshpass
+    - apk add --no-cache sshpass openssh-client
+  script:
+    # This command uses sshpass to log in with your password
+    - |
+      sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "
+        echo '🚀 Starting deployment...'
+        cd $PROJECT_PATH &&
+        # Drop any local changes before pulling
+        echo "🧹 Dropping local changes..."
+        git reset --hard HEAD
+        git clean -fd
+
+        # Pull the latest changes from the main branch
+        echo "➡️  Pulling latest changes..."
+        git pull origin main
+
+        # Add any build or restart commands here, for example:
+        # echo "📦 Installing dependencies..."
+        # corepack enable
+        # yarn install
+        npm install
+        # echo "🛠️  Building the application..."
+        npm run lint
+        npm run build
+        # yarn check-all
+        # yarn backend build
+        # yarn backend seed
+        # yarn frontend build
+        # yarn restart
+
+        # echo "🚀 Restarting application..."
+        # pm2 reload all
+
+        echo "✅ Deployment successful!"
+      "
+  # This rule ensures the job ONLY runs on pushes to the 'main' branch
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "release-branch"'
