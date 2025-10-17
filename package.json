@@ -54,7 +54,7 @@
     "@nestjs/mapped-types": "^2.0.5",
     "@nestjs/platform-express": "^10.3.3",
     "@nestjs/schedule": "^4.0.1",
-  "@nestjs/serve-static": "^4.0.0",
+    "@nestjs/serve-static": "^4.0.0",
     "@nestjs/swagger": "^7.3.0",
     "@nestjs/terminus": "^10.2.3",
     "@nestjs/throttler": "^6.4.0",
@@ -113,8 +113,8 @@
     "@types/supertest": "^2.0.14",
     "@types/uuid": "^9.0.8",
     "@types/ws": "^8.5.7",
-  "@typescript-eslint/eslint-plugin": "^8.46.1",
-  "@typescript-eslint/parser": "^8.46.1",
+    "@typescript-eslint/eslint-plugin": "^8.46.1",
+    "@typescript-eslint/parser": "^8.46.1",
     "docker-compose": "^1.1.0",
     "eslint": "^8.51.0",
     "eslint-config-prettier": "^9.0.0",
@@ -181,4 +181,3 @@
     "testEnvironment": "node"
   }
 }
-
