@@ -1,0 +1,56 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install sshpass
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sshpass
+
+      - name: Deploy via SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+        run: |
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_PASSWORD" ] || [ -z "$PROJECT_PATH" ]; then
+            echo "Missing required SSH secrets" >&2
+            exit 1
+          fi
+
+          sshpass -p "$SSH_PASSWORD" \
+            ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" <<'REMOTE_CMDS'
+              echo '🚀 Starting deployment...'
+              cd "$PROJECT_PATH"
+
+              echo '🧹 Dropping local changes...'
+              git reset --hard HEAD
+              git clean -fd
+
+              echo '➡️  Pulling latest changes...'
+              git pull origin main
+
+              echo '📦 Installing dependencies...'
+              npm install
+
+              echo '🧪 Running lint checks...'
+              npm run lint
+
+              echo '🛠️  Building the application...'
+              npm run build
+
+              echo '✅ Deployment successful!'
