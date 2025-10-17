@@ -1,0 +1,25 @@
+<mjml>
+  <mj-head>
+    <mj-title>Verify Your Emaifrrrl</mj-title>
+    <mj-preview>Please verify your email to complete your registration</mj-preview>
+    <mj-attributes>
+      <mj-all font-family="Arial, sans-serif" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#f9f9f9">
+    <mj-section padding="20px">
+      <mj-column>
+        <mj-text font-size="24px" color="#333" font-weight="bold">
+          Verify Your Email Address
+        </mj-text>
+        <mj-text font-size="16px" color="#555">
+          Hello, <br /><br />
+          Please click the button below to verify your email address and complete your registration.
+        </mj-text>
+        <mj-button href="{{url}}" background-color="#007bff" color="#ffffff" padding="10px 25px" border-radius="4px">
+          Verify Email
+        </mj-button>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
