@@ -1,5 +1,3 @@
-import { Quack } from '../../quack/domain/quack';
-
 export enum UserRoleEnum {
   admin = 'admin',
   user = 'user',
@@ -12,7 +10,6 @@ export type User = {
   username: string;
   profileImageUrl?: string | null;
   role: UserRoleEnum;
-  quacks?: Quack[];
   createdAt: Date;
   updatedAt: Date;
 };

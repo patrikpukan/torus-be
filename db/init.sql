@@ -20,18 +20,6 @@ CREATE UNIQUE INDEX `user_email_key` ON `user`(`email`);
 CREATE UNIQUE INDEX `user_username_key` ON `user`(`username`);
 
 -- ----------------------
--- Table structure for `quack`
--- ----------------------
-CREATE TABLE `quack` (
-                       `id` VARCHAR(36) NOT NULL PRIMARY KEY,
-                       `text` TEXT NOT NULL,
-                       `userId` VARCHAR(36) NOT NULL,
-                       `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                       `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                       CONSTRAINT `quack_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
--- ----------------------
 -- Table structure for `session`
 -- ----------------------
 CREATE TABLE `session` (

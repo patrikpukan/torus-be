@@ -2,9 +2,7 @@ import { join } from 'node:path';
 import { ConfigModule } from '@applifting-io/nestjs-decorated-config';
 import { Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
-import { QuackModule } from './modules/quack/quack.module';
 import { UsersModule } from './modules/users/users.module';
-import { WelcomeModule } from './modules/welcome/welcome.module';
 import { SeedModule } from './scripts/seed/seed.module';
 import { AuthModule } from './shared/auth/auth.module';
 import { Config } from './shared/config/config.service';
@@ -20,10 +18,7 @@ const imports = [
   }),
   SeedModule,
   AuthModule,
-  WelcomeModule,
-  QuackModule,
   UsersModule,
-  WelcomeModule,
   GraphqlSetupModule,
 ];
 
