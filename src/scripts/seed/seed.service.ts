@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
-import { BetterAuth } from '../../shared/auth/providers/better-auth.provider';
+import type { BetterAuth } from '../../shared/auth/providers/better-auth.provider';
 import { Config } from '../../shared/config/config.service';
 import { seedDatabase } from './seed/seed-database';
 import { getProjectRoot } from './utils/get-project-root';

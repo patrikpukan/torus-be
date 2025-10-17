@@ -1,15 +1,12 @@
 import { ExecutionContext, Injectable } from '@nestjs/common';
 import { ContextType } from '@nestjs/common/interfaces/features/arguments-host.interface';
 import { GqlExecutionContext } from '@nestjs/graphql';
-import {
-  BetterAuth,
-  InjectBetterAuth,
-} from '../providers/better-auth.provider';
+import * as betterAuthProvider from '../providers/better-auth.provider';
 import { getSessionFromRequest } from '../utils/get-session-from-request';
 
 @Injectable()
 export class AuthenticatedUserGuard {
-  constructor(@InjectBetterAuth private readonly betterAuth: BetterAuth) {}
+  constructor(@betterAuthProvider.InjectBetterAuth private readonly betterAuth: betterAuthProvider.BetterAuth) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = this.getRequest(context);

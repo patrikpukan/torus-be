@@ -8,10 +8,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  BetterAuth,
-  InjectBetterAuth,
-} from 'src/shared/auth/providers/better-auth.provider';
+import * as betterAuthProvider from 'src/shared/auth/providers/better-auth.provider';
 import { AbilityFactory } from 'src/shared/permissions/factory/ability.factory';
 import { Identity } from '../../../shared/auth/domain/identity';
 import { User, UserRoleEnum } from '../domain/user';
@@ -30,7 +27,7 @@ export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly abilityFactory: AbilityFactory,
-    @InjectBetterAuth private readonly betterAuth: BetterAuth,
+    @betterAuthProvider.InjectBetterAuth private readonly betterAuth: betterAuthProvider.BetterAuth,
   ) {}
 
   async getUserById(id: string): Promise<User | null> {
