@@ -64,4 +64,4 @@ deploy_to_production:
       "
   # This rule ensures the job ONLY runs on pushes to the 'main' branch
   rules:
-    - if: '$CI_COMMIT_BRANCH == "release-branch"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
