@@ -9,6 +9,7 @@ type CreateUserParams = {
   username: string;
   role?: string;
   profilePictureUrl?: string;
+  profileStatus?: string;
 };
 
 export async function createUser(
@@ -16,7 +17,7 @@ export async function createUser(
   auth: BetterAuth,
   params: CreateUserParams,
 ): Promise<User> {
-  const { email, password, name, username, role, profilePictureUrl } = params;
+  const { email, password, name, username, role, profilePictureUrl, profileStatus } = params;
   const db = prisma as any;
 
   // NOTE: Do NOT call BetterAuth here. During seeding we avoid email flows/templates.
@@ -46,6 +47,7 @@ export async function createUser(
       username,
       role: (role as UserRole) ?? undefined,
       image: profilePictureUrl ?? undefined,
+      profileStatus: profileStatus ?? 'active',
       updatedAt: now,
     },
   });

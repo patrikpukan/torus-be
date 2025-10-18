@@ -1,8 +1,15 @@
 import { Quack } from '../../quack/domain/quack';
 
 export enum UserRoleEnum {
-  admin = 'admin',
+  systemAdmin = 'system_admin',
+  orgAdmin = 'org_admin',
   user = 'user',
+}
+
+export enum ProfileStatusEnum {
+  pending = 'pending',
+  active = 'active',
+  suspended = 'suspended',
 }
 
 export type User = {
@@ -12,6 +19,7 @@ export type User = {
   username: string;
   profileImageUrl?: string | null;
   role: UserRoleEnum;
+  profileStatus: ProfileStatusEnum;
   quacks?: Quack[];
   createdAt: Date;
   updatedAt: Date;

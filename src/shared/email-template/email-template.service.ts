@@ -9,10 +9,13 @@ import {
 
 @Injectable()
 export class EmailTemplateService {
-  private readonly TEMPLATE_BASE_PATH = path.resolve(
-    __dirname,
-    '../../../assets/templates/html/',
-  );
+  private readonly templateDirectories: string[] = [
+    // Prefer project root assets (works in dev and prod after copying assets)
+    path.resolve(process.cwd(), 'assets/templates/html'),
+    // Fallback for environments where templates remain alongside compiled sources
+    path.resolve(__dirname, '../../../assets/templates/html'),
+    path.resolve(__dirname, '../../../../assets/templates/html'),
+  ];
 
   /**
    * Compiles an email template with provided variables
@@ -25,7 +28,7 @@ export class EmailTemplateService {
     variables,
   }: CompilableTemplate<T>): Promise<string> {
     try {
-      const filePath = path.resolve(this.TEMPLATE_BASE_PATH, templatePath);
+      const filePath = await this.resolveTemplatePath(templatePath);
       const htmlTemplate = await fs.readFile(filePath, 'utf8');
       const handlebarsTemplate = Handlebars.compile(htmlTemplate);
       const filledTemplate = handlebarsTemplate(variables);
@@ -34,5 +37,22 @@ export class EmailTemplateService {
       console.error('Error compiling template:', error);
       throw new Error('Failed to read or compile email template.');
     }
+  }
+
+  private async resolveTemplatePath(templatePath: string): Promise<string> {
+    for (const basePath of this.templateDirectories) {
+      const candidate = path.resolve(basePath, templatePath);
+
+      try {
+        await fs.access(candidate);
+        return candidate;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+          throw err;
+        }
+      }
+    }
+
+    throw new Error(`Template not found: ${templatePath}`);
   }
 }

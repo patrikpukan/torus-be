@@ -21,21 +21,23 @@ export interface AppAbility {
 @Injectable()
 export class AbilityFactory {
   createForUser(user: Identity): AppAbility {
-    const isAdmin = user.role === UserRoleEnum.admin;
+    const isSystemAdmin = user.role === UserRoleEnum.systemAdmin;
+    const isOrgAdmin = user.role === UserRoleEnum.orgAdmin;
+    const hasElevatedPrivileges = isSystemAdmin || isOrgAdmin;
 
     return {
       canAddQuack: (): boolean => true,
       canReadQuacks: (): boolean => true,
       canDeleteQuack: (quack): boolean => {
-        return quack.userId === user.id || isAdmin;
+        return quack.userId === user.id || hasElevatedPrivileges;
       },
-      canCreateUser: (): boolean => isAdmin,
+      canCreateUser: (): boolean => hasElevatedPrivileges,
       canReadUsers: (): boolean => true,
       canUpdateUser: (userToUpdate): boolean => {
-        return userToUpdate.id === user.id || isAdmin;
+        return userToUpdate.id === user.id || hasElevatedPrivileges;
       },
       canDeleteUser: (userToDelete): boolean => {
-        return userToDelete.id === user.id || isAdmin;
+        return userToDelete.id === user.id || hasElevatedPrivileges;
       },
     };
   }

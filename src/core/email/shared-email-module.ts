@@ -9,9 +9,10 @@ import { Config } from 'src/shared/config/config.service';
  */
 class MockEmailService implements EmailService {
   async sendEmail(to: string, subject: string, html: string): Promise<void> {
-    console.log('[MOCK EMAIL] Disabled SMTP. Would send email to:', to);
-    console.log('[MOCK EMAIL] Subject:', subject);
-    // Email service is disabled - do nothing
+    console.log('[MOCK EMAIL] Disabled SMTP. Email would be sent with:');
+    console.log('  To:      %s', to);
+    console.log('  Subject: %s', subject);
+    console.log('  HTML:\n%s', html);
   }
 }
 

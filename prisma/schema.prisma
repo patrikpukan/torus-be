@@ -17,9 +17,18 @@ datasource db {
 
 enum UserRole {
   user
-  admin
+  org_admin
+  system_admin
 
   @@map("user_role")
+}
+
+enum ProfileStatus {
+  pending
+  active
+  suspended
+
+  @@map("profile_status")
 }
 
 model Quack {
@@ -96,6 +105,7 @@ model User {
   quacks          Quack[]
   role            UserRole  @default(user)
   profileImageUrl String?   @db.Text
+  profileStatus   ProfileStatus @default(pending)
 
   username        String? @db.VarChar(50)
   displayUsername String? @db.VarChar(50)
@@ -103,4 +113,13 @@ model User {
   @@unique([email])
   @@unique([username])
   @@map("user")
+}
+
+model OrgAdmin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("org_admin")
 }

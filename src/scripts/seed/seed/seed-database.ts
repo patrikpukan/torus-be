@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { BetterAuth } from '../../../shared/auth/providers/better-auth.provider';
 import { Config } from '../../../shared/config/config.service';
@@ -10,16 +11,17 @@ export const seedDatabase = async (
   betterAuth: BetterAuth,
 ): Promise<void> => {
   const auth = betterAuth;
+  const db = prisma as any;
 
   // Drop existing database data from all tables
   try {
     // Delete data using Prisma's deleteMany (respects foreign keys automatically)
-    const db = prisma as any;
     console.log('Deleting existing data...');
     await db.session.deleteMany({});
     await db.account.deleteMany({});
     await db.quack.deleteMany({});
     await db.verification.deleteMany({});
+    await db.orgAdmin.deleteMany({});
     await db.user.deleteMany({});
     console.log('All existing data deleted successfully.');
   } catch (error) {
@@ -47,17 +49,29 @@ export const seedDatabase = async (
     password,
     name: 'Admin (Delete in Prod)',
     username: 'superadmin',
-    role: 'admin',
+    role: 'system_admin',
+    profileStatus: 'active',
     profilePictureUrl: 'uploads/profile-pictures/superadminavatar.png',
   });
 
   console.log('Creating example users');
 
+  const orgAdminEmail = 'caffeinatedduck@example.com';
+
+  await db.orgAdmin.create({
+    data: {
+      id: randomUUID(),
+      email: orgAdminEmail.toLowerCase(),
+    },
+  });
+
   const user1 = await createUser(prisma, auth, {
-    email: 'caffeinatedduck@example.com',
+    email: orgAdminEmail,
     password: 'password1',
     name: 'Caffeinated Duck',
     username: 'CaffeinatedDuck',
+    role: 'org_admin',
+    profileStatus: 'active',
     profilePictureUrl: 'uploads/profile-pictures/caffeduckavatar.png',
   });
 
@@ -66,6 +80,8 @@ export const seedDatabase = async (
     password: 'password2',
     name: 'Deep Duck Thoughts',
     username: 'DeepDuckThoughts',
+    role: 'user',
+    profileStatus: 'active',
     profilePictureUrl: 'uploads/profile-pictures/deepduckavatar.png',
   });
 

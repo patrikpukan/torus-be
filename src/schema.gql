@@ -15,6 +15,13 @@ type Mutation {
   updateUser(data: UpdateUserInputType!): User!
 }
 
+"""Profile onboarding status"""
+enum ProfileStatusEnum {
+  active
+  pending
+  suspended
+}
+
 type Quack {
   createdAt: DateTime!
   id: ID!
@@ -63,6 +70,7 @@ type User {
   id: ID!
   name: String!
   profileImageUrl: String
+  profileStatus: ProfileStatusEnum!
   quacks: [Quack!]!
   role: UserRoleEnum!
   username: String!
@@ -70,6 +78,7 @@ type User {
 
 """User role"""
 enum UserRoleEnum {
-  admin
+  orgAdmin
+  systemAdmin
   user
 }
