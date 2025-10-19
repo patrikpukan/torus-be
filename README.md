@@ -44,6 +44,29 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Reset database from scratch (Supabase + Prisma)
+
+If you want to drop everything and recreate the schema from scratch on your Supabase Postgres database, use the following scripts. This is destructive and will erase ALL data in the target schema defined by `DATABASE_URL`.
+
+Warning: Do NOT use on a database that contains valuable production data. Prefer separate databases or schemas per environment.
+
+```bash
+# Force reset DB and re-apply migrations; runs Prisma seed automatically
+$ npm run db:fresh
+
+# Start the app after a fresh reset in dev
+$ npm run start:fresh:dev
+
+# Start the app after a fresh reset in prod (destructive)
+$ npm run start:fresh:prod
+```
+
+Notes:
+- The reset uses `prisma migrate reset --force`, which drops and recreates the schema, reapplies migrations, and then runs the Prisma seed.
+- Seeding is wired via the `prisma.seed` command in `package.json`, which calls `ts-node src/scripts/seed/seed.script.ts`.
+- Ensure your `.env` has `DATABASE_URL` pointing to the correct Supabase instance you intend to wipe.
+- If you encounter `P3009 migrate found failed migrations...`, running `npm run db:fresh` will reset the state and reapply migrations cleanly.
+
 ## Run tests
 
 ```bash
