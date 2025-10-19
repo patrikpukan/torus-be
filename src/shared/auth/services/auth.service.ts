@@ -18,6 +18,7 @@ import {
 } from 'src/modules/users/domain/user';
 import { OrgAdminRepository } from '../repositories/org-admin.repository';
 import { getSessionFromRequest } from '../utils/get-session-from-request';
+import { SupabaseAdminService } from './supabase-admin.service';
 
 export interface StandardResponse<T> {
   success: boolean;
@@ -96,14 +97,15 @@ export class AuthService {
     private readonly config: Config,
     private readonly userRepository: UserRepository,
     private readonly orgAdminRepository: OrgAdminRepository,
+    private readonly supabaseAdminService: SupabaseAdminService,
   ) {}
 
   async signUp(
     req: Request,
     payload: SignUpPayload,
   ): Promise<AuthHandlerResult<SignUpResponse>> {
-  const { email, password, firstName, lastName } = payload;
-  const username = payload.username?.trim();
+    const { email, password, firstName, lastName } = payload;
+    const username = payload.username?.trim();
 
     if (!email || !password) {
       throw new BadRequestException('Email and password are required.');
@@ -137,6 +139,29 @@ export class AuthService {
       }) as Promise<Response>,
     );
 
+  let supabaseAuthId: string | undefined;
+
+    if (this.supabaseAdminService.isEnabled()) {
+      try {
+        const supabaseResult = await this.supabaseAdminService.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            betterAuthUserId: (signUpResult.data.user as { id?: string } | undefined)?.id ?? null,
+          },
+        });
+
+        if (supabaseResult.error) {
+          this.logAuthError('Supabase auth user creation error', supabaseResult.error);
+        } else {
+          supabaseAuthId = supabaseResult.data?.user?.id ?? undefined;
+        }
+      } catch (error) {
+        this.logAuthError('Supabase auth user creation failed', error);
+      }
+    }
+
     const createdUser = await this.userRepository.getUserByEmail(email);
 
     if (!createdUser) {
@@ -149,9 +174,10 @@ export class AuthService {
 
     const updatedUser = await this.userRepository.updateUser(createdUser.id, {
       name: displayName,
-  username,
+      username,
       role: primaryRole,
       profileStatus: ProfileStatusEnum.pending,
+      supabaseUserId: supabaseAuthId ?? createdUser.supabaseUserId,
     });
 
     const responsePayload: SignUpResponse = {

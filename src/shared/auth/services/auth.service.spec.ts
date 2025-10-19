@@ -26,6 +26,7 @@ describe('AuthService', () => {
   };
   let userRepository: jest.Mocked<UserRepository>;
   let orgAdminRepository: jest.Mocked<OrgAdminRepository>;
+  let supabaseAdminService: { isEnabled: jest.Mock; createUser: jest.Mock };
   let config: Config;
 
   const createResponse = <T>(data: T, status = 200, headerMap: Record<string, string> = {}) => {
@@ -52,6 +53,7 @@ describe('AuthService', () => {
     createdAt: overrides.createdAt ?? new Date('2025-01-01T00:00:00Z'),
     updatedAt: overrides.updatedAt ?? new Date('2025-01-01T00:00:00Z'),
     profileImageUrl: overrides.profileImageUrl,
+    supabaseUserId: overrides.supabaseUserId,
   });
 
   beforeEach(() => {
@@ -79,6 +81,11 @@ describe('AuthService', () => {
       removeOrgAdmin: jest.fn(),
     } as unknown as jest.Mocked<OrgAdminRepository>;
 
+    supabaseAdminService = {
+      isEnabled: jest.fn().mockReturnValue(false),
+      createUser: jest.fn(),
+    };
+
     config = {
       superadminEmail: 'admin@example.com',
       frontendBaseUrl: 'http://localhost:3000',
@@ -88,7 +95,13 @@ describe('AuthService', () => {
 
     const betterAuth = { api: betterAuthApi } as unknown as any;
 
-    service = new AuthService(betterAuth, config, userRepository, orgAdminRepository);
+    service = new AuthService(
+      betterAuth,
+      config,
+      userRepository,
+      orgAdminRepository,
+      supabaseAdminService as any,
+    );
   });
 
   afterEach(() => {
@@ -125,12 +138,16 @@ describe('AuthService', () => {
     expect(result.body.success).toBe(true);
     expect(result.body.data?.profile.email).toBe(email);
     expect(result.body.data?.profile.username).toBe('milujem');
-    expect(userRepository.updateUser).toHaveBeenCalledWith('user-1', {
-      name: 'Robo Fico',
-      username: 'milujem',
-      role: UserRoleEnum.user,
-      profileStatus: ProfileStatusEnum.pending,
-    });
+    expect(userRepository.updateUser).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        name: 'Robo Fico',
+        username: 'milujem',
+        role: UserRoleEnum.user,
+        profileStatus: ProfileStatusEnum.pending,
+        supabaseUserId: undefined,
+      }),
+    );
   });
 
   it('fails signup when username is taken', async () => {

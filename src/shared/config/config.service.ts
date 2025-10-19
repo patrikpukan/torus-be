@@ -2,7 +2,6 @@ import { Env } from '@applifting-io/nestjs-decorated-config';
 import { Injectable, LogLevel } from '@nestjs/common';
 import {
   IsBoolean,
-  IsNotEmpty,
   IsOptional,
   IsSemVer,
   IsUrl,
@@ -151,4 +150,13 @@ export class Config {
   @Env('SMTP_PASSWORD', { defaultValue: '' })
   @IsOptional()
   readonly smtpPassword?: string;
+
+  @Env('SUPABASE_URL', { expose: true })
+  @IsOptional()
+  @IsUrl({ require_tld: true })
+  readonly supabaseUrl?: string;
+
+  @Env('SUPABASE_SERVICE_ROLE_KEY')
+  @IsOptional()
+  readonly supabaseServiceRoleKey?: string;
 }

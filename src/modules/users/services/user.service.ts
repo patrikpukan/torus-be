@@ -6,6 +6,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { BetterAuth } from 'src/shared/auth/providers/better-auth.provider';
@@ -14,6 +15,7 @@ import { AbilityFactory } from 'src/shared/permissions/factory/ability.factory';
 import { Identity } from '../../../shared/auth/domain/identity';
 import { User, UserRoleEnum } from '../domain/user';
 import { UserRepository } from '../repositories/user.repository';
+import { SupabaseAdminService } from 'src/shared/auth/services/supabase-admin.service';
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -25,10 +27,13 @@ interface FileUpload {
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     private readonly userRepository: UserRepository,
     private readonly abilityFactory: AbilityFactory,
     @InjectBetterAuth private readonly betterAuth: BetterAuth,
+    private readonly supabaseAdminService: SupabaseAdminService,
   ) {}
 
   async getUserById(id: string): Promise<User | null> {
@@ -102,13 +107,40 @@ export class UserService {
     }
 
     // Create user with BetterAuth using the correct API structure
-    await this.betterAuth.api.signUpEmail({
+    const betterAuthResult = await this.betterAuth.api.signUpEmail({
       body: {
         email: data.email,
         password: data.password,
         name: data.name,
       },
     });
+
+  let supabaseAuthId: string | undefined;
+
+    if (this.supabaseAdminService.isEnabled()) {
+      try {
+        const supabaseResult = await this.supabaseAdminService.createUser({
+          email: data.email,
+          password: data.password,
+          email_confirm: true,
+          user_metadata: {
+            betterAuthUserId: (betterAuthResult as { user?: { id?: string } } | undefined)?.user?.id ?? null,
+          },
+        });
+
+        if (supabaseResult.error) {
+          this.logger.error(
+            `Supabase auth user creation error: ${supabaseResult.error.message}`,
+            supabaseResult.error.stack,
+          );
+        } else {
+          supabaseAuthId = supabaseResult.data?.user?.id ?? undefined;
+        }
+      } catch (error) {
+        const err = error as Error;
+        this.logger.error('Supabase auth user creation failed', err.stack ?? err.message);
+      }
+    }
 
     // Find the newly created user by email
     const newUser = await this.userRepository.getUserByEmail(data.email);
@@ -121,6 +153,7 @@ export class UserService {
     await this.userRepository.updateUser(newUser.id, {
       username: data.username,
       role: UserRoleEnum.user,
+      supabaseUserId: supabaseAuthId ?? newUser.supabaseUserId,
     });
 
     // Handle profile picture if it exists

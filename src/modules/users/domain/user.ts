@@ -18,6 +18,7 @@ export type User = {
   email: string;
   username: string;
   profileImageUrl?: string | null;
+  supabaseUserId?: string | null;
   role: UserRoleEnum;
   profileStatus: ProfileStatusEnum;
   quacks?: Quack[];

@@ -8,7 +8,9 @@ import { ProfileStatusEnum, User, UserRoleEnum } from '../domain/user';
 // in some places, like the post repository, we can skip them because the types are at this time compatible.
 // usually we would also store them in their own file, like in users/repositories/mappers/user.mapper.ts
 // we keep it like this for simplicity here.
-type PrismaUserEntity = Prisma.UserGetPayload<Prisma.UserDefaultArgs>;
+type PrismaUserEntity = Prisma.UserGetPayload<Prisma.UserDefaultArgs> & {
+  supabaseUserId?: string | null;
+};
 
 const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
   const profileStatus = (user as unknown as { profileStatus?: ProfileStatusEnum })
@@ -20,6 +22,7 @@ const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
     role: user.role as UserRoleEnum,
     profileStatus,
     profileImageUrl: user.image ?? undefined,
+    supabaseUserId: user.supabaseUserId ?? undefined,
   };
 };
 
@@ -67,6 +70,7 @@ export class UserRepository {
       profileImageUrl?: string;
       username?: string;
       profileStatus?: ProfileStatusEnum;
+      supabaseUserId?: string | null;
     },
   ): Promise<User> {
     const updatePayload: Record<string, unknown> = {
@@ -82,6 +86,10 @@ export class UserRepository {
 
     if (data.profileStatus) {
       updatePayload.profileStatus = data.profileStatus;
+    }
+
+    if (typeof data.supabaseUserId !== 'undefined') {
+      updatePayload.supabaseUserId = data.supabaseUserId;
     }
 
     const user = await this.prisma.user.update({
