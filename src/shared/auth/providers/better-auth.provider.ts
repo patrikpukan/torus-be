@@ -17,10 +17,13 @@ const createAuth = (
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) =>
   betterAuth({
+    // apply shared defaults first so we can extend them without losing settings
+    ...betterAuthCoreConfig,
     database: prismaAdapter(prismaService, {
       provider: 'postgresql',
     }),
     emailAndPassword: {
+      ...(betterAuthCoreConfig.emailAndPassword ?? {}),
       enabled: true,
       sendResetPassword: async ({ user, token }) => {
         const passwordResetUrl = `${config.frontendBaseUrl}/${config.frontendResetPasswordUrl}?token=${token}`;
@@ -39,7 +42,9 @@ const createAuth = (
       },
     },
     user: {
+      ...(betterAuthCoreConfig.user ?? {}),
       additionalFields: {
+        ...(betterAuthCoreConfig.user?.additionalFields ?? {}),
         role: {
           type: 'string',
           required: true,
@@ -52,6 +57,7 @@ const createAuth = (
       (origin): origin is string => typeof origin === 'string',
     ),
     emailVerification: {
+      ...(betterAuthCoreConfig.emailVerification ?? {}),
       sendVerificationEmail: async ({ user, url }) => {
         const compiledTemplate =
           await emailTemplateService.compileTemplate<EmailVerificationTemplateVariables>(
@@ -69,8 +75,6 @@ const createAuth = (
       },
       sendOnSignUp: true,
     },
-    // If change (setup) affects database, must be in core config, in order to be able to run migrations
-    ...betterAuthCoreConfig,
     plugins: [...(betterAuthCoreConfig.plugins ?? [])],
   });
 
