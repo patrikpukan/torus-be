@@ -31,7 +31,10 @@ const createAuth = (
           await emailTemplateService.compileTemplate<PasswordResetTemplateVariables>(
             {
               templatePath: 'reset-password.html',
-              variables: { username: user.name, url: passwordResetUrl },
+              variables: {
+                username: user.email,
+                url: passwordResetUrl,
+              },
             },
           );
         await emailProvider.sendEmail(

@@ -13,7 +13,7 @@ import type { BetterAuth } from 'src/shared/auth/providers/better-auth.provider'
 import { InjectBetterAuth } from 'src/shared/auth/providers/better-auth.provider';
 import { AbilityFactory } from 'src/shared/permissions/factory/ability.factory';
 import { Identity } from '../../../shared/auth/domain/identity';
-import { User, UserRoleEnum } from '../domain/user';
+import { CurrentUser, User, UserRoleEnum } from '../domain/user';
 import { UserRepository } from '../repositories/user.repository';
 import { SupabaseAdminService } from 'src/shared/auth/services/supabase-admin.service';
 
@@ -40,26 +40,28 @@ export class UserService {
     return this.userRepository.getUserById(id);
   }
 
-  async getCurrentUser(identity: Identity): Promise<User | null> {
-    return this.getUserById(identity.id);
+  async getCurrentUser(identity: Identity): Promise<CurrentUser | null> {
+    return this.userRepository.getUserWithOrganizationById(identity.id);
   }
 
   async getUserByUsername(username: string): Promise<User | null> {
     return this.userRepository.getUserByUserName(username);
   }
 
-  async getUsersByIds(ids: string[]): Promise<User[]> {
-    return this.userRepository.getUsersByIds(ids);
-  }
-
-  async listUsers(identity: Identity, params?: { offset?: number; limit?: number }): Promise<User[]> {
+  async listUsers(
+    identity: Identity,
+    params?: { offset?: number; limit?: number },
+  ): Promise<User[]> {
     const ability = this.abilityFactory.createForUser(identity);
 
     if (!ability.canReadUsers()) {
       throw new ForbiddenException();
     }
 
-    return this.userRepository.listUsers({ offset: params?.offset, limit: params?.limit });
+    return this.userRepository.listUsers({
+      offset: params?.offset,
+      limit: params?.limit,
+    });
   }
 
   // Creation of users is handled via signUp (BetterAuth) flow.
@@ -84,10 +86,18 @@ export class UserService {
     identity: Identity,
     id: string,
     data: {
-      name?: string;
       email?: string;
       role?: UserRoleEnum;
-      profileImageUrl?: string;
+      profileImageUrl?: string | null;
+      username?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      about?: string | null;
+      hobbies?: string | null;
+      preferredActivity?: string | null;
+      interests?: string | null;
+      isActive?: boolean;
+      suspendedUntil?: Date | null;
     },
   ): Promise<User> {
     const ability = this.abilityFactory.createForUser(identity);
@@ -105,12 +115,61 @@ export class UserService {
     return this.userRepository.updateUser(id, data);
   }
 
+  async updateCurrentUserProfile(
+    identity: Identity,
+    data: {
+      firstName?: string | null;
+      lastName?: string | null;
+      about?: string | null;
+      hobbies?: string | null;
+      preferredActivity?: string | null;
+      interests?: string | null;
+      avatarUrl?: string | null;
+    },
+  ): Promise<CurrentUser> {
+    const ability = this.abilityFactory.createForUser(identity);
+
+    const existingUser = await this.userRepository.getUserWithOrganizationById(
+      identity.id,
+    );
+
+    if (!existingUser) {
+      throw new NotFoundException();
+    }
+
+    if (!ability.canUpdateUser(existingUser)) {
+      throw new ForbiddenException();
+    }
+
+    await this.userRepository.updateUser(identity.id, {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      about: data.about,
+      hobbies: data.hobbies,
+      preferredActivity: data.preferredActivity,
+      interests: data.interests,
+      profileImageUrl:
+        typeof data.avatarUrl !== 'undefined' ? data.avatarUrl : undefined,
+    });
+
+    const updatedUser = await this.userRepository.getUserWithOrganizationById(
+      identity.id,
+    );
+
+    if (!updatedUser) {
+      throw new NotFoundException();
+    }
+
+    return updatedUser;
+  }
+
   async signUp(
     data: {
       email: string;
       password: string;
-      name: string;
       username: string;
+      firstName?: string | null;
+      lastName?: string | null;
     },
     profilePicture?: Promise<FileUpload>,
   ): Promise<User> {
@@ -127,7 +186,7 @@ export class UserService {
       body: {
         email: data.email,
         password: data.password,
-        name: data.name,
+        name: [data.firstName, data.lastName].filter((part) => !!part && part.trim().length > 0).join(' ').trim() || data.username || data.email,
       },
     });
 
@@ -170,6 +229,8 @@ export class UserService {
       username: data.username,
       role: UserRoleEnum.user,
       supabaseUserId: supabaseAuthId ?? newUser.supabaseUserId,
+      firstName: data.firstName,
+      lastName: data.lastName,
     });
 
     // Handle profile picture if it exists

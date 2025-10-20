@@ -13,7 +13,6 @@ export enum ProfileStatusEnum {
 export type User = {
   id: string;
   organizationId: string;
-  name: string;
   email: string;
   username: string;
   displayUsername?: string | null;
@@ -31,4 +30,14 @@ export type User = {
   profileStatus: ProfileStatusEnum;
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type UserOrganization = {
+  id: string;
+  name: string;
+  code: string;
+  imageUrl?: string | null;
+};
+export type CurrentUser = User & {
+  organization: UserOrganization;
 };

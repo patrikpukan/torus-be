@@ -17,8 +17,11 @@ export class SignUpInputType {
   @Field()
   password!: string;
 
-  @Field()
-  name!: string;
+  @Field(() => String, { nullable: true })
+  firstName?: string;
+
+  @Field(() => String, { nullable: true })
+  lastName?: string;
 
   @Field()
   username!: string;
