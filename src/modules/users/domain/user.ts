@@ -1,5 +1,3 @@
-import { Quack } from '../../quack/domain/quack';
-
 export enum UserRoleEnum {
   systemAdmin = 'system_admin',
   orgAdmin = 'org_admin',
@@ -21,7 +19,6 @@ export type User = {
   supabaseUserId?: string | null;
   role: UserRoleEnum;
   profileStatus: ProfileStatusEnum;
-  quacks?: Quack[];
   createdAt: Date;
   updatedAt: Date;
 };

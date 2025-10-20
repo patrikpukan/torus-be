@@ -2,7 +2,6 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { BetterAuth } from '../../../shared/auth/providers/better-auth.provider';
 import { Config } from '../../../shared/config/config.service';
-import { createQuack } from './create-quack';
 import { createUser } from './create-user';
 
 export const seedDatabase = async (
@@ -19,7 +18,6 @@ export const seedDatabase = async (
     console.log('Deleting existing data...');
     await db.session.deleteMany({});
     await db.account.deleteMany({});
-    await db.quack.deleteMany({});
     await db.verification.deleteMany({});
     await db.orgAdmin.deleteMany({});
     await db.user.deleteMany({});
@@ -85,26 +83,5 @@ export const seedDatabase = async (
     profilePictureUrl: 'uploads/profile-pictures/deepduckavatar.png',
   });
 
-  console.log('Creating example quacks');
 
-  // Create 3 example posts on software productivity at Applifting
-  await createQuack(prisma, {
-    text: `just spilled coffee on my keyboard
-now every time i type "duck" it autocorrects to "quack"
-send help or more caffeine`,
-    userId: user1.id,
-  });
-
-  await createQuack(prisma, {
-    text: `If ducks wore pants, would they wear them on their legs or over their whole lower half like a cape?
-Asking for a friend. A feathery friend.`,
-    userId: user2.id,
-  });
-
-  await createQuack(prisma, {
-    text: `me: throws one crumb into the pond
-ducks: assemble like the Avengers
-i fear i may have started something`,
-    userId: user1.id,
-  });
 };
