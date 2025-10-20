@@ -9,9 +9,30 @@ export class UpdateUserInputType {
   @Field(() => UserRoleEnum, { nullable: true })
   role?: UserRoleEnum;
 
-  @Field({ nullable: true })
-  name?: string;
-
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   email?: string;
+
+  @Field(() => String, { nullable: true })
+  username?: string;
+
+  @Field(() => String, { nullable: true })
+  firstName?: string;
+
+  @Field(() => String, { nullable: true })
+  lastName?: string;
+
+  @Field(() => String, { nullable: true })
+  profileImageUrl?: string;
+
+  @Field(() => String, { nullable: true })
+  about?: string;
+
+  @Field(() => String, { nullable: true })
+  hobbies?: string;
+
+  @Field(() => String, { nullable: true })
+  preferredActivity?: string;
+
+  @Field(() => String, { nullable: true })
+  interests?: string;
 }

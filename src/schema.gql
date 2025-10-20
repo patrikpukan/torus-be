@@ -2,10 +2,37 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type CurrentUser {
+  about: String
+  displayUsername: String
+  email: String!
+  firstName: String
+  hobbies: String
+  id: ID!
+  interests: String
+  lastName: String
+  organization: Organization!
+  organizationId: ID!
+  preferredActivity: String
+  profileImageUrl: String
+  profileStatus: ProfileStatusEnum!
+  role: UserRoleEnum!
+  supabaseUserId: String
+  username: String
+}
+
 type Mutation {
   deleteUser(id: ID!): User!
   signUp(data: SignUpInputType!): User!
+  updateCurrentUserProfile(input: UpdateCurrentUserProfileInputType!): CurrentUser!
   updateUser(data: UpdateUserInputType!): User!
+}
+
+type Organization {
+  code: String!
+  id: ID!
+  imageUrl: String
+  name: String!
 }
 
 """Profile onboarding status"""
@@ -16,22 +43,43 @@ enum ProfileStatusEnum {
 }
 
 type Query {
+  getCurrentUser: CurrentUser
   user(username: String!): User
+  userById(id: ID!): User
+  users(limit: Int, offset: Int): [User!]!
 }
 
 input SignUpInputType {
   email: String!
-  name: String!
+  firstName: String
+  lastName: String
   password: String!
   profilePicture: Upload
   username: String!
 }
 
+input UpdateCurrentUserProfileInputType {
+  about: String
+  avatarUrl: String
+  firstName: String
+  hobbies: String
+  interests: String
+  lastName: String
+  preferredActivity: String
+}
+
 input UpdateUserInputType {
+  about: String
   email: String
+  firstName: String
+  hobbies: String
   id: ID!
-  name: String
+  interests: String
+  lastName: String
+  preferredActivity: String
+  profileImageUrl: String
   role: UserRoleEnum
+  username: String
 }
 
 """The `Upload` scalar type represents a file upload."""
@@ -39,8 +87,9 @@ scalar Upload
 
 type User {
   email: String!
+  firstName: String
   id: ID!
-  name: String!
+  lastName: String
   profileImageUrl: String
   profileStatus: ProfileStatusEnum!
   role: UserRoleEnum!
@@ -50,6 +99,6 @@ type User {
 """User role"""
 enum UserRoleEnum {
   orgAdmin
-  systemAdmin
+  superAdmin
   user
 }

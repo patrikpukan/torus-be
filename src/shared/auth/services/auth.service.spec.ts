@@ -45,15 +45,24 @@ describe('AuthService', () => {
 
   const buildUser = (overrides: Partial<User> = {}): User => ({
     id: overrides.id ?? 'user-1',
+    organizationId: overrides.organizationId ?? 'org-1',
     email: overrides.email ?? email,
-    name: overrides.name ?? 'Robo Fico',
     username: overrides.username ?? 'milujem',
+    displayUsername: overrides.displayUsername ?? null,
+    firstName: overrides.firstName ?? 'Robo',
+    lastName: overrides.lastName ?? 'Fico',
+    about: overrides.about ?? null,
+    hobbies: overrides.hobbies ?? null,
+    interests: overrides.interests ?? null,
+    preferredActivity: overrides.preferredActivity ?? null,
+    profileImageUrl: overrides.profileImageUrl ?? null,
+    supabaseUserId: overrides.supabaseUserId ?? null,
+    isActive: overrides.isActive ?? true,
+    suspendedUntil: overrides.suspendedUntil ?? null,
     role: overrides.role ?? UserRoleEnum.user,
     profileStatus: overrides.profileStatus ?? ProfileStatusEnum.pending,
     createdAt: overrides.createdAt ?? new Date('2025-01-01T00:00:00Z'),
     updatedAt: overrides.updatedAt ?? new Date('2025-01-01T00:00:00Z'),
-    profileImageUrl: overrides.profileImageUrl,
-    supabaseUserId: overrides.supabaseUserId,
   });
 
   beforeEach(() => {
@@ -124,7 +133,7 @@ describe('AuthService', () => {
     );
 
     const createdUser = buildUser({ id: 'user-1', username: '' });
-    const updatedUser = buildUser({ name: 'Robo Fico', username: 'milujem', role: UserRoleEnum.user });
+    const updatedUser = buildUser({ username: 'milujem', role: UserRoleEnum.user });
 
     userRepository.getUserByUserName.mockResolvedValue(null);
     userRepository.getUserByEmail.mockResolvedValue(createdUser);
@@ -138,14 +147,17 @@ describe('AuthService', () => {
     expect(result.body.success).toBe(true);
     expect(result.body.data?.profile.email).toBe(email);
     expect(result.body.data?.profile.username).toBe('milujem');
+    expect(result.body.data?.profile.firstName).toBe('Robo');
+    expect(result.body.data?.profile.lastName).toBe('Fico');
     expect(userRepository.updateUser).toHaveBeenCalledWith(
       'user-1',
       expect.objectContaining({
-        name: 'Robo Fico',
         username: 'milujem',
         role: UserRoleEnum.user,
         profileStatus: ProfileStatusEnum.pending,
         supabaseUserId: undefined,
+        firstName: 'Robo',
+        lastName: 'Fico',
       }),
     );
   });

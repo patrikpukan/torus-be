@@ -7,6 +7,8 @@ import { UserService } from '../../services/user.service';
 import { SignUpInputType } from '../types/sign-up-input.type';
 import { UpdateUserInputType } from '../types/update-user-input.type';
 import { UserType } from '../types/user.type';
+import { CurrentUserType } from '../types/current-user.type';
+import { UpdateCurrentUserProfileInputType } from '../types/update-current-user-profile-input.type';
 
 @Resolver(() => UserType)
 export class UserResolver {
@@ -39,8 +41,10 @@ export class UserResolver {
   }
 
   @UseGuards(AuthenticatedUserGuard)
-  @Query(() => UserType, { nullable: true })
-  async getCurrentUser(@User() identity: Identity): Promise<UserType | null> {
+  @Query(() => CurrentUserType, { nullable: true })
+  async getCurrentUser(
+    @User() identity: Identity,
+  ): Promise<CurrentUserType | null> {
     return this.userService.getCurrentUser(identity);
   }
 
@@ -62,6 +66,15 @@ export class UserResolver {
     return this.userService.updateUserById(identity, data.id, data);
   }
 
+  @UseGuards(AuthenticatedUserGuard)
+  @Mutation(() => CurrentUserType)
+  async updateCurrentUserProfile(
+    @User() identity: Identity,
+    @Args('input') input: UpdateCurrentUserProfileInputType,
+  ): Promise<CurrentUserType> {
+    return this.userService.updateCurrentUserProfile(identity, input);
+  }
+
 
   @Mutation(() => UserType)
   async signUp(@Args('data') data: SignUpInputType): Promise<UserType> {
@@ -69,8 +82,9 @@ export class UserResolver {
       {
         email: data.email,
         password: data.password,
-        name: data.name,
         username: data.username,
+        firstName: data.firstName ?? null,
+        lastName: data.lastName ?? null,
       },
       data.profilePicture,
     );

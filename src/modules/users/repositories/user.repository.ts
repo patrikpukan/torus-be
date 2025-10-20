@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/core/prisma/prisma.service';
-import { ProfileStatusEnum, User, UserRoleEnum } from '../domain/user';
+import {
+  ProfileStatusEnum,
+  User,
+  UserOrganization,
+  UserRoleEnum,
+} from '../domain/user';
 
 // in many production ready app, it is okay to have mappers like these across the application.
 // It clearly separates database objects (used in db/repositories) from domain objects (used in services) and from presentation (used in graphql/rest resolvers) objects
@@ -9,6 +14,12 @@ import { ProfileStatusEnum, User, UserRoleEnum } from '../domain/user';
 // usually we would also store them in their own file, like in users/repositories/mappers/user.mapper.ts
 // we keep it like this for simplicity here.
 type PrismaUserEntity = Prisma.UserGetPayload<Prisma.UserDefaultArgs> & {
+  supabaseUserId?: string | null;
+};
+
+type PrismaUserWithOrganizationEntity = Prisma.UserGetPayload<{
+  include: { organization: true };
+}> & {
   supabaseUserId?: string | null;
 };
 
@@ -26,6 +37,22 @@ const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
   };
 };
 
+const mapPrismaUserWithOrganizationToDomain = (
+  user: PrismaUserWithOrganizationEntity,
+): User & { organization: UserOrganization } => {
+  const mappedUser = mapPrismaUserToDomainUser(user);
+
+  return {
+    ...mappedUser,
+    organization: {
+      id: user.organization.id,
+      name: user.organization.name,
+      code: user.organization.code,
+      imageUrl: user.organization.imageUrl ?? null,
+    },
+  };
+};
+
 @Injectable()
 export class UserRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -35,6 +62,17 @@ export class UserRepository {
     const user = await this.prisma.user.findUnique({ where: { id } });
 
     return user ? mapPrismaUserToDomainUser(user) : null;
+  }
+
+  async getUserWithOrganizationById(
+    id: string,
+  ): Promise<(User & { organization: UserOrganization }) | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: { organization: true },
+    });
+
+    return user ? mapPrismaUserWithOrganizationToDomain(user) : null;
   }
 
   async getUserByUserName(username: string): Promise<User | null> {
@@ -75,37 +113,25 @@ export class UserRepository {
   async updateUser(
     id: string,
     data: {
-      name?: string;
       email?: string;
       role?: UserRoleEnum;
-      profileImageUrl?: string;
-      username?: string;
+      profileImageUrl?: string | null;
+      username?: string | null;
       profileStatus?: ProfileStatusEnum;
       supabaseUserId?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      about?: string | null;
+      hobbies?: string | null;
+      interests?: string | null;
+      preferredActivity?: string | null;
+      isActive?: boolean;
+      suspendedUntil?: Date | null;
     },
   ): Promise<User> {
-    const updatePayload: Record<string, unknown> = {
-      name: data.name,
-      email: data.email,
-      profileImageUrl: data.profileImageUrl,
-      username: data.username,
-    };
-
-    if (data.role) {
-      updatePayload.role = data.role;
-    }
-
-    if (data.profileStatus) {
-      updatePayload.profileStatus = data.profileStatus;
-    }
-
-    if (typeof data.supabaseUserId !== 'undefined') {
-      updatePayload.supabaseUserId = data.supabaseUserId;
-    }
-
     const user = await this.prisma.user.update({
       where: { id },
-      data: updatePayload as unknown as Prisma.UserUpdateInput,
+      data: data as Prisma.UserUpdateInput,
     });
 
     return mapPrismaUserToDomainUser(user);

@@ -65,7 +65,8 @@ export interface SignUpResponse {
     id: string;
     email: string;
     username: string;
-    displayName: string;
+    firstName?: string | null;
+    lastName?: string | null;
     profileStatus: ProfileStatusEnum;
   };
   primaryRole: UserRoleEnum;
@@ -78,7 +79,8 @@ export interface SignInResponse {
     id: string;
     email: string;
     username: string;
-    displayName: string;
+    firstName?: string | null;
+    lastName?: string | null;
     profileStatus: ProfileStatusEnum;
   };
   primaryRole: UserRoleEnum;
@@ -121,18 +123,17 @@ export class AuthService {
       }
     }
 
-    const displayName = this.buildDisplayName({
-      firstName,
-      lastName,
-      fallback: email,
-    });
+    const nameForAuth = [firstName, lastName]
+      .filter((value) => Boolean(value && value.trim()))
+      .join(' ')
+      .trim() || username || email;
 
     const signUpResult = await this.callAuthEndpoint<{ user: unknown; token?: string | null }>(
       this.betterAuth.api.signUpEmail({
         body: {
           email,
           password,
-          name: displayName,
+          name: nameForAuth,
         },
         headers: fromNodeHeaders(req.headers),
         asResponse: true,
@@ -173,7 +174,8 @@ export class AuthService {
     const primaryRole = await this.resolvePrimaryRole(email);
 
     const updatedUser = await this.userRepository.updateUser(createdUser.id, {
-      name: displayName,
+      firstName: firstName ?? null,
+      lastName: lastName ?? null,
       username,
       role: primaryRole,
       profileStatus: ProfileStatusEnum.pending,
@@ -384,29 +386,13 @@ export class AuthService {
     };
   }
 
-  private buildDisplayName(params: {
-    firstName?: string;
-    lastName?: string;
-    fallback: string;
-  }): string {
-    const parts = [params.firstName, params.lastName]
-      .filter((value) => Boolean(value && value.trim()))
-      .map((value) => value!.trim());
-
-    if (parts.length === 0) {
-      const [local] = params.fallback.split('@');
-      return local ?? params.fallback;
-    }
-
-    return parts.join(' ');
-  }
-
   private mapUserToProfile(user: User): SignUpResponse['profile'] {
     return {
       id: user.id,
       email: user.email,
       username: user.username,
-      displayName: user.name,
+      firstName: user.firstName ?? null,
+      lastName: user.lastName ?? null,
       profileStatus: user.profileStatus,
     };
   }
