@@ -21,11 +21,21 @@ export const seedDatabase = async (
     await db.verification.deleteMany({});
     await db.orgAdmin.deleteMany({});
     await db.user.deleteMany({});
+    await db.organization.deleteMany({});
     console.log('All existing data deleted successfully.');
   } catch (error) {
     console.error('Error deleting data:', error);
     throw error; // Re-throw to stop seeding if cleanup fails
   }
+
+  // Create default organization
+  const defaultOrg = await db.organization.create({
+    data: {
+      id: randomUUID(),
+      name: 'Default Organization',
+      code: 'DEFAULT',
+    },
+  });
 
   console.log('Creating superadmin user');
   
@@ -45,11 +55,13 @@ export const seedDatabase = async (
   await createUser(prisma, auth, {
     email,
     password,
-    name: 'Admin (Delete in Prod)',
+    firstName: 'Admin',
+    lastName: '(Delete in Prod)',
     username: 'superadmin',
     role: 'super_admin',
     profileStatus: 'active',
     profilePictureUrl: 'uploads/profile-pictures/superadminavatar.png',
+    organizationId: defaultOrg.id,
   });
 
   console.log('Creating example users');
@@ -66,21 +78,25 @@ export const seedDatabase = async (
   const user1 = await createUser(prisma, auth, {
     email: orgAdminEmail,
     password: 'password1',
-    name: 'Caffeinated Duck',
+    firstName: 'Caffeinated',
+    lastName: 'Duck',
     username: 'CaffeinatedDuck',
     role: 'org_admin',
     profileStatus: 'active',
     profilePictureUrl: 'uploads/profile-pictures/caffeduckavatar.png',
+    organizationId: defaultOrg.id,
   });
 
   const user2 = await createUser(prisma, auth, {
     email: 'deepduckthoughts@example.com',
     password: 'password2',
-    name: 'Deep Duck Thoughts',
+    firstName: 'Deep',
+    lastName: 'Duck Thoughts',
     username: 'DeepDuckThoughts',
     role: 'user',
     profileStatus: 'active',
     profilePictureUrl: 'uploads/profile-pictures/deepduckavatar.png',
+    organizationId: defaultOrg.id,
   });
 
 

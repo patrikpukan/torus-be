@@ -13,6 +13,8 @@ generator json {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // In development, you can skip migrations and use db push directly
+  // This allows rapid schema changes without migration files
 }
 
 enum UserRole {
@@ -57,7 +59,7 @@ model Session {
   updatedAt DateTime
   ipAddress String?  @db.VarChar(45)
   userAgent String?  @db.Text
-  userId    String
+  userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   activeOrganizationId String?
@@ -71,7 +73,7 @@ model Account {
   id                    String    @id
   accountId             String
   providerId            String
-  userId                String
+  userId                String    @db.Uuid
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?   @db.Text
   refreshToken          String?   @db.Text
@@ -118,7 +120,7 @@ model Organization {
 }
 
 model User {
-  id               String    @id
+  id               String    @id @db.Uuid
   organizationId   String    @map("organization_id") @db.Uuid
   organization     Organization @relation(fields: [organizationId], references: [id])
   email            String
