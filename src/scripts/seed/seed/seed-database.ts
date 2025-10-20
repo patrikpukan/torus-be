@@ -47,7 +47,7 @@ export const seedDatabase = async (
     password,
     name: 'Admin (Delete in Prod)',
     username: 'superadmin',
-    role: 'system_admin',
+    role: 'super_admin',
     profileStatus: 'active',
     profilePictureUrl: 'uploads/profile-pictures/superadminavatar.png',
   });

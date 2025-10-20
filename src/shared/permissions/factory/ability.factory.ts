@@ -17,9 +17,9 @@ export interface AppAbility {
 @Injectable()
 export class AbilityFactory {
   createForUser(user: Identity): AppAbility {
-    const isSystemAdmin = user.role === UserRoleEnum.systemAdmin;
+    const isSuperAdmin = user.role === UserRoleEnum.superAdmin;
     const isOrgAdmin = user.role === UserRoleEnum.orgAdmin;
-    const hasElevatedPrivileges = isSystemAdmin || isOrgAdmin;
+    const hasElevatedPrivileges = isSuperAdmin || isOrgAdmin;
 
     return {
       canCreateUser: (): boolean => hasElevatedPrivileges,

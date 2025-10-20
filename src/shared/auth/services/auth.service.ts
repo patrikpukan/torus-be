@@ -418,11 +418,11 @@ export class AuthService {
       return UserRoleEnum.user;
     }
 
-    if (
-      this.config.superadminEmail &&
-      this.config.superadminEmail.toLowerCase() === normalizedEmail
-    ) {
-      return UserRoleEnum.systemAdmin;
+      if (
+        this.config.superadminEmail &&
+        this.config.superadminEmail.toLowerCase() === normalizedEmail
+      ) {
+        return UserRoleEnum.superAdmin;
     }
 
     if (await this.orgAdminRepository.isOrgAdmin(normalizedEmail)) {
@@ -432,8 +432,8 @@ export class AuthService {
     return UserRoleEnum.user;
   }
 
-  isSystemAdmin(role?: string | null): boolean {
-    return role === UserRoleEnum.systemAdmin;
+  isSuperAdmin(role?: string | null): boolean {
+    return role === UserRoleEnum.superAdmin;
   }
 
   async isOrgAdmin(role: string | null | undefined, email?: string): Promise<boolean> {
