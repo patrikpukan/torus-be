@@ -2,12 +2,12 @@ import { Config } from '../../config/config.service';
 import { OrgAdminRepository } from '../repositories/org-admin.repository';
 import { UserRoleEnum } from 'src/modules/users/domain/user';
 
-export const isSystemAdmin = (
+export const isSuperAdmin = (
   role?: string | null,
   email?: string,
   config?: Config,
 ): boolean => {
-  if (role === UserRoleEnum.systemAdmin) {
+  if (role === UserRoleEnum.superAdmin) {
     return true;
   }
 

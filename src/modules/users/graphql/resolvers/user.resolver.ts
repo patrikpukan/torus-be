@@ -1,5 +1,5 @@
 import { UseGuards } from '@nestjs/common';
-import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { User } from 'src/shared/auth/decorators/user.decorator';
 import { Identity } from 'src/shared/auth/domain/identity';
 import { AuthenticatedUserGuard } from 'src/shared/auth/guards/authenticated-user.guard';
@@ -12,11 +12,36 @@ import { UserType } from '../types/user.type';
 export class UserResolver {
   constructor(private userService: UserService) {}
 
+  @UseGuards(AuthenticatedUserGuard)
   @Query(() => UserType, { nullable: true })
   async user(
     @Args('username', { type: () => String }) username: string,
   ): Promise<UserType | null> {
     return this.userService.getUserByUsername(username);
+  }
+
+  @UseGuards(AuthenticatedUserGuard)
+  @Query(() => UserType, { nullable: true })
+  async userById(
+    @Args('id', { type: () => ID }) id: string,
+  ): Promise<UserType | null> {
+    return this.userService.getUserById(id);
+  }
+
+  @UseGuards(AuthenticatedUserGuard)
+  @Query(() => [UserType])
+  async users(
+    @User() identity: Identity,
+    @Args('offset', { type: () => Int, nullable: true }) offset?: number,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+  ): Promise<UserType[]> {
+    return this.userService.listUsers(identity, { offset, limit });
+  }
+
+  @UseGuards(AuthenticatedUserGuard)
+  @Query(() => UserType, { nullable: true })
+  async getCurrentUser(@User() identity: Identity): Promise<UserType | null> {
+    return this.userService.getCurrentUser(identity);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -36,6 +61,7 @@ export class UserResolver {
   ): Promise<UserType | null> {
     return this.userService.updateUserById(identity, data.id, data);
   }
+
 
   @Mutation(() => UserType)
   async signUp(@Args('data') data: SignUpInputType): Promise<UserType> {

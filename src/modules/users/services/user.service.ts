@@ -40,6 +40,10 @@ export class UserService {
     return this.userRepository.getUserById(id);
   }
 
+  async getCurrentUser(identity: Identity): Promise<User | null> {
+    return this.getUserById(identity.id);
+  }
+
   async getUserByUsername(username: string): Promise<User | null> {
     return this.userRepository.getUserByUserName(username);
   }
@@ -47,6 +51,18 @@ export class UserService {
   async getUsersByIds(ids: string[]): Promise<User[]> {
     return this.userRepository.getUsersByIds(ids);
   }
+
+  async listUsers(identity: Identity, params?: { offset?: number; limit?: number }): Promise<User[]> {
+    const ability = this.abilityFactory.createForUser(identity);
+
+    if (!ability.canReadUsers()) {
+      throw new ForbiddenException();
+    }
+
+    return this.userRepository.listUsers({ offset: params?.offset, limit: params?.limit });
+  }
+
+  // Creation of users is handled via signUp (BetterAuth) flow.
 
   async deleteUserById(identity: Identity, id: string): Promise<User> {
     const ability = this.abilityFactory.createForUser(identity);

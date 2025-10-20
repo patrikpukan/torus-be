@@ -21,7 +21,7 @@ const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
     username: user.username ?? '', // ensure username is never undefined or null
     role: user.role as UserRoleEnum,
     profileStatus,
-    profileImageUrl: user.image ?? undefined,
+    profileImageUrl: user.profileImageUrl ?? undefined,
     supabaseUserId: user.supabaseUserId ?? undefined,
   };
 };
@@ -29,6 +29,7 @@ const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
 @Injectable()
 export class UserRepository {
   constructor(private readonly prisma: PrismaService) {}
+
 
   async getUserById(id: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -56,6 +57,16 @@ export class UserRepository {
     return users.map(mapPrismaUserToDomainUser);
   }
 
+  async listUsers(params?: { offset?: number; limit?: number }): Promise<User[]> {
+    const users = await this.prisma.user.findMany({
+      skip: params?.offset,
+      take: params?.limit,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return users.map(mapPrismaUserToDomainUser);
+  }
+
   async deleteUserById(id: string): Promise<User> {
     const user = await this.prisma.user.delete({ where: { id } });
     return mapPrismaUserToDomainUser(user);
@@ -76,7 +87,7 @@ export class UserRepository {
     const updatePayload: Record<string, unknown> = {
       name: data.name,
       email: data.email,
-      image: data.profileImageUrl,
+      profileImageUrl: data.profileImageUrl,
       username: data.username,
     };
 
