@@ -1,14 +1,12 @@
-import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { toNodeHandler } from 'better-auth/node';
+import {NestFactory} from '@nestjs/core';
+import {DocumentBuilder, SwaggerModule} from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import * as express from 'express';
 import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.mjs';
-import { AppModule } from './app.module';
-import { AuthHttpRouter } from './shared/auth/http/auth-http.router';
-import { BetterAuth } from './shared/auth/providers/better-auth.provider';
-import { Config } from './shared/config/config.service';
-import { AppLoggerService } from './shared/logger/logger.service';
+import {AppModule} from './app.module';
+import {AuthHttpRouter} from './shared/auth/http/auth-http.router';
+import {Config} from './shared/config/config.service';
+import {AppLoggerService} from './shared/logger/logger.service';
 
 /**
  * Main application entry point
@@ -44,10 +42,8 @@ async function main(): Promise<void> {
 
   const appInstance = app.getHttpAdapter().getInstance();
   appInstance.use(express.json());
-  const betterAuth = app.get<BetterAuth>('BetterAuth');
   const authHttpRouter = app.get(AuthHttpRouter);
   appInstance.use('/api/auth', authHttpRouter.buildRouter());
-  appInstance.use('/api/auth', toNodeHandler(betterAuth));
 
   // Configure API prefix for all routes
   app.setGlobalPrefix('api');

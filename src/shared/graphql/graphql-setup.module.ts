@@ -4,9 +4,6 @@ import { ConfigModule } from '@applifting-io/nestjs-decorated-config';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { Logger, Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
-import { AuthModule } from 'src/shared/auth/auth.module';
-import { BetterAuth } from '../auth/providers/better-auth.provider';
-import { getSessionFromRequest } from '../auth/utils/get-session-from-request';
 import { Config } from '../config/config.service';
 
 const logger = new Logger('GraphqlSetupModule');
@@ -14,12 +11,8 @@ const logger = new Logger('GraphqlSetupModule');
 @Module({
   imports: [
     GraphQLModule.forRootAsync({
-      imports: [AuthModule, ConfigModule],
-      inject: [Config, 'BetterAuth'],
       driver: ApolloDriver,
       useFactory: (
-        config: Config,
-        betterAuth: BetterAuth,
       ): ApolloDriverConfig => {
         return {
           autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
@@ -62,13 +55,6 @@ const logger = new Logger('GraphqlSetupModule');
                 Todo: Maybe move this code to the AuthenticatedUserGuard?
                  */
 
-                // todo: test this
-                const session = await getSessionFromRequest(
-                  extra.request,
-                  betterAuth,
-                );
-
-                extra.request.session = session;
                 return context;
               },
             },

@@ -9,13 +9,8 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import type { BetterAuth } from 'src/shared/auth/providers/better-auth.provider';
-import { InjectBetterAuth } from 'src/shared/auth/providers/better-auth.provider';
-import { AbilityFactory } from 'src/shared/permissions/factory/ability.factory';
-import { Identity } from '../../../shared/auth/domain/identity';
 import { CurrentUser, User, UserRoleEnum } from '../domain/user';
 import { UserRepository } from '../repositories/user.repository';
-import { SupabaseAdminService } from 'src/shared/auth/services/supabase-admin.service';
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -31,9 +26,6 @@ export class UserService {
 
   constructor(
     private readonly userRepository: UserRepository,
-    private readonly abilityFactory: AbilityFactory,
-    @InjectBetterAuth private readonly betterAuth: BetterAuth,
-    private readonly supabaseAdminService: SupabaseAdminService,
   ) {}
 
   async getUserById(id: string): Promise<User | null> {
