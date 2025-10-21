@@ -1,15 +1,12 @@
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
-import { BetterAuth } from '../../../shared/auth/providers/better-auth.provider';
 import { Config } from '../../../shared/config/config.service';
 import { createUser } from './create-user';
 
 export const seedDatabase = async (
   prisma: PrismaService,
   config: Config,
-  betterAuth: BetterAuth,
 ): Promise<void> => {
-  const auth = betterAuth;
   const db = prisma as any;
 
   // Drop existing database data from all tables
@@ -52,7 +49,7 @@ export const seedDatabase = async (
   console.log('Debug - Using password:', password ? '[HIDDEN]' : undefined);
 
   // Create a superadmin user. This should be delete in prod app
-  await createUser(prisma, auth, {
+  await createUser(prisma, {
     email,
     password,
     firstName: 'Admin',
@@ -75,7 +72,7 @@ export const seedDatabase = async (
     },
   });
 
-  const user1 = await createUser(prisma, auth, {
+  const user1 = await createUser(prisma, {
     email: orgAdminEmail,
     password: 'password1',
     firstName: 'Caffeinated',
@@ -87,7 +84,7 @@ export const seedDatabase = async (
     organizationId: defaultOrg.id,
   });
 
-  const user2 = await createUser(prisma, auth, {
+  const user2 = await createUser(prisma, {
     email: 'deepduckthoughts@example.com',
     password: 'password2',
     firstName: 'Deep',

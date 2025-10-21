@@ -24,10 +24,6 @@ export class Config {
   @IsOptional()
   readonly gitCommitSha?: string;
 
-  @Env<string>('BETTER_AUTH_SECRET')
-  @IsOptional()
-  readonly betterAuthSecret!: string;
-
   @Env('SUPERADMIN_EMAIL')
   @IsOptional()
   readonly superadminEmail!: string;

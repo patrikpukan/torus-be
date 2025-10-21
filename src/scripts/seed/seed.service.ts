@@ -1,12 +1,10 @@
-import { join } from 'path';
-import { Inject, Injectable } from '@nestjs/common';
-import { PrismaService } from '../../core/prisma/prisma.service';
-import type { BetterAuth } from '../../shared/auth/providers/better-auth.provider';
-import { Config } from '../../shared/config/config.service';
-import { seedDatabase } from './seed/seed-database';
-import { getProjectRoot } from './utils/get-project-root';
-import { seedDirToStorage } from './utils/seed-dir-to-storage';
-import { syncPrismaSchema } from './utils/sync-prisma-schema';
+import {join} from 'path';
+import {Injectable} from '@nestjs/common';
+import {PrismaService} from '../../core/prisma/prisma.service';
+import {Config} from '../../shared/config/config.service';
+import {seedDatabase} from './seed/seed-database';
+import {getProjectRoot} from './utils/get-project-root';
+import {seedDirToStorage} from './utils/seed-dir-to-storage';
 
 const projectRoot = getProjectRoot();
 const uploadDir = join(projectRoot, 'uploads/profile-pictures');
@@ -24,7 +22,6 @@ export class SeedService {
   constructor(
     private readonly config: Config,
     private readonly prisma: PrismaService,
-    @Inject('BetterAuth') private readonly betterAuth: BetterAuth,
   ) {}
 
   /**
@@ -34,7 +31,7 @@ export class SeedService {
     try {
       // Migrations already applied. Skip schema sync during seed to avoid engine conflicts.
       await seedDirToStorage(seedImagesDir, uploadDir);
-      await seedDatabase(this.prisma, this.config, this.betterAuth);
+      await seedDatabase(this.prisma, this.config);
     } catch (error) {
       console.error('Error seeding data:', error);
       process.exit(1);
