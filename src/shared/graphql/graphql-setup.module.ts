@@ -4,36 +4,107 @@ import { ConfigModule } from '@applifting-io/nestjs-decorated-config';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { Logger, Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
+import type { Request, Response } from 'express';
+import { verifySupabaseJwt } from '../../auth/verifySupabaseJwt';
+import { Identity } from '../auth/domain/identity';
 import { Config } from '../config/config.service';
 
 const logger = new Logger('GraphqlSetupModule');
 
+interface GraphQLContextShape {
+  req: Request & { user?: Identity | null };
+  res: Response;
+  user: Identity | null;
+}
+
+const extractBearerToken = (value?: string | string[] | null): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  const header =
+    Array.isArray(value) && value.length > 0 ? value[0] : value;
+
+  if (typeof header !== 'string') {
+    return null;
+  }
+
+  const trimmed = header.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const lowerCased = trimmed.toLowerCase();
+
+  return lowerCased.startsWith('bearer ')
+    ? trimmed.slice(7).trim()
+    : trimmed;
+};
+
+const buildIdentity = (token: string, secret?: string): Identity | null => {
+  if (!token || !secret) {
+    return null;
+  }
+
+  const claims = verifySupabaseJwt(token, secret);
+
+  return {
+    id: claims.sub,
+    email: typeof claims.email === 'string' ? claims.email : undefined,
+    role: typeof claims.role === 'string' ? claims.role : undefined,
+    rawClaims: claims,
+    metadata:
+      typeof claims.user_metadata === 'object' && claims.user_metadata !== null
+        ? (claims.user_metadata as Record<string, unknown>)
+        : undefined,
+  };
+};
+
 @Module({
   imports: [
+    ConfigModule,
     GraphQLModule.forRootAsync({
       driver: ApolloDriver,
-      useFactory: (
-      ): ApolloDriverConfig => {
+      inject: [Config],
+      useFactory: (config: Config): ApolloDriverConfig => {
         return {
           autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
           sortSchema: true,
           playground: false,
           introspection: true,
-          context: async ({
-            req,
-            res,
-            extra,
-          }): Promise<{
-            req: Request;
-            res: Response;
-            // todo: figure out proper typing here
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            extra: any;
-          }> => {
+          context: async (ctx): Promise<GraphQLContextShape> => {
+            const { req, res } = ctx as {
+              req: Request;
+              res: Response;
+            };
+            const request = req as GraphQLContextShape['req'];
+            let identity: Identity | null = null;
+
+            const headerToken = extractBearerToken(
+              request.headers?.authorization ?? request.headers?.Authorization,
+            );
+            const token = headerToken ?? null;
+
+            if (token) {
+              try {
+                identity = buildIdentity(token, config.supabaseJwtSecret);
+              } catch (error) {
+                const err = error as Error;
+                logger.warn(
+                  `Failed to verify Supabase JWT: ${err.message}`,
+                  err.stack,
+                );
+                identity = null;
+              }
+            }
+
+            request.user = identity;
+
             return {
-              req: extra?.request ?? req,
+              req: request,
               res,
-              extra,
+              user: identity,
             };
           },
           plugins: [
@@ -42,23 +113,6 @@ const logger = new Logger('GraphqlSetupModule');
               embed: true,
             }),
           ],
-          subscriptions: {
-            'graphql-ws': {
-              // todo: add proper type for context
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              onConnect: async (context: any): Promise<any> => {
-                logger.log('Subscription connection established');
-
-                const { extra } = context;
-                /* parse user from cookies on connection using the JwtStrategy
-                Todo: Not entirely sure that this is the best way to achieve it. It seems to retain the user even when logged out. Wasn't able to make the strategy work on it's own
-                Todo: Maybe move this code to the AuthenticatedUserGuard?
-                 */
-
-                return context;
-              },
-            },
-          },
         };
       },
     }),

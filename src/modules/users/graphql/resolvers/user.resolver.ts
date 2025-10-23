@@ -1,7 +1,7 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { User } from 'src/shared/auth/decorators/user.decorator';
-import { Identity } from 'src/shared/auth/domain/identity';
+import type { Identity } from 'src/shared/auth/domain/identity';
 import { AuthenticatedUserGuard } from 'src/shared/auth/guards/authenticated-user.guard';
 import { UserService } from '../../services/user.service';
 import { SignUpInputType } from '../types/sign-up-input.type';
@@ -17,17 +17,19 @@ export class UserResolver {
   @UseGuards(AuthenticatedUserGuard)
   @Query(() => UserType, { nullable: true })
   async user(
+    @User() identity: Identity,
     @Args('username', { type: () => String }) username: string,
   ): Promise<UserType | null> {
-    return this.userService.getUserByUsername(username);
+    return this.userService.getUserByUsername(identity, username);
   }
 
   @UseGuards(AuthenticatedUserGuard)
   @Query(() => UserType, { nullable: true })
   async userById(
+    @User() identity: Identity,
     @Args('id', { type: () => ID }) id: string,
   ): Promise<UserType | null> {
-    return this.userService.getUserById(id);
+    return this.userService.getUserById(identity, id);
   }
 
   @UseGuards(AuthenticatedUserGuard)

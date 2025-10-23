@@ -4,13 +4,17 @@ import { pipeline } from 'stream/promises';
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CurrentUser, User, UserRoleEnum } from '../domain/user';
 import { UserRepository } from '../repositories/user.repository';
+import { Identity } from 'src/shared/auth/domain/identity';
+import { PrismaService } from 'src/core/prisma/prisma.service';
+import { withRls } from 'src/db/withRls';
+import { getRlsClaims } from 'src/shared/auth/utils/get-rls-claims';
+import { SupabaseAdminService } from 'src/shared/auth/supabase-admin.service';
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -26,52 +30,55 @@ export class UserService {
 
   constructor(
     private readonly userRepository: UserRepository,
+    private readonly prisma: PrismaService,
+    private readonly supabaseAdminService: SupabaseAdminService,
   ) {}
 
-  async getUserById(id: string): Promise<User | null> {
-    return this.userRepository.getUserById(id);
+  async getUserById(identity: Identity, id: string): Promise<User | null> {
+    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
+      this.userRepository.getUserById(id, tx),
+    );
   }
 
   async getCurrentUser(identity: Identity): Promise<CurrentUser | null> {
-    return this.userRepository.getUserWithOrganizationById(identity.id);
+    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
+      this.userRepository.getUserWithOrganizationById(identity.id, tx),
+    );
   }
 
-  async getUserByUsername(username: string): Promise<User | null> {
-    return this.userRepository.getUserByUserName(username);
+  async getUserByUsername(identity: Identity, username: string): Promise<User | null> {
+    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
+      this.userRepository.getUserByUserName(username, tx),
+    );
   }
 
   async listUsers(
     identity: Identity,
     params?: { offset?: number; limit?: number },
   ): Promise<User[]> {
-    const ability = this.abilityFactory.createForUser(identity);
-
-    if (!ability.canReadUsers()) {
-      throw new ForbiddenException();
-    }
-
-    return this.userRepository.listUsers({
-      offset: params?.offset,
-      limit: params?.limit,
-    });
+    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
+      this.userRepository.listUsers(
+        {
+          offset: params?.offset,
+          limit: params?.limit,
+        },
+        tx,
+      ),
+    );
   }
 
   // Creation of users is handled via signUp (BetterAuth) flow.
 
   async deleteUserById(identity: Identity, id: string): Promise<User> {
-    const ability = this.abilityFactory.createForUser(identity);
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const user = await this.userRepository.getUserById(id, tx);
 
-    const user = await this.userRepository.getUserById(id);
+      if (!user) {
+        throw new NotFoundException();
+      }
 
-    if (!user) {
-      throw new NotFoundException();
-    }
-
-    if (!ability.canDeleteUser(user)) {
-      throw new ForbiddenException();
-    }
-
-    return this.userRepository.deleteUserById(id);
+      return this.userRepository.deleteUserById(id, tx);
+    });
   }
 
   async updateUserById(
@@ -92,19 +99,15 @@ export class UserService {
       suspendedUntil?: Date | null;
     },
   ): Promise<User> {
-    const ability = this.abilityFactory.createForUser(identity);
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const user = await this.userRepository.getUserById(id, tx);
 
-    const user = await this.userRepository.getUserById(id);
+      if (!user) {
+        throw new NotFoundException();
+      }
 
-    if (!user) {
-      throw new NotFoundException();
-    }
-
-    if (!ability.canUpdateUser(user)) {
-      throw new ForbiddenException();
-    }
-
-    return this.userRepository.updateUser(id, data);
+      return this.userRepository.updateUser(id, data, tx);
+    });
   }
 
   async updateCurrentUserProfile(
@@ -119,40 +122,42 @@ export class UserService {
       avatarUrl?: string | null;
     },
   ): Promise<CurrentUser> {
-    const ability = this.abilityFactory.createForUser(identity);
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const existingUser = await this.userRepository.getUserWithOrganizationById(
+        identity.id,
+        tx,
+      );
 
-    const existingUser = await this.userRepository.getUserWithOrganizationById(
-      identity.id,
-    );
+      if (!existingUser) {
+        throw new NotFoundException();
+      }
 
-    if (!existingUser) {
-      throw new NotFoundException();
-    }
+      await this.userRepository.updateUser(
+        identity.id,
+        {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          about: data.about,
+          hobbies: data.hobbies,
+          preferredActivity: data.preferredActivity,
+          interests: data.interests,
+          profileImageUrl:
+            typeof data.avatarUrl !== 'undefined' ? data.avatarUrl : undefined,
+        },
+        tx,
+      );
 
-    if (!ability.canUpdateUser(existingUser)) {
-      throw new ForbiddenException();
-    }
+      const updatedUser = await this.userRepository.getUserWithOrganizationById(
+        identity.id,
+        tx,
+      );
 
-    await this.userRepository.updateUser(identity.id, {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      about: data.about,
-      hobbies: data.hobbies,
-      preferredActivity: data.preferredActivity,
-      interests: data.interests,
-      profileImageUrl:
-        typeof data.avatarUrl !== 'undefined' ? data.avatarUrl : undefined,
+      if (!updatedUser) {
+        throw new NotFoundException();
+      }
+
+      return updatedUser;
     });
-
-    const updatedUser = await this.userRepository.getUserWithOrganizationById(
-      identity.id,
-    );
-
-    if (!updatedUser) {
-      throw new NotFoundException();
-    }
-
-    return updatedUser;
   }
 
   async signUp(
@@ -165,7 +170,6 @@ export class UserService {
     },
     profilePicture?: Promise<FileUpload>,
   ): Promise<User> {
-    // Check if username already exists
     const existingUser = await this.userRepository.getUserByUserName(
       data.username,
     );
@@ -173,16 +177,7 @@ export class UserService {
       throw new ConflictException('Username already exists');
     }
 
-    // Create user with BetterAuth using the correct API structure
-    const betterAuthResult = await this.betterAuth.api.signUpEmail({
-      body: {
-        email: data.email,
-        password: data.password,
-        name: [data.firstName, data.lastName].filter((part) => !!part && part.trim().length > 0).join(' ').trim() || data.username || data.email,
-      },
-    });
-
-  let supabaseAuthId: string | undefined;
+    let supabaseAuthId: string | undefined;
 
     if (this.supabaseAdminService.isEnabled()) {
       try {
@@ -191,7 +186,9 @@ export class UserService {
           password: data.password,
           email_confirm: true,
           user_metadata: {
-            betterAuthUserId: (betterAuthResult as { user?: { id?: string } } | undefined)?.user?.id ?? null,
+            username: data.username,
+            first_name: data.firstName ?? undefined,
+            last_name: data.lastName ?? undefined,
           },
         });
 
@@ -205,18 +202,23 @@ export class UserService {
         }
       } catch (error) {
         const err = error as Error;
-        this.logger.error('Supabase auth user creation failed', err.stack ?? err.message);
+        this.logger.error(
+          'Supabase auth user creation failed',
+          err.stack ?? err.message,
+        );
       }
+    } else {
+      this.logger.warn(
+        'Supabase admin client is disabled; skipping Supabase user provisioning',
+      );
     }
 
-    // Find the newly created user by email
     const newUser = await this.userRepository.getUserByEmail(data.email);
 
     if (!newUser) {
       throw new BadRequestException('Failed to create user');
     }
 
-    // Update the user with the username and role
     await this.userRepository.updateUser(newUser.id, {
       username: data.username,
       role: UserRoleEnum.user,
@@ -225,7 +227,6 @@ export class UserService {
       lastName: data.lastName,
     });
 
-    // Handle profile picture if it exists
     if (profilePicture) {
       try {
         const file = await profilePicture;
@@ -235,33 +236,31 @@ export class UserService {
           'profile-pictures',
         );
 
-        // Ensure the upload directory exists
         if (!fs.existsSync(uploadDir)) {
           fs.mkdirSync(uploadDir, { recursive: true });
         }
 
-        // Generate a unique filename
         const fileExtension = file.filename.split('.').pop();
         const fileName = `${newUser.id}.${fileExtension}`;
         const filePath = path.join(uploadDir, fileName);
 
-        // Create a write stream
         const writeStream = fs.createWriteStream(filePath);
 
-        // Use pipeline for proper error handling during stream operations
         await pipeline(file.createReadStream(), writeStream);
 
-        // Update user with profile picture path
         await this.userRepository.updateUser(newUser.id, {
           profileImageUrl: `/uploads/profile-pictures/${fileName}`,
         });
       } catch (error) {
-        console.error('Error uploading profile picture:', error);
+        const err = error as Error;
+        this.logger.error(
+          'Error uploading profile picture',
+          err.stack ?? err.message,
+        );
         throw new BadRequestException('Failed to upload profile picture');
       }
     }
 
-    // Return the created user
     return this.userRepository.getUserById(newUser.id) as Promise<User>;
   }
 }

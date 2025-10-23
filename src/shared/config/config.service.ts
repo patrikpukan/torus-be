@@ -152,7 +152,11 @@ export class Config {
   @IsUrl({ require_tld: true })
   readonly supabaseUrl?: string;
 
-  @Env('SUPABASE_SERVICE_ROLE_KEY')
+  @Env('SUPABASE_SECRET_KEY')
   @IsOptional()
-  readonly supabaseServiceRoleKey?: string;
+  readonly supabaseSecretKey?: string;
+
+  @Env('SUPABASE_JWT_SECRET')
+  @IsOptional()
+  readonly supabaseJwtSecret?: string;
 }

@@ -8,11 +8,6 @@ import {
   UserRoleEnum,
 } from '../domain/user';
 
-// in many production ready app, it is okay to have mappers like these across the application.
-// It clearly separates database objects (used in db/repositories) from domain objects (used in services) and from presentation (used in graphql/rest resolvers) objects
-// in some places, like the post repository, we can skip them because the types are at this time compatible.
-// usually we would also store them in their own file, like in users/repositories/mappers/user.mapper.ts
-// we keep it like this for simplicity here.
 type PrismaUserEntity = Prisma.UserGetPayload<Prisma.UserDefaultArgs> & {
   supabaseUserId?: string | null;
 };
@@ -29,7 +24,7 @@ const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
 
   return {
     ...user,
-    username: user.username ?? '', // ensure username is never undefined or null
+    username: user.username ?? '',
     role: user.role as UserRoleEnum,
     profileStatus,
     profileImageUrl: user.profileImageUrl ?? undefined,
@@ -53,21 +48,29 @@ const mapPrismaUserWithOrganizationToDomain = (
   };
 };
 
+type PrismaClientOrTx = Prisma.TransactionClient | PrismaService;
+
 @Injectable()
 export class UserRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  private getClient(tx?: Prisma.TransactionClient): PrismaClientOrTx {
+    return tx ?? this.prisma;
+  }
 
-  async getUserById(id: string): Promise<User | null> {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+  async getUserById(id: string, tx?: Prisma.TransactionClient): Promise<User | null> {
+    const client = this.getClient(tx);
+    const user = await client.user.findUnique({ where: { id } });
 
     return user ? mapPrismaUserToDomainUser(user) : null;
   }
 
   async getUserWithOrganizationById(
     id: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<(User & { organization: UserOrganization }) | null> {
-    const user = await this.prisma.user.findUnique({
+    const client = this.getClient(tx);
+    const user = await client.user.findUnique({
       where: { id },
       include: { organization: true },
     });
@@ -75,28 +78,38 @@ export class UserRepository {
     return user ? mapPrismaUserWithOrganizationToDomain(user) : null;
   }
 
-  async getUserByUserName(username: string): Promise<User | null> {
-    const user = await this.prisma.user.findUnique({ where: { username } });
+  async getUserByUserName(
+    username: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<User | null> {
+    const client = this.getClient(tx);
+    const user = await client.user.findUnique({ where: { username } });
 
     return user ? mapPrismaUserToDomainUser(user) : null;
   }
 
-  async getUserByEmail(email: string): Promise<User | null> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+  async getUserByEmail(email: string, tx?: Prisma.TransactionClient): Promise<User | null> {
+    const client = this.getClient(tx);
+    const user = await client.user.findUnique({ where: { email } });
 
     return user ? mapPrismaUserToDomainUser(user) : null;
   }
 
-  async getUsersByIds(ids: string[]): Promise<User[]> {
-    const users = await this.prisma.user.findMany({
+  async getUsersByIds(ids: string[], tx?: Prisma.TransactionClient): Promise<User[]> {
+    const client = this.getClient(tx);
+    const users = await client.user.findMany({
       where: { id: { in: ids } },
     });
 
     return users.map(mapPrismaUserToDomainUser);
   }
 
-  async listUsers(params?: { offset?: number; limit?: number }): Promise<User[]> {
-    const users = await this.prisma.user.findMany({
+  async listUsers(
+    params?: { offset?: number; limit?: number },
+    tx?: Prisma.TransactionClient,
+  ): Promise<User[]> {
+    const client = this.getClient(tx);
+    const users = await client.user.findMany({
       skip: params?.offset,
       take: params?.limit,
       orderBy: { createdAt: 'desc' },
@@ -105,8 +118,9 @@ export class UserRepository {
     return users.map(mapPrismaUserToDomainUser);
   }
 
-  async deleteUserById(id: string): Promise<User> {
-    const user = await this.prisma.user.delete({ where: { id } });
+  async deleteUserById(id: string, tx?: Prisma.TransactionClient): Promise<User> {
+    const client = this.getClient(tx);
+    const user = await client.user.delete({ where: { id } });
     return mapPrismaUserToDomainUser(user);
   }
 
@@ -128,8 +142,11 @@ export class UserRepository {
       isActive?: boolean;
       suspendedUntil?: Date | null;
     },
+    tx?: Prisma.TransactionClient,
   ): Promise<User> {
-    const user = await this.prisma.user.update({
+    const client = this.getClient(tx);
+
+    const user = await client.user.update({
       where: { id },
       data: data as Prisma.UserUpdateInput,
     });
