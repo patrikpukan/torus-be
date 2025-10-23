@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
 
@@ -25,6 +25,20 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Authentication & Supabase Integration
+
+This service trusts Supabase JWTs for authentication and runs every Prisma query through PostgreSQL Row Level Security (RLS).
+
+- Configure the following environment variables in `.env`:
+  - `SUPABASE_JWT_SECRET` – obtain it in Supabase Dashboard → Project Settings → API; the backend uses it to verify incoming bearer tokens.
+  - `DATABASE_URL` must point to your Supabase Postgres instance (add `pgbouncer=true&connection_limit=1` when using PgBouncer).
+  - `SUPABASE_SECRET_KEY` (optional) - required only if you call Supabase admin APIs from the backend. Keep this key strictly on the server.
+- Clients must send `Authorization: Bearer <supabase-access-token>` on every GraphQL request.
+- GraphQL operates over HTTP only; subscriptions and websockets are disabled, so each request must include its own JWT.
+- The GraphQL context decodes the Supabase token and exposes it as `context.user`. Guards and resolvers rely on this identity.
+- Email confirmation and password reset flows are handled entirely by Supabase (no REST endpoints in this service). Configure redirect URLs (e.g. `/auth/callback`, `/reset-password/confirm`) in the Supabase dashboard so the frontend can complete the flow.
+- Use `withRls` (`src/db/withRls.ts`) to wrap Prisma access so `SET LOCAL ROLE authenticated` and `request.jwt.claims` are configured for Supabase RLS policies.
+- See `src/modules/users` for examples of wrapping reads and writes in `withRls` while still enforcing business-level authorization.
 ## Project setup
 
 ```bash
@@ -112,7 +126,7 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 
 ## Stay in touch
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
+- Author - [Kamil MyÅ›liwiec](https://twitter.com/kammysliwiec)
 - Website - [https://nestjs.com](https://nestjs.com/)
 - Twitter - [@nestframework](https://twitter.com/nestframework)
 
