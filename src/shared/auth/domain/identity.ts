@@ -1,8 +1,12 @@
-export class Identity {
-  constructor(
-    public readonly id: string,
-    public readonly email: string,
-    public readonly name: string | null,
-    public readonly role: string,
-  ) {}
+import { SupabaseJwtClaims } from '../../../auth/verifySupabaseJwt';
+
+export interface Identity {
+  id: string;
+  email?: string;
+  role?: string;
+  rawClaims: SupabaseJwtClaims;
+  /**
+   * Additional metadata copied from JWT claims (e.g. user metadata).
+   */
+  metadata?: Record<string, unknown>;
 }

@@ -1,15 +1,12 @@
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
-import { BetterAuth } from '../../../shared/auth/providers/better-auth.provider';
 import { Config } from '../../../shared/config/config.service';
 import { createUser } from './create-user';
 
 export const seedDatabase = async (
   prisma: PrismaService,
   config: Config,
-  betterAuth: BetterAuth,
 ): Promise<void> => {
-  const auth = betterAuth;
   const db = prisma as any;
 
   // Drop existing database data from all tables
@@ -21,11 +18,21 @@ export const seedDatabase = async (
     await db.verification.deleteMany({});
     await db.orgAdmin.deleteMany({});
     await db.user.deleteMany({});
+    await db.organization.deleteMany({});
     console.log('All existing data deleted successfully.');
   } catch (error) {
     console.error('Error deleting data:', error);
     throw error; // Re-throw to stop seeding if cleanup fails
   }
+
+  // Create default organization
+  const defaultOrg = await db.organization.create({
+    data: {
+      id: randomUUID(),
+      name: 'Default Organization',
+      code: 'DEFAULT',
+    },
+  });
 
   console.log('Creating superadmin user');
   
@@ -42,14 +49,16 @@ export const seedDatabase = async (
   console.log('Debug - Using password:', password ? '[HIDDEN]' : undefined);
 
   // Create a superadmin user. This should be delete in prod app
-  await createUser(prisma, auth, {
+  await createUser(prisma, {
     email,
     password,
-    name: 'Admin (Delete in Prod)',
+    firstName: 'Admin',
+    lastName: '(Delete in Prod)',
     username: 'superadmin',
-    role: 'system_admin',
+    role: 'super_admin',
     profileStatus: 'active',
     profilePictureUrl: 'uploads/profile-pictures/superadminavatar.png',
+    organizationId: defaultOrg.id,
   });
 
   console.log('Creating example users');
@@ -63,24 +72,28 @@ export const seedDatabase = async (
     },
   });
 
-  const user1 = await createUser(prisma, auth, {
+  const user1 = await createUser(prisma, {
     email: orgAdminEmail,
     password: 'password1',
-    name: 'Caffeinated Duck',
+    firstName: 'Caffeinated',
+    lastName: 'Duck',
     username: 'CaffeinatedDuck',
     role: 'org_admin',
     profileStatus: 'active',
     profilePictureUrl: 'uploads/profile-pictures/caffeduckavatar.png',
+    organizationId: defaultOrg.id,
   });
 
-  const user2 = await createUser(prisma, auth, {
+  const user2 = await createUser(prisma, {
     email: 'deepduckthoughts@example.com',
     password: 'password2',
-    name: 'Deep Duck Thoughts',
+    firstName: 'Deep',
+    lastName: 'Duck Thoughts',
     username: 'DeepDuckThoughts',
     role: 'user',
     profileStatus: 'active',
     profilePictureUrl: 'uploads/profile-pictures/deepduckavatar.png',
+    organizationId: defaultOrg.id,
   });
 
 

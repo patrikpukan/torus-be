@@ -24,10 +24,6 @@ export class Config {
   @IsOptional()
   readonly gitCommitSha?: string;
 
-  @Env<string>('BETTER_AUTH_SECRET')
-  @IsOptional()
-  readonly betterAuthSecret!: string;
-
   @Env('SUPERADMIN_EMAIL')
   @IsOptional()
   readonly superadminEmail!: string;
@@ -156,7 +152,11 @@ export class Config {
   @IsUrl({ require_tld: true })
   readonly supabaseUrl?: string;
 
-  @Env('SUPABASE_SERVICE_ROLE_KEY')
+  @Env('SUPABASE_SECRET_KEY')
   @IsOptional()
-  readonly supabaseServiceRoleKey?: string;
+  readonly supabaseSecretKey?: string;
+
+  @Env('SUPABASE_JWT_SECRET')
+  @IsOptional()
+  readonly supabaseJwtSecret?: string;
 }
