@@ -31,6 +31,14 @@ export class PairingAlgorithmResolver {
 
   @UseGuards(AuthenticatedUserGuard)
   @Mutation(() => PairingExecutionResult)
+  /**
+   * Manually triggers the pairing algorithm for an organization.
+   * Requires admin role.
+   *
+   * @param organizationId - UUID of the organization
+   * @param user - Authenticated user (from @User() decorator)
+   * @returns Execution result with statistics
+   */
   async executePairingAlgorithm(
   @Args("organizationId", { type: () => String }) organizationId: string,
   @User() user: CurrentUserContext | null

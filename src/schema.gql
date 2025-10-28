@@ -2,25 +2,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-type AlgorithmSettings {
-  createdAt: DateTime!
-  id: String!
-  organizationId: String!
-  periodLengthDays: Int!
-  randomSeed: Int!
-  updatedAt: DateTime!
-}
-
-type AlgorithmSettingsResponse {
-  createdAt: DateTime!
-  id: String!
-  organizationId: String!
-  periodLengthDays: Int!
-  randomSeed: Int!
-  updatedAt: DateTime!
-  warning: String
-}
-
 type CurrentUser {
   about: String
   displayUsername: String
@@ -40,16 +21,9 @@ type CurrentUser {
   username: String
 }
 
-"""
-A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
-"""
-scalar DateTime
-
 type Mutation {
   deleteUser(id: ID!): User!
-  executePairingAlgorithm(organizationId: String!): PairingExecutionResult!
   signUp(data: SignUpInputType!): User!
-  updateAlgorithmSettings(input: UpdateAlgorithmSettingsInput!): AlgorithmSettingsResponse!
   updateCurrentUserProfile(input: UpdateCurrentUserProfileInputType!): CurrentUser!
   updateUser(data: UpdateUserInputType!): User!
 }
@@ -61,13 +35,6 @@ type Organization {
   name: String!
 }
 
-type PairingExecutionResult {
-  message: String!
-  pairingsCreated: Int!
-  success: Boolean!
-  unpairedUsers: Int
-}
-
 """Profile onboarding status"""
 enum ProfileStatusEnum {
   active
@@ -76,7 +43,6 @@ enum ProfileStatusEnum {
 }
 
 type Query {
-  getAlgorithmSettings(organizationId: String!): AlgorithmSettings!
   getCurrentUser: CurrentUser
   user(username: String!): User
   userById(id: ID!): User
@@ -90,12 +56,6 @@ input SignUpInputType {
   password: String!
   profilePicture: Upload
   username: String!
-}
-
-input UpdateAlgorithmSettingsInput {
-  organizationId: String!
-  periodLengthDays: Int
-  randomSeed: Int
 }
 
 input UpdateCurrentUserProfileInputType {
@@ -122,7 +82,7 @@ input UpdateUserInputType {
   username: String
 }
 
-"""Mock Upload scalar for e2e tests"""
+"""The `Upload` scalar type represents a file upload."""
 scalar Upload
 
 type User {

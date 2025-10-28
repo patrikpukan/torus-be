@@ -79,6 +79,12 @@ export class PairingAlgorithmService {
     private readonly config: Config,
   ) {}
 
+  /**
+   * Scheduled task that processes all organizations with ended periods.
+   * Runs via cron job (configurable via PAIRING_CRON_SCHEDULE).
+   *
+   * @returns Promise<void>
+   */
   @Cron(pairingCronSchedule, {
     name: 'executeScheduledPairing',
     disabled: pairingCronDisabled,
@@ -210,6 +216,16 @@ export class PairingAlgorithmService {
     }
   }
 
+  /**
+   * Executes the pairing algorithm for a given organization.
+   * Creates pairs for the current active period, respecting all constraints.
+   *
+   * @param organizationId - UUID of the organization
+   * @throws {AlgorithmSettingsNotFoundException} When settings not configured
+   * @throws {InsufficientUsersException} When less than 2 users available
+   * @throws {PairingConstraintException} When constraints cannot be satisfied
+   * @returns Promise<void>
+   */
   async executePairing(organizationId: string): Promise<void> {
     let pairingPeriodId: string | undefined;
     let totalEligibleUsers = 0;
