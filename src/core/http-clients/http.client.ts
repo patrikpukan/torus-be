@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { Injectable } from "@nestjs/common";
+import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 
 type GetParameters = Parameters<typeof axios.get>;
 type PostParameters = Parameters<typeof axios.post>;
@@ -33,7 +33,7 @@ export class HttpClient {
   formPost<T>(
     url: string,
     data: Record<string, string>,
-    config: AxiosRequestConfig = {},
+    config: AxiosRequestConfig = {}
   ): Promise<AxiosResponse<T>> {
     const requestData = new URLSearchParams();
 
@@ -45,7 +45,7 @@ export class HttpClient {
       ...config,
       headers: {
         ...config.headers,
-        'Content-Type': 'application/x-www-form-urlencoded',
+        "Content-Type": "application/x-www-form-urlencoded",
       },
     };
 

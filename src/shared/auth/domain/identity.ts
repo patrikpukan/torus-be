@@ -1,4 +1,4 @@
-import { SupabaseJwtClaims } from '../../../auth/verifySupabaseJwt';
+import { SupabaseJwtClaims } from "../../../auth/verifySupabaseJwt";
 
 export interface Identity {
   id: string;

@@ -1,5 +1,5 @@
-import { EmailService } from '../interfaces/email-service.interface';
-import { ConsoleMailerAdapter } from './services/console-mailer-adapter';
+import { EmailService } from "../interfaces/email-service.interface";
+import { ConsoleMailerAdapter } from "./services/console-mailer-adapter";
 
 export class ConsoleMailerAdapterFactory {
   static create(): EmailService {

@@ -1,12 +1,12 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from 'src/core/prisma/prisma.service';
+import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+import { PrismaService } from "src/core/prisma/prisma.service";
 import {
   ProfileStatusEnum,
   User,
   UserOrganization,
   UserRoleEnum,
-} from '../domain/user';
+} from "../domain/user";
 
 type PrismaUserEntity = Prisma.UserGetPayload<Prisma.UserDefaultArgs> & {
   supabaseUserId?: string | null;
@@ -19,12 +19,13 @@ type PrismaUserWithOrganizationEntity = Prisma.UserGetPayload<{
 };
 
 const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
-  const profileStatus = (user as unknown as { profileStatus?: ProfileStatusEnum })
-    ?.profileStatus ?? ProfileStatusEnum.pending;
+  const profileStatus =
+    (user as unknown as { profileStatus?: ProfileStatusEnum })?.profileStatus ??
+    ProfileStatusEnum.pending;
 
   return {
     ...user,
-    username: user.username ?? '',
+    username: user.username ?? "",
     role: user.role as UserRoleEnum,
     profileStatus,
     profileImageUrl: user.profileImageUrl ?? undefined,
@@ -33,7 +34,7 @@ const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
 };
 
 const mapPrismaUserWithOrganizationToDomain = (
-  user: PrismaUserWithOrganizationEntity,
+  user: PrismaUserWithOrganizationEntity
 ): User & { organization: UserOrganization } => {
   const mappedUser = mapPrismaUserToDomainUser(user);
 
@@ -58,7 +59,10 @@ export class UserRepository {
     return tx ?? this.prisma;
   }
 
-  async getUserById(id: string, tx?: Prisma.TransactionClient): Promise<User | null> {
+  async getUserById(
+    id: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<User | null> {
     const client = this.getClient(tx);
     const user = await client.user.findUnique({ where: { id } });
 
@@ -67,7 +71,7 @@ export class UserRepository {
 
   async getUserWithOrganizationById(
     id: string,
-    tx?: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient
   ): Promise<(User & { organization: UserOrganization }) | null> {
     const client = this.getClient(tx);
     const user = await client.user.findUnique({
@@ -80,7 +84,7 @@ export class UserRepository {
 
   async getUserByUserName(
     username: string,
-    tx?: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient
   ): Promise<User | null> {
     const client = this.getClient(tx);
     const user = await client.user.findUnique({ where: { username } });
@@ -88,14 +92,20 @@ export class UserRepository {
     return user ? mapPrismaUserToDomainUser(user) : null;
   }
 
-  async getUserByEmail(email: string, tx?: Prisma.TransactionClient): Promise<User | null> {
+  async getUserByEmail(
+    email: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<User | null> {
     const client = this.getClient(tx);
     const user = await client.user.findUnique({ where: { email } });
 
     return user ? mapPrismaUserToDomainUser(user) : null;
   }
 
-  async getUsersByIds(ids: string[], tx?: Prisma.TransactionClient): Promise<User[]> {
+  async getUsersByIds(
+    ids: string[],
+    tx?: Prisma.TransactionClient
+  ): Promise<User[]> {
     const client = this.getClient(tx);
     const users = await client.user.findMany({
       where: { id: { in: ids } },
@@ -106,19 +116,22 @@ export class UserRepository {
 
   async listUsers(
     params?: { offset?: number; limit?: number },
-    tx?: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient
   ): Promise<User[]> {
     const client = this.getClient(tx);
     const users = await client.user.findMany({
       skip: params?.offset,
       take: params?.limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     return users.map(mapPrismaUserToDomainUser);
   }
 
-  async deleteUserById(id: string, tx?: Prisma.TransactionClient): Promise<User> {
+  async deleteUserById(
+    id: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<User> {
     const client = this.getClient(tx);
     const user = await client.user.delete({ where: { id } });
     return mapPrismaUserToDomainUser(user);
@@ -142,7 +155,7 @@ export class UserRepository {
       isActive?: boolean;
       suspendedUntil?: Date | null;
     },
-    tx?: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient
   ): Promise<User> {
     const client = this.getClient(tx);
 

@@ -1,15 +1,15 @@
-import { existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
-import { NestFactory } from '@nestjs/core';
-import { SeedModule } from './seed.module';
-import { SeedService } from './seed.service';
+import { existsSync, mkdirSync } from "fs";
+import { join } from "path";
+import { NestFactory } from "@nestjs/core";
+import { SeedModule } from "./seed.module";
+import { SeedService } from "./seed.service";
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 async function main() {
   // Ensure uploads directory exists
-  const uploadsDir = join(process.cwd(), 'uploads');
+  const uploadsDir = join(process.cwd(), "uploads");
   if (!existsSync(uploadsDir)) {
-    console.log('Creating uploads directory...');
+    console.log("Creating uploads directory...");
     mkdirSync(uploadsDir, { recursive: true });
   }
 
@@ -18,7 +18,7 @@ async function main() {
   try {
     await seedService.run();
   } catch (error) {
-    console.error('Error seeding data:', error);
+    console.error("Error seeding data:", error);
     process.exit(1);
   } finally {
     await app.close();

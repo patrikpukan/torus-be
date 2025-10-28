@@ -39,6 +39,7 @@ This service trusts Supabase JWTs for authentication and runs every Prisma query
 - Email confirmation and password reset flows are handled entirely by Supabase (no REST endpoints in this service). Configure redirect URLs (e.g. `/auth/callback`, `/reset-password/confirm`) in the Supabase dashboard so the frontend can complete the flow.
 - Use `withRls` (`src/db/withRls.ts`) to wrap Prisma access so `SET LOCAL ROLE authenticated` and `request.jwt.claims` are configured for Supabase RLS policies.
 - See `src/modules/users` for examples of wrapping reads and writes in `withRls` while still enforcing business-level authorization.
+
 ## Project setup
 
 ```bash
@@ -76,6 +77,7 @@ $ npm run start:fresh:prod
 ```
 
 Notes:
+
 - The reset uses `prisma migrate reset --force`, which drops and recreates the schema, reapplies migrations, and then runs the Prisma seed.
 - Seeding is wired via the `prisma.seed` command in `package.json`, which calls `ts-node src/scripts/seed/seed.script.ts`.
 - Ensure your `.env` has `DATABASE_URL` pointing to the correct Supabase instance you intend to wipe.
