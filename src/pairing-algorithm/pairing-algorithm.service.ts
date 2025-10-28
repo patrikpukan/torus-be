@@ -104,4 +104,93 @@ export class PairingAlgorithmService {
       .map((user) => user.id)
       .filter((userId) => !pairedUserIds.has(userId));
   }
+
+  private async getUserPairingHistory(
+    userId: string,
+    organizationId: string,
+    limitPeriods: number = 2,
+  ): Promise<Map<string, number>> {
+    const recentPeriods = await this.prisma.pairingPeriod.findMany({
+      select: { id: true },
+      where: {
+        organizationId,
+      },
+      orderBy: { startDate: 'desc' },
+      take: limitPeriods,
+    });
+
+    if (recentPeriods.length === 0) {
+      return new Map();
+    }
+
+    const periodIds = recentPeriods.map((period) => period.id);
+
+    const pairings = await this.prisma.pairing.findMany({
+      select: {
+        userAId: true,
+        userBId: true,
+      },
+      where: {
+        organizationId,
+        periodId: { in: periodIds },
+        OR: [{ userAId: userId }, { userBId: userId }],
+      },
+    });
+
+    const history = new Map<string, number>();
+
+    pairings.forEach((pairing) => {
+      const partnerId = pairing.userAId === userId ? pairing.userBId : pairing.userAId;
+      history.set(partnerId, (history.get(partnerId) ?? 0) + 1);
+    });
+
+    return history;
+  }
+
+  private async getUserBlocks(userId: string): Promise<Set<string>> {
+    const blocks = await this.prisma.userBlock.findMany({
+      select: {
+        blockerId: true,
+        blockedId: true,
+      },
+      where: {
+        OR: [{ blockerId: userId }, { blockedId: userId }],
+      },
+    });
+
+    const blockSet = new Set<string>();
+    blocks.forEach((block) => {
+      if (block.blockerId !== userId) {
+        blockSet.add(block.blockerId);
+      }
+      if (block.blockedId !== userId) {
+        blockSet.add(block.blockedId);
+      }
+    });
+
+    return blockSet;
+  }
+
+  private canBePaired(
+    userA: string,
+    userB: string,
+    blocksA: Set<string>,
+    blocksB: Set<string>,
+    historyA: Map<string, number>,
+    historyB: Map<string, number>,
+    totalEligibleUsers: number,
+  ): boolean {
+    if (blocksA.has(userB) || blocksB.has(userA)) {
+      return false;
+    }
+
+    if (totalEligibleUsers <= 2) {
+      return true;
+    }
+
+    const recentlyPaired =
+      (historyA.get(userB) ?? 0) > 0 || (historyB.get(userA) ?? 0) > 0;
+
+    return !recentlyPaired;
+  }
 }
