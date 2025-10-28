@@ -115,11 +115,9 @@ export class PairingAlgorithmService {
           orderBy: { startDate: 'desc' },
         });
 
-        let shouldExecute = false;
         const now = new Date();
 
         if (!activePeriod) {
-          shouldExecute = true;
           this.logger.debug(
             `No active pairing period for organization ${organizationId}; executing pairing to bootstrap`,
             PairingAlgorithmService.name,
@@ -136,7 +134,6 @@ export class PairingAlgorithmService {
             where: { id: activePeriod.id },
             data: { status: PairingPeriodStatus.closed },
           });
-          shouldExecute = true;
           this.logger.debug(
             `Closed pairing period ${activePeriod.id} for organization ${organizationId}; generating new pairings`,
             PairingAlgorithmService.name,
@@ -146,11 +143,6 @@ export class PairingAlgorithmService {
             `Active pairing period ${activePeriod.id} for organization ${organizationId} still in progress; skipping`,
             PairingAlgorithmService.name,
           );
-          summary.skipped += 1;
-          continue;
-        }
-
-        if (!shouldExecute) {
           summary.skipped += 1;
           continue;
         }
