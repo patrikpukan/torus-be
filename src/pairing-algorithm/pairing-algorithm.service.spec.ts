@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { PairingPeriodStatus } from '@prisma/client';
 import {
   InsufficientUsersException,
   PairingAlgorithmService,
@@ -1202,5 +1203,260 @@ describe('PairingAlgorithmService executePairing', () => {
         PairingAlgorithmService.name,
       );
     });
+  });
+});
+
+describe('PairingAlgorithmService executeScheduledPairing', () => {
+  let service: PairingAlgorithmService;
+  let algorithmSettingFindMany: jest.Mock;
+  let pairingPeriodFindFirst: jest.Mock;
+  let pairingPeriodUpdate: jest.Mock;
+  let pairingCount: jest.Mock;
+  let logger: {
+    log: jest.Mock;
+    error: jest.Mock;
+    warn: jest.Mock;
+    debug: jest.Mock;
+    info: jest.Mock;
+  };
+
+  beforeEach(async () => {
+    algorithmSettingFindMany = jest.fn();
+    pairingPeriodFindFirst = jest.fn();
+    pairingPeriodUpdate = jest.fn();
+    pairingCount = jest.fn();
+    logger = {
+      log: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+    };
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        PairingAlgorithmService,
+        {
+          provide: PrismaService,
+          useValue: {
+            algorithmSetting: { findMany: algorithmSettingFindMany },
+            pairingPeriod: {
+              findFirst: pairingPeriodFindFirst,
+              update: pairingPeriodUpdate,
+            },
+            pairing: { count: pairingCount },
+          } as unknown as PrismaService,
+        },
+        { provide: AppLoggerService, useValue: logger },
+        {
+          provide: Config,
+          useValue: {
+            pairingCronEnabled: true,
+            pairingCronSchedule: '0 0 * * 1',
+          } as Config,
+        },
+      ],
+    }).compile();
+
+  service = moduleRef.get(PairingAlgorithmService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
+  });
+
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  const endedPeriodFor = (id: string, daysOffset: number) => ({
+    id,
+    status: PairingPeriodStatus.active,
+    endDate: new Date(Date.now() + daysOffset * dayMs),
+  });
+
+  it('should process all organizations with ended periods', async () => {
+    algorithmSettingFindMany.mockResolvedValue([
+      { organizationId: 'org-1' },
+      { organizationId: 'org-2' },
+      { organizationId: 'org-3' },
+    ]);
+
+    const periods = new Map([
+      ['org-1', endedPeriodFor('period-org-1', -1)],
+      ['org-2', endedPeriodFor('period-org-2', -2)],
+      ['org-3', endedPeriodFor('period-org-3', 1)],
+    ]);
+
+    pairingPeriodFindFirst.mockImplementation(async ({ where }: any) => {
+      const period = periods.get(where.organizationId);
+      return period ? { ...period } : null;
+    });
+    pairingPeriodUpdate.mockResolvedValue({});
+    pairingCount.mockResolvedValue(0);
+
+    const executePairingSpy = jest
+      .spyOn(service, 'executePairing')
+      .mockResolvedValue(undefined);
+
+    await service.executeScheduledPairing();
+
+    expect(executePairingSpy).toHaveBeenCalledTimes(2);
+    expect(executePairingSpy).toHaveBeenNthCalledWith(1, 'org-1');
+    expect(executePairingSpy).toHaveBeenNthCalledWith(2, 'org-2');
+    expect(pairingPeriodUpdate).toHaveBeenCalledTimes(2);
+    const updatedIds = pairingPeriodUpdate.mock.calls.map((call) => call[0].where.id);
+    expect(updatedIds).toEqual(expect.arrayContaining(['period-org-1', 'period-org-2']));
+    expect(updatedIds).not.toContain('period-org-3');
+  });
+
+  it('should skip organizations without algorithm settings', async () => {
+    algorithmSettingFindMany.mockResolvedValue([
+      { organizationId: 'org-configured' },
+    ]);
+
+    pairingPeriodFindFirst.mockResolvedValue(
+      endedPeriodFor('period-configured', -1),
+    );
+    pairingPeriodUpdate.mockResolvedValue({});
+    pairingCount.mockResolvedValue(0);
+
+    const executePairingSpy = jest
+      .spyOn(service, 'executePairing')
+      .mockResolvedValue(undefined);
+
+    await service.executeScheduledPairing();
+
+    expect(executePairingSpy).toHaveBeenCalledTimes(1);
+    expect(executePairingSpy).toHaveBeenCalledWith('org-configured');
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.stringContaining('processed=1 successes=1'),
+      PairingAlgorithmService.name,
+    );
+  });
+
+  it('should continue processing after one org fails', async () => {
+    algorithmSettingFindMany.mockResolvedValue([
+      { organizationId: 'org-1' },
+      { organizationId: 'org-2' },
+      { organizationId: 'org-3' },
+    ]);
+
+    const periods = new Map([
+      ['org-1', endedPeriodFor('period-org-1', -1)],
+      ['org-2', endedPeriodFor('period-org-2', -1)],
+      ['org-3', endedPeriodFor('period-org-3', -1)],
+    ]);
+
+    pairingPeriodFindFirst.mockImplementation(async ({ where }: any) => {
+      const period = periods.get(where.organizationId);
+      return period ? { ...period } : null;
+    });
+    pairingPeriodUpdate.mockResolvedValue({});
+
+    const pairingCounts = new Map([
+      ['org-1', [0, 4]],
+      ['org-2', [2]],
+      ['org-3', [5, 7]],
+    ]);
+    pairingCount.mockImplementation(async ({ where }: any) => {
+      const entries = pairingCounts.get(where.organizationId) ?? [];
+      const value = entries.shift();
+      if (value === undefined) {
+        return 0;
+      }
+      pairingCounts.set(where.organizationId, entries);
+      return value;
+    });
+
+    const executePairingSpy = jest
+      .spyOn(service, 'executePairing')
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('Database error'))
+      .mockResolvedValueOnce(undefined);
+
+    await service.executeScheduledPairing();
+
+    expect(executePairingSpy).toHaveBeenCalledTimes(3);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('org-2'),
+      expect.any(String),
+      PairingAlgorithmService.name,
+    );
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.stringContaining('processed=3 successes=2 skipped=0 failures=1 pairsCreated=6'),
+      PairingAlgorithmService.name,
+    );
+  });
+
+  it('should log comprehensive summary after processing', async () => {
+    const organizationIds = ['org-1', 'org-2', 'org-3', 'org-4', 'org-5'];
+
+    algorithmSettingFindMany.mockResolvedValue(
+      organizationIds.map((organizationId) => ({ organizationId })),
+    );
+
+    pairingPeriodFindFirst.mockImplementation(async ({ where }: any) =>
+      endedPeriodFor(`period-${where.organizationId}`, -1),
+    );
+    pairingPeriodUpdate.mockResolvedValue({});
+
+    const pairingCounts = new Map([
+      ['org-1', [10, 14]],
+      ['org-2', [20, 24]],
+      ['org-3', [5]],
+      ['org-4', [8]],
+      ['org-5', [0, 3]],
+    ]);
+    pairingCount.mockImplementation(async ({ where }: any) => {
+      const entries = pairingCounts.get(where.organizationId) ?? [];
+      const value = entries.shift();
+      if (value === undefined) {
+        return 0;
+      }
+      pairingCounts.set(where.organizationId, entries);
+      return value;
+    });
+
+    const executePairingSpy = jest
+      .spyOn(service, 'executePairing')
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('Scaling error'))
+      .mockRejectedValueOnce(new Error('Timeout'))
+      .mockResolvedValueOnce(undefined);
+
+    await service.executeScheduledPairing();
+
+    expect(executePairingSpy).toHaveBeenCalledTimes(5);
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.stringContaining('processed=5 successes=3 skipped=0 failures=2 pairsCreated=11'),
+      PairingAlgorithmService.name,
+    );
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('org-3: Scaling error'),
+      PairingAlgorithmService.name,
+    );
+    expect(logger.warn.mock.calls[0][0]).toContain('org-4: Timeout');
+  });
+
+  it('should not process if no organizations exist', async () => {
+    algorithmSettingFindMany.mockResolvedValue([]);
+
+    const executePairingSpy = jest
+      .spyOn(service, 'executePairing')
+      .mockResolvedValue(undefined);
+
+    await service.executeScheduledPairing();
+
+    expect(executePairingSpy).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith(
+      expect.stringContaining('Scheduled pairing cron found no organizations'),
+      PairingAlgorithmService.name,
+    );
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.stringContaining('processed=0 successes=0 skipped=0 failures=0 pairsCreated=0'),
+      PairingAlgorithmService.name,
+    );
   });
 });
