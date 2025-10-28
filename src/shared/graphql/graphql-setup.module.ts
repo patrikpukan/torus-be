@@ -8,6 +8,8 @@ import type { Request, Response } from "express";
 import { verifySupabaseJwt } from "../../auth/verifySupabaseJwt";
 import { Identity } from "../auth/domain/identity";
 import { Config } from "../config/config.service";
+import { PrismaModule } from "../../core/prisma/prisma.module";
+import { PrismaService } from "../../core/prisma/prisma.service";
 
 const logger = new Logger("GraphqlSetupModule");
 
@@ -41,17 +43,57 @@ const extractBearerToken = (
   return lowerCased.startsWith("bearer ") ? trimmed.slice(7).trim() : trimmed;
 };
 
-const buildIdentity = (token: string, secret?: string): Identity | null => {
+const buildIdentity = async (
+  token: string,
+  secret: string | undefined,
+  prisma: PrismaService
+): Promise<Identity | null> => {
   if (!token || !secret) {
     return null;
   }
 
   const claims = verifySupabaseJwt(token, secret);
+  const supabaseUserId = claims.sub;
+  let resolvedUserId = supabaseUserId;
+  let appRole: string | undefined;
+
+  if (prisma) {
+    try {
+      const dbUser =
+        supabaseUserId &&
+        (await prisma.user.findFirst({
+          where: { supabaseUserId },
+          select: { id: true, role: true },
+        }));
+
+      if (dbUser) {
+        resolvedUserId = dbUser.id;
+        appRole = dbUser.role ?? undefined;
+      } else if (typeof claims.email === "string" && claims.email) {
+        const fallbackUser = await prisma.user.findFirst({
+          where: { email: claims.email },
+          select: { id: true, role: true, supabaseUserId: true },
+        });
+
+        if (fallbackUser) {
+          resolvedUserId = fallbackUser.id;
+          appRole = fallbackUser.role ?? undefined;
+        }
+      }
+    } catch (error) {
+      const err = error as Error;
+      logger.warn(
+        `Failed to resolve application user for Supabase identity: ${err.message}`
+      );
+    }
+  }
 
   return {
-    id: claims.sub,
+    id: resolvedUserId,
+    supabaseUserId,
     email: typeof claims.email === "string" ? claims.email : undefined,
     role: typeof claims.role === "string" ? claims.role : undefined,
+    appRole,
     rawClaims: claims,
     metadata:
       typeof claims.user_metadata === "object" && claims.user_metadata !== null
@@ -63,10 +105,12 @@ const buildIdentity = (token: string, secret?: string): Identity | null => {
 @Module({
   imports: [
     ConfigModule,
+    PrismaModule,
     GraphQLModule.forRootAsync({
       driver: ApolloDriver,
-      inject: [Config],
-      useFactory: (config: Config): ApolloDriverConfig => {
+      imports: [ConfigModule, PrismaModule],
+      inject: [Config, PrismaService],
+      useFactory: (config: Config, prisma: PrismaService): ApolloDriverConfig => {
         return {
           autoSchemaFile: join(process.cwd(), "src/schema.gql"),
           sortSchema: true,
@@ -87,7 +131,11 @@ const buildIdentity = (token: string, secret?: string): Identity | null => {
 
             if (token) {
               try {
-                identity = buildIdentity(token, config.supabaseJwtSecret);
+                identity = await buildIdentity(
+                  token,
+                  config.supabaseJwtSecret,
+                  prisma
+                );
               } catch (error) {
                 const err = error as Error;
                 logger.warn(
