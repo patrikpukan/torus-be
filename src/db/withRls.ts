@@ -17,8 +17,6 @@ export async function withRls<T>(
 
     // Set JWT claims for RLS policy evaluation
     await tx.$executeRaw`select set_config('request.jwt.claims', ${serializedClaims}, true)`;
-    // Set the user ID for RLS policies
-    await tx.$executeRaw`select set_config('request.jwt.claim.sub', ${claims.sub}, true)`;
 
     return callback(tx);
   });
