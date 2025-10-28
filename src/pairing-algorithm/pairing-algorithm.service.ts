@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PairingPeriodStatus, PairingStatus, User } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
+import { Config } from '../shared/config/config.service';
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -32,6 +34,22 @@ const buildPairKey = (userAId: string, userBId: string): string => {
     : `${userBId}:${userAId}`;
 };
 
+const resolveCronSchedule = (): string => {
+  return process.env.PAIRING_CRON_SCHEDULE?.trim() || '0 0 * * 1';
+};
+
+const isCronDisabled = (): boolean => {
+  const raw = process.env.PAIRING_CRON_ENABLED;
+  if (raw === undefined || raw === null) {
+    return false;
+  }
+
+  return raw.toString().trim().toLowerCase() === 'false';
+};
+
+const pairingCronSchedule = resolveCronSchedule();
+const pairingCronDisabled = isCronDisabled();
+
 export class AlgorithmSettingsNotFoundException extends Error {
   constructor(public readonly organizationId: string) {
     super(`Algorithm settings not found for organization ${organizationId}`);
@@ -58,7 +76,139 @@ export class PairingAlgorithmService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
+    private readonly config: Config,
   ) {}
+
+  @Cron(pairingCronSchedule, {
+    name: 'executeScheduledPairing',
+    disabled: pairingCronDisabled,
+  })
+  async executeScheduledPairing(): Promise<void> {
+    if (!this.config.pairingCronEnabled) {
+      this.logger.debug(
+        'Scheduled pairing cron disabled via configuration; skipping run',
+        PairingAlgorithmService.name,
+      );
+      return;
+    }
+
+    const configuredOrganizations = await this.prisma.algorithmSetting.findMany({
+      select: { organizationId: true },
+    });
+
+    const organizationIds = Array.from(
+      new Set(configuredOrganizations.map((setting) => setting.organizationId)),
+    );
+
+    const summary = {
+      processed: organizationIds.length,
+      successes: 0,
+      skipped: 0,
+      failures: 0,
+      totalPairs: 0,
+    };
+
+    if (organizationIds.length === 0) {
+      this.logger.debug(
+        'Scheduled pairing cron found no organizations with configured algorithm settings',
+        PairingAlgorithmService.name,
+      );
+      this.logger.log(
+        `Scheduled pairing summary | processed=${summary.processed} successes=${summary.successes} skipped=${summary.skipped} failures=${summary.failures} pairsCreated=${summary.totalPairs}`,
+        PairingAlgorithmService.name,
+      );
+      return;
+    }
+
+    const failures: Array<{ organizationId: string; reason: string }> = [];
+
+    for (const organizationId of organizationIds) {
+      try {
+        const activePeriod = await this.prisma.pairingPeriod.findFirst({
+          where: { organizationId, status: PairingPeriodStatus.active },
+          orderBy: { startDate: 'desc' },
+        });
+
+        let shouldExecute = false;
+        const now = new Date();
+
+        if (!activePeriod) {
+          shouldExecute = true;
+          this.logger.debug(
+            `No active pairing period for organization ${organizationId}; executing pairing to bootstrap`,
+            PairingAlgorithmService.name,
+          );
+        } else if (!activePeriod.endDate) {
+          this.logger.warn(
+            `Active pairing period ${activePeriod.id} for organization ${organizationId} has no end date; skipping`,
+            PairingAlgorithmService.name,
+          );
+          summary.skipped += 1;
+          continue;
+        } else if (activePeriod.endDate <= now) {
+          await this.prisma.pairingPeriod.update({
+            where: { id: activePeriod.id },
+            data: { status: PairingPeriodStatus.closed },
+          });
+          shouldExecute = true;
+          this.logger.debug(
+            `Closed pairing period ${activePeriod.id} for organization ${organizationId}; generating new pairings`,
+            PairingAlgorithmService.name,
+          );
+        } else {
+          this.logger.debug(
+            `Active pairing period ${activePeriod.id} for organization ${organizationId} still in progress; skipping`,
+            PairingAlgorithmService.name,
+          );
+          summary.skipped += 1;
+          continue;
+        }
+
+        if (!shouldExecute) {
+          summary.skipped += 1;
+          continue;
+        }
+
+        const beforeCount = await this.prisma.pairing.count({
+          where: { organizationId },
+        });
+
+        await this.executePairing(organizationId);
+
+        const afterCount = await this.prisma.pairing.count({
+          where: { organizationId },
+        });
+
+        const created = Math.max(afterCount - beforeCount, 0);
+        summary.totalPairs += created;
+        summary.successes += 1;
+      } catch (error) {
+        summary.failures += 1;
+        const err = error as Error;
+        failures.push({ organizationId, reason: err.message });
+        this.logger.error(
+          `Scheduled pairing failed for organization ${organizationId}: ${err.message}`,
+          err.stack,
+          PairingAlgorithmService.name,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Scheduled pairing summary | processed=${summary.processed} successes=${summary.successes} skipped=${summary.skipped} failures=${summary.failures} pairsCreated=${summary.totalPairs}`,
+      PairingAlgorithmService.name,
+    );
+
+    if (failures.length > 0) {
+      const details = failures
+        .map((failure) => `${failure.organizationId}: ${failure.reason}`)
+        .join('; ');
+      this.logger.warn(
+        `Scheduled pairing encountered failures: ${details}`,
+        PairingAlgorithmService.name,
+      );
+    }
+  }
 
   async executePairing(organizationId: string): Promise<void> {
     let pairingPeriodId: string | undefined;

@@ -6,6 +6,7 @@ import {
 } from './pairing-algorithm.service';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
+import { Config } from '../shared/config/config.service';
 
 describe('PairingAlgorithmService helpers', () => {
   let service: PairingAlgorithmService;
@@ -38,7 +39,7 @@ describe('PairingAlgorithmService helpers', () => {
     algorithmSettingCreate = jest.fn();
     algorithmSettingUpdate = jest.fn();
     prismaTransaction = jest.fn();
-  logger = { log: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() };
+    logger = { log: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
@@ -67,6 +68,13 @@ describe('PairingAlgorithmService helpers', () => {
         {
           provide: AppLoggerService,
           useValue: logger,
+        },
+        {
+          provide: Config,
+          useValue: {
+            pairingCronEnabled: true,
+            pairingCronSchedule: '0 0 * * 1',
+          } as Config,
         },
       ],
     }).compile();
@@ -405,6 +413,13 @@ describe('PairingAlgorithmService executePairing', () => {
             logger = { log: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() };
             return logger;
           },
+        },
+        {
+          provide: Config,
+          useValue: {
+            pairingCronEnabled: true,
+            pairingCronSchedule: '0 0 * * 1',
+          } as Config,
         },
       ],
     }).compile();

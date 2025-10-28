@@ -155,4 +155,11 @@ export class Config {
   @Env("SUPABASE_JWT_SECRET")
   @IsOptional()
   readonly supabaseJwtSecret?: string;
+
+  @Env("PAIRING_CRON_SCHEDULE", { defaultValue: "0 0 * * 1", expose: true })
+  readonly pairingCronSchedule!: string;
+
+  @Env("PAIRING_CRON_ENABLED", { defaultValue: true, expose: true })
+  @IsBoolean()
+  readonly pairingCronEnabled!: boolean;
 }
