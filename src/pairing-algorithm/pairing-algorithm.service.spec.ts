@@ -975,7 +975,7 @@ describe('PairingAlgorithmService executePairing', () => {
         const collectPairs = captureCreatedPairs();
         await service.executePairing('org-1');
         helperSpies.splice(0).forEach((spy) => spy.mockRestore());
-        return collectPairs();
+        return collectPairs().map(({ userAId, userBId }) => ({ userAId, userBId }));
       };
 
       const firstRun = await runWithSeed();
