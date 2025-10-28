@@ -1,5 +1,5 @@
 import { UseGuards } from "@nestjs/common";
-import { Args, ID, Int, Mutation, Query, Resolver } from "@nestjs/graphql";
+import { Args, ID, Mutation, Query, Resolver } from "@nestjs/graphql";
 import { User } from "src/shared/auth/decorators/user.decorator";
 import type { Identity } from "src/shared/auth/domain/identity";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
@@ -34,12 +34,8 @@ export class UserResolver {
 
   @UseGuards(AuthenticatedUserGuard)
   @Query(() => [UserType])
-  async users(
-    @User() identity: Identity,
-    @Args("offset", { type: () => Int, nullable: true }) offset?: number,
-    @Args("limit", { type: () => Int, nullable: true }) limit?: number
-  ): Promise<UserType[]> {
-    return this.userService.listUsers(identity, { offset, limit });
+  async users(@User() identity: Identity): Promise<UserType[]> {
+    return this.userService.listUsers(identity);
   }
 
   @UseGuards(AuthenticatedUserGuard)

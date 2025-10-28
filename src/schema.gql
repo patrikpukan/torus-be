@@ -46,7 +46,7 @@ type Query {
   getCurrentUser: CurrentUser
   user(username: String!): User
   userById(id: ID!): User
-  users(limit: Int, offset: Int): [User!]!
+  users: [User!]!
 }
 
 input SignUpInputType {

@@ -55,18 +55,9 @@ export class UserService {
     );
   }
 
-  async listUsers(
-    identity: Identity,
-    params?: { offset?: number; limit?: number }
-  ): Promise<User[]> {
+  async listUsers(identity: Identity): Promise<User[]> {
     return withRls(this.prisma, getRlsClaims(identity), (tx) =>
-      this.userRepository.listUsers(
-        {
-          offset: params?.offset,
-          limit: params?.limit,
-        },
-        tx
-      )
+      this.userRepository.listUsers(tx)
     );
   }
 

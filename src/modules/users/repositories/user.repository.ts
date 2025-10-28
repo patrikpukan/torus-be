@@ -114,14 +114,9 @@ export class UserRepository {
     return users.map(mapPrismaUserToDomainUser);
   }
 
-  async listUsers(
-    params?: { offset?: number; limit?: number },
-    tx?: Prisma.TransactionClient
-  ): Promise<User[]> {
+  async listUsers(tx?: Prisma.TransactionClient): Promise<User[]> {
     const client = this.getClient(tx);
     const users = await client.user.findMany({
-      skip: params?.offset,
-      take: params?.limit,
       orderBy: { createdAt: "desc" },
     });
 
