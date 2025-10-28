@@ -99,10 +99,6 @@ export class PairingAlgorithmService {
         });
       }
 
-      if (!algorithmSettings) {
-        throw new AlgorithmSettingsNotFoundException(organizationId);
-      }
-
       if (!algorithmSettings.periodLengthDays || algorithmSettings.periodLengthDays <= 0) {
         throw new PairingConstraintException('Pairing period length must be positive', {
           organizationId,
