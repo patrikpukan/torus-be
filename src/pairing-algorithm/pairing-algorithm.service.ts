@@ -3,7 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { PairingPeriodStatus, PairingStatus, User } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
-import { Config } from '../shared/config/config.service';
+import { PairingAlgorithmConfig } from './pairing-algorithm.config';
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -34,21 +34,9 @@ const buildPairKey = (userAId: string, userBId: string): string => {
     : `${userBId}:${userAId}`;
 };
 
-const resolveCronSchedule = (): string => {
-  return process.env.PAIRING_CRON_SCHEDULE?.trim() || '0 0 * * 1';
-};
-
-const isCronDisabled = (): boolean => {
-  const raw = process.env.PAIRING_CRON_ENABLED;
-  if (raw === undefined || raw === null) {
-    return false;
-  }
-
-  return raw.toString().trim().toLowerCase() === 'false';
-};
-
-const pairingCronSchedule = resolveCronSchedule();
-const pairingCronDisabled = isCronDisabled();
+const pairingDefaults = new PairingAlgorithmConfig();
+const pairingCronSchedule = pairingDefaults.cronSchedule;
+const pairingCronDisabled = !pairingDefaults.cronEnabled;
 
 export class AlgorithmSettingsNotFoundException extends Error {
   constructor(public readonly organizationId: string) {
@@ -76,7 +64,7 @@ export class PairingAlgorithmService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
-    private readonly config: Config,
+    private readonly config: PairingAlgorithmConfig,
   ) {}
 
   /**
@@ -90,7 +78,7 @@ export class PairingAlgorithmService {
     disabled: pairingCronDisabled,
   })
   async executeScheduledPairing(): Promise<void> {
-    if (!this.config.pairingCronEnabled) {
+  if (!this.config.cronEnabled) {
       this.logger.debug(
         'Scheduled pairing cron disabled via configuration; skipping run',
         PairingAlgorithmService.name,
@@ -259,7 +247,7 @@ export class PairingAlgorithmService {
         algorithmSettings = await this.prisma.algorithmSetting.create({
           data: {
             organizationId,
-            periodLengthDays: 21,
+            periodLengthDays: this.config.defaultPeriodDays,
             randomSeed: Date.now(),
           },
         });
@@ -285,7 +273,13 @@ export class PairingAlgorithmService {
         });
       }
 
-      const periodLengthDays = algorithmSettings.periodLengthDays ?? 21;
+      const periodLengthDays =
+        algorithmSettings.periodLengthDays ?? this.config.defaultPeriodDays;
+      const periodLengthWarning = this.validatePeriodLength(periodLengthDays);
+
+      if (periodLengthWarning) {
+        this.logger.warn(periodLengthWarning, PairingAlgorithmService.name);
+      }
 
       let pairingPeriod = await this.prisma.pairingPeriod.findFirst({
         where: {
@@ -645,6 +639,16 @@ export class PairingAlgorithmService {
 
       throw error;
     }
+  }
+
+  private validatePeriodLength(days: number): string | null {
+    if (days < this.config.minPeriodDays) {
+      return `Period length is too short (< ${this.config.minPeriodDays} days). Users may not have enough time to meet.`;
+    }
+    if (days > this.config.maxPeriodDays) {
+      return `Period length is too long (> ${this.config.maxPeriodDays} days). Engagement may decrease over time.`;
+    }
+    return null;
   }
 
   private shuffleInPlace<T>(items: T[], random: SeededRandom): void {

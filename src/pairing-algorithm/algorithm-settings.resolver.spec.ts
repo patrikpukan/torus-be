@@ -3,6 +3,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { AlgorithmSettingsResolver } from './algorithm-settings.resolver';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
+import { PairingAlgorithmConfig } from './pairing-algorithm.config';
 
 const fixedDate = new Date('2025-01-01T00:00:00.000Z');
 
@@ -40,6 +41,16 @@ describe('AlgorithmSettingsResolver', () => {
         AlgorithmSettingsResolver,
         { provide: PrismaService, useValue: prisma },
         { provide: AppLoggerService, useValue: logger },
+        {
+          provide: PairingAlgorithmConfig,
+          useValue: {
+            cronEnabled: true,
+            cronSchedule: '0 0 * * 1',
+            defaultPeriodDays: 21,
+            minPeriodDays: 7,
+            maxPeriodDays: 365,
+          } as PairingAlgorithmConfig,
+        },
       ],
     }).compile();
 
@@ -113,7 +124,7 @@ describe('AlgorithmSettingsResolver', () => {
         adminUser,
       );
 
-      expect(result.warning).toBe('Recommended pairing period is between 7 and 365 days.');
+  expect(result.warning).toBe('Warning: Period length is too short (< 7 days)');
     });
 
     it('should return warning for too long period length', async () => {
@@ -141,7 +152,7 @@ describe('AlgorithmSettingsResolver', () => {
         adminUser,
       );
 
-      expect(result.warning).toBe('Recommended pairing period is between 7 and 365 days.');
+  expect(result.warning).toBe('Warning: Period length is too long (> 365 days)');
     });
 
     it('should use default values when not provided', async () => {

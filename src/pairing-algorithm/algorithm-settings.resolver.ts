@@ -8,8 +8,7 @@ import { User } from "../shared/auth/decorators/user.decorator";
 import type { Identity } from "../shared/auth/domain/identity";
 import { PrismaService } from "../core/prisma/prisma.service";
 import { AppLoggerService } from "../shared/logger/logger.service";
-
-const DEFAULT_PERIOD_LENGTH_DAYS = 21;
+import { PairingAlgorithmConfig } from "./pairing-algorithm.config";
 
 type UserContext = Pick<Identity, "id" | "role" | "appRole"> & {
   organizationId?: string;
@@ -26,7 +25,8 @@ type ResolvedUser = {
 export class AlgorithmSettingsResolver {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly logger: AppLoggerService
+    private readonly logger: AppLoggerService,
+    private readonly pairingConfig: PairingAlgorithmConfig
   ) {}
 
   @UseGuards(AuthenticatedUserGuard)
@@ -103,7 +103,7 @@ export class AlgorithmSettingsResolver {
       const created = await this.prisma.algorithmSetting.create({
         data: {
           organizationId,
-          periodLengthDays: DEFAULT_PERIOD_LENGTH_DAYS,
+          periodLengthDays: this.pairingConfig.defaultPeriodDays,
           randomSeed,
         },
       });
@@ -111,7 +111,7 @@ export class AlgorithmSettingsResolver {
       return {
         id: created.id,
         organizationId: created.organizationId,
-        periodLengthDays: DEFAULT_PERIOD_LENGTH_DAYS,
+        periodLengthDays: this.pairingConfig.defaultPeriodDays,
         randomSeed,
         createdAt: created.createdAt,
         updatedAt: created.updatedAt,
@@ -221,7 +221,7 @@ export class AlgorithmSettingsResolver {
   input: number | null | undefined,
   fallback?: number | null
   ): number {
-    const value = input ?? fallback ?? DEFAULT_PERIOD_LENGTH_DAYS;
+  const value = input ?? fallback ?? this.pairingConfig.defaultPeriodDays;
 
     if (!Number.isInteger(value) || value <= 0) {
       throw new BadRequestException("periodLengthDays must be a positive integer");
@@ -252,8 +252,12 @@ export class AlgorithmSettingsResolver {
   }
 
   private buildWarning(periodLengthDays: number): string | null {
-    if (periodLengthDays < 7 || periodLengthDays > 365) {
-      return "Recommended pairing period is between 7 and 365 days.";
+    if (periodLengthDays < this.pairingConfig.minPeriodDays) {
+      return `Warning: Period length is too short (< ${this.pairingConfig.minPeriodDays} days)`;
+    }
+
+    if (periodLengthDays > this.pairingConfig.maxPeriodDays) {
+      return `Warning: Period length is too long (> ${this.pairingConfig.maxPeriodDays} days)`;
     }
 
     return null;

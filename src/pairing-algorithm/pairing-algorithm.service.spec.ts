@@ -7,7 +7,7 @@ import {
 } from './pairing-algorithm.service';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
-import { Config } from '../shared/config/config.service';
+import { PairingAlgorithmConfig } from './pairing-algorithm.config';
 
 describe('PairingAlgorithmService helpers', () => {
   let service: PairingAlgorithmService;
@@ -71,11 +71,14 @@ describe('PairingAlgorithmService helpers', () => {
           useValue: logger,
         },
         {
-          provide: Config,
+          provide: PairingAlgorithmConfig,
           useValue: {
-            pairingCronEnabled: true,
-            pairingCronSchedule: '0 0 * * 1',
-          } as Config,
+            cronEnabled: true,
+            cronSchedule: '0 0 * * 1',
+            defaultPeriodDays: 21,
+            minPeriodDays: 7,
+            maxPeriodDays: 365,
+          } as PairingAlgorithmConfig,
         },
       ],
     }).compile();
@@ -416,11 +419,14 @@ describe('PairingAlgorithmService executePairing', () => {
           },
         },
         {
-          provide: Config,
+          provide: PairingAlgorithmConfig,
           useValue: {
-            pairingCronEnabled: true,
-            pairingCronSchedule: '0 0 * * 1',
-          } as Config,
+            cronEnabled: true,
+            cronSchedule: '0 0 * * 1',
+            defaultPeriodDays: 21,
+            minPeriodDays: 7,
+            maxPeriodDays: 365,
+          } as PairingAlgorithmConfig,
         },
       ],
     }).compile();
@@ -1249,11 +1255,14 @@ describe('PairingAlgorithmService executeScheduledPairing', () => {
         },
         { provide: AppLoggerService, useValue: logger },
         {
-          provide: Config,
+          provide: PairingAlgorithmConfig,
           useValue: {
-            pairingCronEnabled: true,
-            pairingCronSchedule: '0 0 * * 1',
-          } as Config,
+            cronEnabled: true,
+            cronSchedule: '0 0 * * 1',
+            defaultPeriodDays: 21,
+            minPeriodDays: 7,
+            maxPeriodDays: 365,
+          } as PairingAlgorithmConfig,
         },
       ],
     }).compile();
