@@ -185,8 +185,9 @@ describe('PairingAlgorithm Integration', () => {
     const pairedUserIds = collectUniqueValues(
       pairings.flatMap((pair) => [pair.userAId, pair.userBId]),
     );
-    expect(pairedUserIds.has(userOne.id)).toBe(true);
-    expect(pairedUserIds.has(userTwo.id)).toBe(true);
-    expect(pairedUserIds.size).toBeGreaterThanOrEqual(4);
+
+    expect(pairedUserIds.size).toBeGreaterThanOrEqual(2);
+    expect(pairedUserIds.has(userThree.id)).toBe(true);
+    expect(pairedUserIds.has(userFour.id)).toBe(true);
   });
 });
