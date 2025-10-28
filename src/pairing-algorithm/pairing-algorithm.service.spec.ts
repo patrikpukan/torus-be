@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
-  AlgorithmSettingsNotFoundException,
   InsufficientUsersException,
   PairingAlgorithmService,
   PairingConstraintException,
@@ -1055,7 +1054,7 @@ describe('PairingAlgorithmService executePairing', () => {
       mockHelpers({ eligibleUsers: [{ id: 'user-1' }, { id: 'user-2' }] });
 
       await expect(service.executePairing('org-1')).rejects.toThrow(
-        AlgorithmSettingsNotFoundException,
+        PairingConstraintException,
       );
     });
 

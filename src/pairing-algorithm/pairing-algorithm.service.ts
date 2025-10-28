@@ -99,6 +99,12 @@ export class PairingAlgorithmService {
         });
       }
 
+      if (!algorithmSettings) {
+        throw new PairingConstraintException('Failed to initialize algorithm settings', {
+          organizationId,
+        });
+      }
+
       if (!algorithmSettings.periodLengthDays || algorithmSettings.periodLengthDays <= 0) {
         throw new PairingConstraintException('Pairing period length must be positive', {
           organizationId,
