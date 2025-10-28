@@ -5,7 +5,7 @@ import { PairingAlgorithmResolver } from './pairing-algorithm.resolver';
 import { PairingAlgorithmService } from './pairing-algorithm.service';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
-import { PairingPeriodStatus, UserRole } from '@prisma/client';
+import { PairingPeriodStatus } from '@prisma/client';
 
 describe('PairingAlgorithmResolver', () => {
   let resolver: PairingAlgorithmResolver;
