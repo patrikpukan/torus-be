@@ -1,5 +1,3 @@
 import { PrismaClient } from "@prisma/client";
 
-export class PrismaService extends PrismaClient {
-  userBlock: any;
-}
+export class PrismaService extends PrismaClient {}
