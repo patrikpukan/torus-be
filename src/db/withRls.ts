@@ -1,23 +1,25 @@
-import type {Prisma, PrismaClient} from "@prisma/client";
-import type {SupabaseJwtClaims} from "../auth/verifySupabaseJwt";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import type { SupabaseJwtClaims } from "../auth/verifySupabaseJwt";
 
 export type PrismaTransactionClient = Prisma.TransactionClient;
 
 export async function withRls<T>(
-    prisma: PrismaClient,
-    claims: SupabaseJwtClaims,
-    callback: (tx: PrismaTransactionClient) => Promise<T>
+  prisma: PrismaClient,
+  claims: SupabaseJwtClaims,
+  callback: (tx: PrismaTransactionClient) => Promise<T>
 ): Promise<T> {
-    return prisma.$transaction(async (tx) => {
-        if (!claims?.sub) {
-            throw new Error("Supabase claims must include subject for RLS");
-        }
+  return prisma.$transaction(async (tx) => {
+    if (!claims?.sub) {
+      throw new Error("Supabase claims must include subject for RLS");
+    }
 
-        const serializedClaims = JSON.stringify(claims);
+    const serializedClaims = JSON.stringify(claims);
 
-        await tx.$executeRawUnsafe("SET LOCAL ROLE authenticated");
-        await tx.$executeRaw`select set_config('request.jwt.claims', ${serializedClaims}, true)`;
+    // Set JWT claims for RLS policy evaluation
+    await tx.$executeRaw`select set_config('request.jwt.claims', ${serializedClaims}, true)`;
+    // Set the user ID for RLS policies
+    await tx.$executeRaw`select set_config('request.jwt.claim.sub', ${claims.sub}, true)`;
 
-        return callback(tx);
-    });
+    return callback(tx);
+  });
 }
