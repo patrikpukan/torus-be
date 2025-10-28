@@ -32,6 +32,27 @@ const buildPairKey = (userAId: string, userBId: string): string => {
     : `${userBId}:${userAId}`;
 };
 
+export class AlgorithmSettingsNotFoundException extends Error {
+  constructor(public readonly organizationId: string) {
+    super(`Algorithm settings not found for organization ${organizationId}`);
+    this.name = AlgorithmSettingsNotFoundException.name;
+  }
+}
+
+export class InsufficientUsersException extends Error {
+  constructor(public readonly organizationId: string, public readonly userCount: number) {
+    super(`Not enough users to create pairings for organization ${organizationId}`);
+    this.name = InsufficientUsersException.name;
+  }
+}
+
+export class PairingConstraintException extends Error {
+  constructor(message: string, public readonly metadata?: Record<string, unknown>) {
+    super(message);
+    this.name = PairingConstraintException.name;
+  }
+}
+
 @Injectable()
 export class PairingAlgorithmService {
   constructor(
@@ -40,95 +61,140 @@ export class PairingAlgorithmService {
   ) {}
 
   async executePairing(organizationId: string): Promise<void> {
-    this.logger.log(
-      `Pairing algorithm started for organization: ${organizationId}`,
-      PairingAlgorithmService.name,
-    );
+    let pairingPeriodId: string | undefined;
+    let totalEligibleUsers = 0;
+    let guaranteedUserIds: string[] = [];
 
-    let algorithmSettings = await this.prisma.algorithmSetting.findUnique({
-      where: { organizationId },
-    });
-
-    if (!algorithmSettings) {
-      algorithmSettings = await this.prisma.algorithmSetting.create({
-        data: {
-          organizationId,
-          periodLengthDays: 21,
-          randomSeed: Date.now(),
-        },
-      });
-    }
-
-    const periodLengthDays = algorithmSettings.periodLengthDays ?? 21;
-
-    let pairingPeriod = await this.prisma.pairingPeriod.findFirst({
-      where: {
-        organizationId,
-        status: PairingPeriodStatus.active,
-      },
-      orderBy: { startDate: 'desc' },
-    });
-
-    if (!pairingPeriod) {
-      const startDate = new Date();
-      const endDate = new Date(startDate.getTime() + periodLengthDays * MILLISECONDS_PER_DAY);
-
-      pairingPeriod = await this.prisma.pairingPeriod.create({
-        data: {
-          organizationId,
-          status: PairingPeriodStatus.active,
-          startDate,
-          endDate,
-        },
-      });
-    }
-
-    const eligibleUsers = await this.getEligibleUsers(organizationId, pairingPeriod.id);
-
-    const [newUserIds, unpairedUserIds] = await Promise.all([
-      this.getNewUsers(organizationId),
-      this.getUnpairedFromLastPeriod(organizationId, pairingPeriod.id),
-    ]);
-    const guaranteedUserIds = Array.from(
-      new Set<string>([...newUserIds, ...unpairedUserIds]),
-    );
-
-    const random = new SeededRandom(algorithmSettings.randomSeed ?? Date.now());
-
-    const totalEligibleUsers = eligibleUsers.length;
-
-    if (totalEligibleUsers < 2) {
-      throw new Error('Not enough users to create pairings');
-    }
-
-    if (totalEligibleUsers % 2 !== 0) {
-      this.logger.warn(
-        `Odd number of users, one will remain unpaired (eligible count: ${totalEligibleUsers})`,
+    try {
+      this.logger.log(
+        `Pairing algorithm started for organization: ${organizationId}`,
         PairingAlgorithmService.name,
       );
-    }
 
-    const guaranteedSet = new Set(guaranteedUserIds);
-    const guaranteedUsers = eligibleUsers.filter((user) => guaranteedSet.has(user.id));
-    const regularUsers = eligibleUsers.filter((user) => !guaranteedSet.has(user.id));
+      const organization = await this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true },
+      });
 
-    this.shuffleInPlace(guaranteedUsers, random);
-    this.shuffleInPlace(regularUsers, random);
+      if (!organization) {
+        throw new PairingConstraintException('Organization not found', { organizationId });
+      }
 
-    const userHistories = new Map<string, Map<string, number>>();
-    const userBlocks = new Map<string, Set<string>>();
+      let algorithmSettings = await this.prisma.algorithmSetting.findUnique({
+        where: { organizationId },
+      });
 
-    await Promise.all(
-      eligibleUsers.map(async (user) => {
-        const [history, blocks] = await Promise.all([
-          this.getUserPairingHistory(user.id, organizationId),
-          this.getUserBlocks(user.id),
-        ]);
+      if (!algorithmSettings) {
+        this.logger.warn(
+          `Algorithm settings missing for organization ${organizationId}, creating defaults`,
+          PairingAlgorithmService.name,
+        );
 
-        userHistories.set(user.id, history);
-        userBlocks.set(user.id, blocks);
-      }),
-    );
+        algorithmSettings = await this.prisma.algorithmSetting.create({
+          data: {
+            organizationId,
+            periodLengthDays: 21,
+            randomSeed: Date.now(),
+          },
+        });
+      }
+
+      if (!algorithmSettings) {
+        throw new AlgorithmSettingsNotFoundException(organizationId);
+      }
+
+      if (!algorithmSettings.periodLengthDays || algorithmSettings.periodLengthDays <= 0) {
+        throw new PairingConstraintException('Pairing period length must be positive', {
+          organizationId,
+          periodLengthDays: algorithmSettings.periodLengthDays,
+        });
+      }
+
+      if (!algorithmSettings.randomSeed || algorithmSettings.randomSeed <= 0) {
+        algorithmSettings = await this.prisma.algorithmSetting.update({
+          where: { organizationId },
+          data: { randomSeed: Math.abs(Date.now()) },
+        });
+      }
+
+      const periodLengthDays = algorithmSettings.periodLengthDays ?? 21;
+
+      let pairingPeriod = await this.prisma.pairingPeriod.findFirst({
+        where: {
+          organizationId,
+          status: PairingPeriodStatus.active,
+        },
+        orderBy: { startDate: 'desc' },
+      });
+
+      if (!pairingPeriod) {
+        const startDate = new Date();
+        const endDate = new Date(startDate.getTime() + periodLengthDays * MILLISECONDS_PER_DAY);
+
+        if (endDate <= startDate) {
+          throw new PairingConstraintException(
+            'Invalid pairing period configuration',
+            { organizationId, periodLengthDays },
+          );
+        }
+
+        pairingPeriod = await this.prisma.pairingPeriod.create({
+          data: {
+            organizationId,
+            status: PairingPeriodStatus.active,
+            startDate,
+            endDate,
+          },
+        });
+      }
+
+      pairingPeriodId = pairingPeriod.id;
+
+      const eligibleUsers = await this.getEligibleUsers(organizationId, pairingPeriod.id);
+
+      totalEligibleUsers = eligibleUsers.length;
+
+      const [newUserIds, unpairedUserIds] = await Promise.all([
+        this.getNewUsers(organizationId),
+        this.getUnpairedFromLastPeriod(organizationId, pairingPeriod.id),
+      ]);
+
+      guaranteedUserIds = Array.from(new Set<string>([...newUserIds, ...unpairedUserIds]));
+
+      const random = new SeededRandom(algorithmSettings.randomSeed ?? Date.now());
+
+      if (totalEligibleUsers < 2) {
+        throw new InsufficientUsersException(organizationId, totalEligibleUsers);
+      }
+
+      if (totalEligibleUsers % 2 !== 0) {
+        this.logger.warn(
+          `Odd number of users, one will remain unpaired (eligible count: ${totalEligibleUsers})`,
+          PairingAlgorithmService.name,
+        );
+      }
+
+      const guaranteedSet = new Set(guaranteedUserIds);
+      const guaranteedUsers = eligibleUsers.filter((user) => guaranteedSet.has(user.id));
+      const regularUsers = eligibleUsers.filter((user) => !guaranteedSet.has(user.id));
+
+      this.shuffleInPlace(guaranteedUsers, random);
+      this.shuffleInPlace(regularUsers, random);
+
+      const userHistories = new Map<string, Map<string, number>>();
+      const userBlocks = new Map<string, Set<string>>();
+
+      await Promise.all(
+        eligibleUsers.map(async (user) => {
+          const [history, blocks] = await Promise.all([
+            this.getUserPairingHistory(user.id, organizationId),
+            this.getUserBlocks(user.id),
+          ]);
+
+          userHistories.set(user.id, history);
+          userBlocks.set(user.id, blocks);
+        }),
+      );
 
       const previousPeriods = await this.prisma.pairingPeriod.findMany({
         where: {
@@ -180,7 +246,16 @@ export class PairingAlgorithmService {
           (candidateId) => candidateId !== userId,
         );
 
+        this.logger.debug(
+          `Evaluating partners for ${userId}. Available: ${potentialPartners.join(', ')}`,
+          PairingAlgorithmService.name,
+        );
+
         if (potentialPartners.length === 0) {
+          this.logger.warn(
+            `No partners available for ${userId}; marking as unpaired`,
+            PairingAlgorithmService.name,
+          );
           unpairedUsers.add(userId);
           availableUsers.delete(userId);
           return;
@@ -234,6 +309,10 @@ export class PairingAlgorithmService {
         const selected = selectionPool[0];
 
         if (!selected) {
+          this.logger.warn(
+            `Unable to select partner for ${userId}; marking as unpaired`,
+            PairingAlgorithmService.name,
+          );
           unpairedUsers.add(userId);
           availableUsers.delete(userId);
           return;
@@ -241,6 +320,11 @@ export class PairingAlgorithmService {
 
         availableUsers.delete(userId);
         availableUsers.delete(selected.candidateId);
+
+        this.logger.debug(
+          `Pairing ${userId} with ${selected.candidateId}`,
+          PairingAlgorithmService.name,
+        );
 
         pairs.push({ userAId: userId, userBId: selected.candidateId });
       };
@@ -300,27 +384,30 @@ export class PairingAlgorithmService {
               totalEligibleUsers,
               avoidThreePeat,
             )) {
-              throw new Error(
-                `Unable to avoid three consecutive pairings for users ${pair.userAId} and ${pair.userBId}`,
+              throw new PairingConstraintException(
+                'Unable to avoid three consecutive pairings',
+                { userAId: pair.userAId, userBId: pair.userBId },
               );
             }
           }
         });
       }
 
-      if (pairs.length > 0) {
-        const now = new Date();
-        await this.prisma.pairing.createMany({
-          data: pairs.map((pair) => ({
-            periodId: pairingPeriod.id,
-            organizationId,
-            userAId: pair.userAId,
-            userBId: pair.userBId,
-            status: PairingStatus.planned,
-            createdAt: now,
-          })),
-        });
-      }
+      await this.prisma.$transaction(async (tx) => {
+        if (pairs.length > 0) {
+          const now = new Date();
+          await tx.pairing.createMany({
+            data: pairs.map((pair) => ({
+              periodId: pairingPeriod.id,
+              organizationId,
+              userAId: pair.userAId,
+              userBId: pair.userBId,
+              status: PairingStatus.planned,
+              createdAt: now,
+            })),
+          });
+        }
+      });
 
       const guaranteedPairedUsers = new Set<string>();
       const regularPairedUsers = new Set<string>();
@@ -369,6 +456,27 @@ export class PairingAlgorithmService {
           PairingAlgorithmService.name,
         );
       }
+
+      this.logger.log(
+        `Pairing algorithm completed for organization ${organizationId}`,
+        PairingAlgorithmService.name,
+      );
+    } catch (error) {
+      const context = {
+        organizationId,
+        pairingPeriodId,
+        totalEligibleUsers,
+        guaranteedUserCount: guaranteedUserIds.length,
+      };
+
+      this.logger.error(
+        `Pairing algorithm failed: ${(error as Error).message}. Context: ${JSON.stringify(context)}`,
+        (error as Error).stack,
+        PairingAlgorithmService.name,
+      );
+
+      throw error;
+    }
   }
 
   private shuffleInPlace<T>(items: T[], random: SeededRandom): void {
