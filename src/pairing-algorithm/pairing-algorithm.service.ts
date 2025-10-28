@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PairingPeriodStatus, PairingStatus, User } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
+import { PairingAlgorithmConfig } from './pairing-algorithm.config';
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -32,6 +34,10 @@ const buildPairKey = (userAId: string, userBId: string): string => {
     : `${userBId}:${userAId}`;
 };
 
+const pairingDefaults = new PairingAlgorithmConfig();
+const pairingCronSchedule = pairingDefaults.cronSchedule;
+const pairingCronDisabled = !pairingDefaults.cronEnabled;
+
 export class AlgorithmSettingsNotFoundException extends Error {
   constructor(public readonly organizationId: string) {
     super(`Algorithm settings not found for organization ${organizationId}`);
@@ -58,8 +64,140 @@ export class PairingAlgorithmService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
+    private readonly config: PairingAlgorithmConfig,
   ) {}
 
+  /**
+   * Scheduled task that processes all organizations with ended periods.
+   * Runs via cron job (configurable via PAIRING_CRON_SCHEDULE).
+   *
+   * @returns Promise<void>
+   */
+  @Cron(pairingCronSchedule, {
+    name: 'executeScheduledPairing',
+    disabled: pairingCronDisabled,
+  })
+  async executeScheduledPairing(): Promise<void> {
+    const configuredOrganizations = await this.prisma.algorithmSetting.findMany({
+      select: { organizationId: true },
+    });
+
+    const organizationIds = Array.from(
+      new Set(configuredOrganizations.map((setting) => setting.organizationId)),
+    );
+
+    const summary = {
+      processed: organizationIds.length,
+      successes: 0,
+      skipped: 0,
+      failures: 0,
+      totalPairs: 0,
+    };
+
+    if (organizationIds.length === 0) {
+      this.logger.debug(
+        'Scheduled pairing cron found no organizations with configured algorithm settings',
+        PairingAlgorithmService.name,
+      );
+      this.logger.log(
+        `Scheduled pairing summary | processed=${summary.processed} successes=${summary.successes} skipped=${summary.skipped} failures=${summary.failures} pairsCreated=${summary.totalPairs}`,
+        PairingAlgorithmService.name,
+      );
+      return;
+    }
+
+    const failures: Array<{ organizationId: string; reason: string }> = [];
+
+    for (const organizationId of organizationIds) {
+      try {
+        const activePeriod = await this.prisma.pairingPeriod.findFirst({
+          where: { organizationId, status: PairingPeriodStatus.active },
+          orderBy: { startDate: 'desc' },
+        });
+
+        const now = new Date();
+
+        if (!activePeriod) {
+          this.logger.debug(
+            `No active pairing period for organization ${organizationId}; executing pairing to bootstrap`,
+            PairingAlgorithmService.name,
+          );
+        } else if (!activePeriod.endDate) {
+          this.logger.warn(
+            `Active pairing period ${activePeriod.id} for organization ${organizationId} has no end date; skipping`,
+            PairingAlgorithmService.name,
+          );
+          summary.skipped += 1;
+          continue;
+        } else if (activePeriod.endDate <= now) {
+          await this.prisma.pairingPeriod.update({
+            where: { id: activePeriod.id },
+            data: { status: PairingPeriodStatus.closed },
+          });
+          this.logger.debug(
+            `Closed pairing period ${activePeriod.id} for organization ${organizationId}; generating new pairings`,
+            PairingAlgorithmService.name,
+          );
+        } else {
+          this.logger.debug(
+            `Active pairing period ${activePeriod.id} for organization ${organizationId} still in progress; skipping`,
+            PairingAlgorithmService.name,
+          );
+          summary.skipped += 1;
+          continue;
+        }
+
+        const beforeCount = await this.prisma.pairing.count({
+          where: { organizationId },
+        });
+
+        await this.executePairing(organizationId);
+
+        const afterCount = await this.prisma.pairing.count({
+          where: { organizationId },
+        });
+
+        const created = Math.max(afterCount - beforeCount, 0);
+        summary.totalPairs += created;
+        summary.successes += 1;
+      } catch (error) {
+        summary.failures += 1;
+        const err = error as Error;
+        failures.push({ organizationId, reason: err.message });
+        this.logger.error(
+          `Scheduled pairing failed for organization ${organizationId}: ${err.message}`,
+          err.stack,
+          PairingAlgorithmService.name,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Scheduled pairing summary | processed=${summary.processed} successes=${summary.successes} skipped=${summary.skipped} failures=${summary.failures} pairsCreated=${summary.totalPairs}`,
+      PairingAlgorithmService.name,
+    );
+
+    if (failures.length > 0) {
+      const details = failures
+        .map((failure) => `${failure.organizationId}: ${failure.reason}`)
+        .join('; ');
+      this.logger.warn(
+        `Scheduled pairing encountered failures: ${details}`,
+        PairingAlgorithmService.name,
+      );
+    }
+  }
+
+  /**
+   * Executes the pairing algorithm for a given organization.
+   * Creates pairs for the current active period, respecting all constraints.
+   *
+   * @param organizationId - UUID of the organization
+   * @throws {AlgorithmSettingsNotFoundException} When settings not configured
+   * @throws {InsufficientUsersException} When less than 2 users available
+   * @throws {PairingConstraintException} When constraints cannot be satisfied
+   * @returns Promise<void>
+   */
   async executePairing(organizationId: string): Promise<void> {
     let pairingPeriodId: string | undefined;
     let totalEligibleUsers = 0;
@@ -93,7 +231,7 @@ export class PairingAlgorithmService {
         algorithmSettings = await this.prisma.algorithmSetting.create({
           data: {
             organizationId,
-            periodLengthDays: 21,
+            periodLengthDays: this.config.defaultPeriodDays,
             randomSeed: Date.now(),
           },
         });
@@ -119,7 +257,13 @@ export class PairingAlgorithmService {
         });
       }
 
-      const periodLengthDays = algorithmSettings.periodLengthDays ?? 21;
+      const periodLengthDays =
+        algorithmSettings.periodLengthDays ?? this.config.defaultPeriodDays;
+      const periodLengthWarning = this.validatePeriodLength(periodLengthDays);
+
+      if (periodLengthWarning) {
+        this.logger.warn(periodLengthWarning, PairingAlgorithmService.name);
+      }
 
       let pairingPeriod = await this.prisma.pairingPeriod.findFirst({
         where: {
@@ -479,6 +623,16 @@ export class PairingAlgorithmService {
 
       throw error;
     }
+  }
+
+  private validatePeriodLength(days: number): string | null {
+    if (days < this.config.minPeriodDays) {
+      return `Period length is too short (< ${this.config.minPeriodDays} days). Users may not have enough time to meet.`;
+    }
+    if (days > this.config.maxPeriodDays) {
+      return `Period length is too long (> ${this.config.maxPeriodDays} days). Engagement may decrease over time.`;
+    }
+    return null;
   }
 
   private shuffleInPlace<T>(items: T[], random: SeededRandom): void {
