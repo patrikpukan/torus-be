@@ -13,6 +13,9 @@ export const seedDatabase = async (
   try {
     // Delete data using Prisma's deleteMany (respects foreign keys automatically)
     console.log("Deleting existing data...");
+    await db.message.deleteMany({});
+    await db.pairing.deleteMany({});
+    await db.pairingPeriod.deleteMany({});
     await db.session.deleteMany({});
     await db.account.deleteMany({});
     await db.verification.deleteMany({});
@@ -58,7 +61,7 @@ export const seedDatabase = async (
   const password =
     config.superadminPassword ||
     process.env.SUPERADMIN_PASSWORD ||
-    "adminpassword";
+    "admin";
 
   console.log("Debug - Using email:", email);
   console.log("Debug - Using password:", password ? "[HIDDEN]" : undefined);
@@ -78,7 +81,26 @@ export const seedDatabase = async (
 
   console.log("Creating example users");
 
+  const adminEmail = "admin@torus.local";
   const orgAdminEmail = "caffeinatedduck@example.com";
+
+  await db.orgAdmin.create({
+    data: {
+      id: randomUUID(),
+      email: adminEmail.toLowerCase(),
+    },
+  });
+
+  const adminUser = await createUser(prisma, {
+    email: adminEmail,
+    password: "admin",
+    firstName: "Admin",
+    lastName: "User",
+    username: "admin",
+    role: "org_admin",
+    profileStatus: "active",
+    organizationId: defaultOrg.id,
+  });
 
   await db.orgAdmin.create({
     data: {
@@ -87,7 +109,7 @@ export const seedDatabase = async (
     },
   });
 
-  const user1 = await createUser(prisma, {
+  const mentorUser = await createUser(prisma, {
     email: orgAdminEmail,
     password: "password1",
     firstName: "Caffeinated",
@@ -99,7 +121,7 @@ export const seedDatabase = async (
     organizationId: defaultOrg.id,
   });
 
-  const user2 = await createUser(prisma, {
+  const memberUser = await createUser(prisma, {
     email: "deepduckthoughts@example.com",
     password: "password2",
     firstName: "Deep",
@@ -109,5 +131,60 @@ export const seedDatabase = async (
     profileStatus: "active",
     profilePictureUrl: "uploads/profile-pictures/deepduckavatar.png",
     organizationId: defaultOrg.id,
+  });
+
+  console.log("Creating pairing period and sample pairing/messages");
+
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setDate(now.getDate() - 7);
+  const endDate = new Date(now);
+  endDate.setDate(now.getDate() + 21);
+
+  const pairingPeriod = await db.pairingPeriod.create({
+    data: {
+      organizationId: defaultOrg.id,
+      startDate,
+      endDate,
+      status: "active",
+    },
+  });
+
+  const pairing = await db.pairing.create({
+    data: {
+      periodId: pairingPeriod.id,
+      organizationId: defaultOrg.id,
+      userAId: mentorUser.id,
+      userBId: memberUser.id,
+      status: "matched",
+    },
+  });
+
+  await db.message.create({
+    data: {
+      pairingId: pairing.id,
+      senderId: mentorUser.id,
+      content:
+        "Hey there! Excited to connect this week. Does Tuesday afternoon work for you?",
+      isRead: true,
+    },
+  });
+
+  await db.message.create({
+    data: {
+      pairingId: pairing.id,
+      senderId: memberUser.id,
+      content:
+        "Tuesday afternoon is perfect. Let's meet at 3 PM via video call.",
+    },
+  });
+
+  await db.message.create({
+    data: {
+      pairingId: pairing.id,
+      senderId: adminUser.id,
+      content:
+        "Checking in: feel free to reach out if you need anything for this pairing cycle.",
+    },
   });
 };
