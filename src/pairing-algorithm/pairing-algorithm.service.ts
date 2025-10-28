@@ -1,7 +1,36 @@
 import { Injectable } from '@nestjs/common';
-import { PairingPeriodStatus, User } from '@prisma/client';
+import { PairingPeriodStatus, PairingStatus, User } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
+
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+class SeededRandom {
+  private seed: number;
+
+  constructor(seed: number) {
+    this.seed = seed % 2147483647;
+
+    if (this.seed <= 0) {
+      this.seed += 2147483646;
+    }
+  }
+
+  next(): number {
+    this.seed = (this.seed * 16807) % 2147483647;
+    return this.seed;
+  }
+
+  nextFloat(): number {
+    return (this.next() - 1) / 2147483646;
+  }
+}
+
+const buildPairKey = (userAId: string, userBId: string): string => {
+  return userAId < userBId
+    ? `${userAId}:${userBId}`
+    : `${userBId}:${userAId}`;
+};
 
 @Injectable()
 export class PairingAlgorithmService {
@@ -42,9 +71,7 @@ export class PairingAlgorithmService {
 
     if (!pairingPeriod) {
       const startDate = new Date();
-      const endDate = new Date(
-        startDate.getTime() + periodLengthDays * 24 * 60 * 60 * 1000,
-      );
+      const endDate = new Date(startDate.getTime() + periodLengthDays * MILLISECONDS_PER_DAY);
 
       pairingPeriod = await this.prisma.pairingPeriod.create({
         data: {
@@ -62,21 +89,31 @@ export class PairingAlgorithmService {
       this.getNewUsers(organizationId),
       this.getUnpairedFromLastPeriod(organizationId, pairingPeriod.id),
     ]);
-
     const guaranteedUserIds = Array.from(
       new Set<string>([...newUserIds, ...unpairedUserIds]),
     );
 
-    if (eligibleUsers.length < 2) {
+    const random = new SeededRandom(algorithmSettings.randomSeed ?? Date.now());
+
+    const totalEligibleUsers = eligibleUsers.length;
+
+    if (totalEligibleUsers < 2) {
       throw new Error('Not enough users to create pairings');
     }
 
-    if (eligibleUsers.length % 2 !== 0) {
+    if (totalEligibleUsers % 2 !== 0) {
       this.logger.warn(
-        `Odd number of users, one will remain unpaired (eligible count: ${eligibleUsers.length})`,
+        `Odd number of users, one will remain unpaired (eligible count: ${totalEligibleUsers})`,
         PairingAlgorithmService.name,
       );
     }
+
+    const guaranteedSet = new Set(guaranteedUserIds);
+    const guaranteedUsers = eligibleUsers.filter((user) => guaranteedSet.has(user.id));
+    const regularUsers = eligibleUsers.filter((user) => !guaranteedSet.has(user.id));
+
+    this.shuffleInPlace(guaranteedUsers, random);
+    this.shuffleInPlace(regularUsers, random);
 
     const userHistories = new Map<string, Map<string, number>>();
     const userBlocks = new Map<string, Set<string>>();
@@ -93,24 +130,364 @@ export class PairingAlgorithmService {
       }),
     );
 
-    const logPayload = {
-      algorithmSettings,
-      pairingPeriod,
-      eligibleUserIds: eligibleUsers.map((user) => user.id),
-      guaranteedUserIds,
-      histories: Array.from(userHistories.entries()).map(([userId, history]) => ({
-        userId,
-        history: Array.from(history.entries()),
-      })),
-      blocks: Array.from(userBlocks.entries()).map(([userId, blocks]) => ({
-        userId,
-        blocks: Array.from(blocks.values()),
-      })),
-    };
+      const previousPeriods = await this.prisma.pairingPeriod.findMany({
+        where: {
+          organizationId,
+          id: { not: pairingPeriod.id },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 2,
+      });
 
-    this.logger.debug(
-      `Pairing algorithm context: ${JSON.stringify(logPayload)}`,
-      PairingAlgorithmService.name,
+      const lastPeriodId = previousPeriods[0]?.id ?? null;
+      const secondLastPeriodId = previousPeriods[1]?.id ?? null;
+
+      const [lastPeriodPairs, secondLastPeriodPairs] = await Promise.all([
+        lastPeriodId
+          ? this.prisma.pairing.findMany({
+              where: { organizationId, periodId: lastPeriodId },
+              select: { userAId: true, userBId: true },
+            })
+          : Promise.resolve([]),
+        secondLastPeriodId
+          ? this.prisma.pairing.findMany({
+              where: { organizationId, periodId: secondLastPeriodId },
+              select: { userAId: true, userBId: true },
+            })
+          : Promise.resolve([]),
+      ]);
+
+      const lastPeriodPairKeys = new Set(
+        lastPeriodPairs.map((pair) => buildPairKey(pair.userAId, pair.userBId)),
+      );
+      const secondLastPeriodPairKeys = new Set(
+        secondLastPeriodPairs.map((pair) => buildPairKey(pair.userAId, pair.userBId)),
+      );
+
+      const availableUsers = new Set(eligibleUsers.map((user) => user.id));
+      const unpairedUsers = new Set<string>();
+      const pairs: Array<{ userAId: string; userBId: string }> = [];
+
+      const tryPairUser = (userId: string): void => {
+        if (!availableUsers.has(userId)) {
+          return;
+        }
+
+        const blocksA = userBlocks.get(userId) ?? new Set<string>();
+        const historyA = userHistories.get(userId) ?? new Map<string, number>();
+
+        const potentialPartners = Array.from(availableUsers).filter(
+          (candidateId) => candidateId !== userId,
+        );
+
+        if (potentialPartners.length === 0) {
+          unpairedUsers.add(userId);
+          availableUsers.delete(userId);
+          return;
+        }
+
+        const candidateInfos = potentialPartners
+          .map((candidateId) => {
+            const partnerBlocks = userBlocks.get(candidateId) ?? new Set<string>();
+            const partnerHistory =
+              userHistories.get(candidateId) ?? new Map<string, number>();
+
+            const isBlocked =
+              blocksA.has(candidateId) || partnerBlocks.has(userId);
+
+            return {
+              candidateId,
+              partnerBlocks,
+              partnerHistory,
+              isBlocked,
+            };
+          })
+          .filter((info) => !info.isBlocked);
+
+        if (candidateInfos.length === 0) {
+          this.logger.error(
+            `No available partners for user ${userId} due to blocking relationships`,
+            PairingAlgorithmService.name,
+          );
+          unpairedUsers.add(userId);
+          availableUsers.delete(userId);
+          return;
+        }
+
+        const preferredCandidates = candidateInfos.filter((info) =>
+          this.canBePaired(
+            userId,
+            info.candidateId,
+            blocksA,
+            info.partnerBlocks,
+            historyA,
+            info.partnerHistory,
+            totalEligibleUsers,
+          ),
+        );
+
+        const selectionPool =
+          preferredCandidates.length > 0 ? preferredCandidates : candidateInfos;
+
+        this.shuffleInPlace(selectionPool, random);
+
+        const selected = selectionPool[0];
+
+        if (!selected) {
+          unpairedUsers.add(userId);
+          availableUsers.delete(userId);
+          return;
+        }
+
+        availableUsers.delete(userId);
+        availableUsers.delete(selected.candidateId);
+
+        pairs.push({ userAId: userId, userBId: selected.candidateId });
+      };
+
+      guaranteedUsers.forEach((user) => tryPairUser(user.id));
+      regularUsers.forEach((user) => tryPairUser(user.id));
+
+      Array.from(availableUsers).forEach((remainingUserId) => {
+        unpairedUsers.add(remainingUserId);
+      });
+
+      const avoidLastPeriod = (pair: { userAId: string; userBId: string }): boolean => {
+        return !lastPeriodPairKeys.has(buildPairKey(pair.userAId, pair.userBId));
+      };
+
+      const avoidThreePeat = (pair: { userAId: string; userBId: string }): boolean => {
+        const key = buildPairKey(pair.userAId, pair.userBId);
+        return !(lastPeriodPairKeys.has(key) && secondLastPeriodPairKeys.has(key));
+      };
+
+      pairs.forEach((pair, index) => {
+        const key = buildPairKey(pair.userAId, pair.userBId);
+        if (lastPeriodPairKeys.has(key)) {
+          this.logger.warn(
+            `Pair (${pair.userAId}, ${pair.userBId}) was also paired in last period`,
+            PairingAlgorithmService.name,
+          );
+
+          if (!this.trySwapPairs(
+            pairs,
+            index,
+            userBlocks,
+            userHistories,
+            totalEligibleUsers,
+            avoidLastPeriod,
+          )) {
+            this.logger.warn(
+              `Unable to swap pair (${pair.userAId}, ${pair.userBId}) to avoid repeat`,
+              PairingAlgorithmService.name,
+            );
+          }
+        }
+      });
+
+      if (totalEligibleUsers > 2) {
+        pairs.forEach((pair, index) => {
+          const key = buildPairKey(pair.userAId, pair.userBId);
+          if (
+            lastPeriodPairKeys.has(key) &&
+            secondLastPeriodPairKeys.has(key)
+          ) {
+            if (!this.trySwapPairs(
+              pairs,
+              index,
+              userBlocks,
+              userHistories,
+              totalEligibleUsers,
+              avoidThreePeat,
+            )) {
+              throw new Error(
+                `Unable to avoid three consecutive pairings for users ${pair.userAId} and ${pair.userBId}`,
+              );
+            }
+          }
+        });
+      }
+
+      if (pairs.length > 0) {
+        const now = new Date();
+        await this.prisma.pairing.createMany({
+          data: pairs.map((pair) => ({
+            periodId: pairingPeriod.id,
+            organizationId,
+            userAId: pair.userAId,
+            userBId: pair.userBId,
+            status: PairingStatus.planned,
+            createdAt: now,
+          })),
+        });
+      }
+
+      const guaranteedPairedUsers = new Set<string>();
+      const regularPairedUsers = new Set<string>();
+
+      pairs.forEach((pair) => {
+        if (guaranteedSet.has(pair.userAId)) {
+          guaranteedPairedUsers.add(pair.userAId);
+        } else {
+          regularPairedUsers.add(pair.userAId);
+        }
+
+        if (guaranteedSet.has(pair.userBId)) {
+          guaranteedPairedUsers.add(pair.userBId);
+        } else {
+          regularPairedUsers.add(pair.userBId);
+        }
+      });
+
+      this.logger.log(
+        `Created ${pairs.length} pairs for organization ${organizationId}`,
+        PairingAlgorithmService.name,
+      );
+      this.logger.log(
+        `Guaranteed users paired: ${guaranteedPairedUsers.size}`,
+        PairingAlgorithmService.name,
+      );
+      this.logger.log(
+        `Regular users paired: ${regularPairedUsers.size}`,
+        PairingAlgorithmService.name,
+      );
+      this.logger.log(
+        `Unpaired users: ${unpairedUsers.size}`,
+        PairingAlgorithmService.name,
+      );
+
+      if (unpairedUsers.size > 0) {
+        this.logger.debug(
+          `Unpaired user IDs: ${Array.from(unpairedUsers).join(', ')}`,
+          PairingAlgorithmService.name,
+        );
+      }
+
+      if (pairs.length === 0) {
+        this.logger.warn(
+          'No pairs were created during this run',
+          PairingAlgorithmService.name,
+        );
+      }
+  }
+
+  private shuffleInPlace<T>(items: T[], random: SeededRandom): void {
+    for (let index = items.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(random.nextFloat() * (index + 1));
+
+      if (swapIndex !== index) {
+        [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+      }
+    }
+  }
+
+  private trySwapPairs(
+    pairs: Array<{ userAId: string; userBId: string }>,
+    targetIndex: number,
+    userBlocks: Map<string, Set<string>>,
+    userHistories: Map<string, Map<string, number>>,
+    totalEligibleUsers: number,
+    avoidPredicate: (pair: { userAId: string; userBId: string }) => boolean,
+  ): boolean {
+    const targetPair = pairs[targetIndex];
+
+    if (!targetPair) {
+      return false;
+    }
+
+    for (let index = 0; index < pairs.length; index += 1) {
+      if (index === targetIndex) {
+        continue;
+      }
+
+      const candidatePair = pairs[index];
+
+      const swapConfigurations: Array<{
+        first: [string, string];
+        second: [string, string];
+      }> = [
+        {
+          first: [targetPair.userAId, candidatePair.userAId],
+          second: [targetPair.userBId, candidatePair.userBId],
+        },
+        {
+          first: [targetPair.userAId, candidatePair.userBId],
+          second: [targetPair.userBId, candidatePair.userAId],
+        },
+        {
+          first: [targetPair.userBId, candidatePair.userAId],
+          second: [targetPair.userAId, candidatePair.userBId],
+        },
+        {
+          first: [targetPair.userBId, candidatePair.userBId],
+          second: [targetPair.userAId, candidatePair.userAId],
+        },
+      ];
+
+      for (const configuration of swapConfigurations) {
+        const [firstA, firstB] = configuration.first;
+        const [secondA, secondB] = configuration.second;
+
+        if (
+          firstA === firstB ||
+          secondA === secondB ||
+          new Set([firstA, firstB, secondA, secondB]).size !== 4
+        ) {
+          continue;
+        }
+
+        const proposedFirst = { userAId: firstA, userBId: firstB };
+        const proposedSecond = { userAId: secondA, userBId: secondB };
+
+        if (
+          !avoidPredicate(proposedFirst) ||
+          !avoidPredicate(proposedSecond) ||
+          !this.isPairValid(
+            proposedFirst,
+            userBlocks,
+            userHistories,
+            totalEligibleUsers,
+          ) ||
+          !this.isPairValid(
+            proposedSecond,
+            userBlocks,
+            userHistories,
+            totalEligibleUsers,
+          )
+        ) {
+          continue;
+        }
+
+        pairs[targetIndex] = proposedFirst;
+        pairs[index] = proposedSecond;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private isPairValid(
+    pair: { userAId: string; userBId: string },
+    userBlocks: Map<string, Set<string>>,
+    userHistories: Map<string, Map<string, number>>,
+    totalEligibleUsers: number,
+  ): boolean {
+    const blocksA = userBlocks.get(pair.userAId) ?? new Set<string>();
+    const blocksB = userBlocks.get(pair.userBId) ?? new Set<string>();
+
+    if (blocksA.has(pair.userBId) || blocksB.has(pair.userAId)) {
+      return false;
+    }
+
+    return this.canBePaired(
+      pair.userAId,
+      pair.userBId,
+      blocksA,
+      blocksB,
+      userHistories.get(pair.userAId) ?? new Map<string, number>(),
+      userHistories.get(pair.userBId) ?? new Map<string, number>(),
+      totalEligibleUsers,
     );
   }
 
