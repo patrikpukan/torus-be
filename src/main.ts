@@ -30,9 +30,26 @@ async function main(): Promise<void> {
     config.frontendBaseUrl,
     config.frontendProdUrl,
   ].filter((origin): origin is string => typeof origin === "string");
+  const fallbackCorsOrigins = ["http://localhost:5173"];
+  const allowedCorsOrigins = [
+    ...corsOrigins,
+    ...fallbackCorsOrigins.filter(
+      (fallbackOrigin) => !corsOrigins.includes(fallbackOrigin)
+    ),
+  ];
   app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : "*",
+    origin: allowedCorsOrigins.length > 0 ? allowedCorsOrigins : "*",
     credentials: true,
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Accept",
+      "Origin",
+      "X-Requested-With",
+      "Apollo-Require-Preflight",
+      "apollo-require-preflight",
+    ],
   });
 
   // Setup GraphQL file upload middleware
