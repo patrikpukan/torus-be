@@ -78,14 +78,6 @@ export class PairingAlgorithmService {
     disabled: pairingCronDisabled,
   })
   async executeScheduledPairing(): Promise<void> {
-  if (!this.config.cronEnabled) {
-      this.logger.debug(
-        'Scheduled pairing cron disabled via configuration; skipping run',
-        PairingAlgorithmService.name,
-      );
-      return;
-    }
-
     const configuredOrganizations = await this.prisma.algorithmSetting.findMany({
       select: { organizationId: true },
     });
