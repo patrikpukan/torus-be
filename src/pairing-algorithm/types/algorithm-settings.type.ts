@@ -23,6 +23,6 @@ export class AlgorithmSettingsType {
 
 @ObjectType("AlgorithmSettingsResponse")
 export class AlgorithmSettingsResponse extends AlgorithmSettingsType {
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   warning?: string | null;
 }
