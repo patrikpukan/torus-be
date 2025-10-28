@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Env } from "@applifting-io/nestjs-decorated-config";
 import { Injectable, LogLevel } from "@nestjs/common";
 import { IsBoolean, IsOptional, IsSemVer, IsUrl } from "class-validator";
