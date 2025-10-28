@@ -1,14 +1,14 @@
-import { UseGuards } from '@nestjs/common';
-import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { User } from 'src/shared/auth/decorators/user.decorator';
-import type { Identity } from 'src/shared/auth/domain/identity';
-import { AuthenticatedUserGuard } from 'src/shared/auth/guards/authenticated-user.guard';
-import { UserService } from '../../services/user.service';
-import { SignUpInputType } from '../types/sign-up-input.type';
-import { UpdateUserInputType } from '../types/update-user-input.type';
-import { UserType } from '../types/user.type';
-import { CurrentUserType } from '../types/current-user.type';
-import { UpdateCurrentUserProfileInputType } from '../types/update-current-user-profile-input.type';
+import { UseGuards } from "@nestjs/common";
+import { Args, ID, Int, Mutation, Query, Resolver } from "@nestjs/graphql";
+import { User } from "src/shared/auth/decorators/user.decorator";
+import type { Identity } from "src/shared/auth/domain/identity";
+import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
+import { UserService } from "../../services/user.service";
+import { SignUpInputType } from "../types/sign-up-input.type";
+import { UpdateUserInputType } from "../types/update-user-input.type";
+import { UserType } from "../types/user.type";
+import { CurrentUserType } from "../types/current-user.type";
+import { UpdateCurrentUserProfileInputType } from "../types/update-current-user-profile-input.type";
 
 @Resolver(() => UserType)
 export class UserResolver {
@@ -18,7 +18,7 @@ export class UserResolver {
   @Query(() => UserType, { nullable: true })
   async user(
     @User() identity: Identity,
-    @Args('username', { type: () => String }) username: string,
+    @Args("username", { type: () => String }) username: string
   ): Promise<UserType | null> {
     return this.userService.getUserByUsername(identity, username);
   }
@@ -27,7 +27,7 @@ export class UserResolver {
   @Query(() => UserType, { nullable: true })
   async userById(
     @User() identity: Identity,
-    @Args('id', { type: () => ID }) id: string,
+    @Args("id", { type: () => ID }) id: string
   ): Promise<UserType | null> {
     return this.userService.getUserById(identity, id);
   }
@@ -36,8 +36,8 @@ export class UserResolver {
   @Query(() => [UserType])
   async users(
     @User() identity: Identity,
-    @Args('offset', { type: () => Int, nullable: true }) offset?: number,
-    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+    @Args("offset", { type: () => Int, nullable: true }) offset?: number,
+    @Args("limit", { type: () => Int, nullable: true }) limit?: number
   ): Promise<UserType[]> {
     return this.userService.listUsers(identity, { offset, limit });
   }
@@ -45,7 +45,7 @@ export class UserResolver {
   @UseGuards(AuthenticatedUserGuard)
   @Query(() => CurrentUserType, { nullable: true })
   async getCurrentUser(
-    @User() identity: Identity,
+    @User() identity: Identity
   ): Promise<CurrentUserType | null> {
     return this.userService.getCurrentUser(identity);
   }
@@ -54,7 +54,7 @@ export class UserResolver {
   @Mutation(() => UserType)
   async deleteUser(
     @User() identity: Identity,
-    @Args('id', { type: () => ID }) id: string,
+    @Args("id", { type: () => ID }) id: string
   ): Promise<UserType> {
     return this.userService.deleteUserById(identity, id);
   }
@@ -63,7 +63,7 @@ export class UserResolver {
   @Mutation(() => UserType)
   async updateUser(
     @User() identity: Identity,
-    @Args('data') data: UpdateUserInputType,
+    @Args("data") data: UpdateUserInputType
   ): Promise<UserType | null> {
     return this.userService.updateUserById(identity, data.id, data);
   }
@@ -72,14 +72,13 @@ export class UserResolver {
   @Mutation(() => CurrentUserType)
   async updateCurrentUserProfile(
     @User() identity: Identity,
-    @Args('input') input: UpdateCurrentUserProfileInputType,
+    @Args("input") input: UpdateCurrentUserProfileInputType
   ): Promise<CurrentUserType> {
     return this.userService.updateCurrentUserProfile(identity, input);
   }
 
-
   @Mutation(() => UserType)
-  async signUp(@Args('data') data: SignUpInputType): Promise<UserType> {
+  async signUp(@Args("data") data: SignUpInputType): Promise<UserType> {
     return this.userService.signUp(
       {
         email: data.email,
@@ -88,7 +87,7 @@ export class UserResolver {
         firstName: data.firstName ?? null,
         lastName: data.lastName ?? null,
       },
-      data.profilePicture,
+      data.profilePicture
     );
   }
 }

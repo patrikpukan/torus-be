@@ -1,5 +1,5 @@
-import { Injectable, LoggerService } from '@nestjs/common';
-import * as winston from 'winston';
+import { Injectable, LoggerService } from "@nestjs/common";
+import * as winston from "winston";
 
 @Injectable()
 export class AppLoggerService implements LoggerService {
@@ -7,14 +7,14 @@ export class AppLoggerService implements LoggerService {
 
   constructor() {
     this.logger = winston.createLogger({
-      level: 'info',
+      level: "info",
       format: winston.format.combine(
         winston.format.timestamp(),
-        winston.format.simple(),
+        winston.format.simple()
       ),
       transports: [
         new winston.transports.Console(),
-        new winston.transports.File({ filename: 'app.log' }),
+        new winston.transports.File({ filename: "app.log" }),
       ],
     });
   }

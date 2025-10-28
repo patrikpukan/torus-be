@@ -1,10 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🗑️  Dropping all tables...');
-  
+  console.log("🗑️  Dropping all tables...");
+
   try {
     // Disable foreign key constraints temporarily
     await prisma.$executeRawUnsafe(`
@@ -47,25 +47,23 @@ async function main() {
       END $$;
     `);
 
-    console.log('✅ All tables and types dropped successfully!');
-    
-    console.log('🏗️  Creating tables from schema...');
-    
+    console.log("✅ All tables and types dropped successfully!");
+
+    console.log("🏗️  Creating tables from schema...");
+
     // Push the schema without creating a migration
     await prisma.$executeRawUnsafe(`
       SELECT 1; -- Just to verify connection
     `);
-    
   } catch (error) {
-    console.error('❌ Error during reset:', error);
+    console.error("❌ Error during reset:", error);
     throw error;
   } finally {
     await prisma.$disconnect();
   }
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

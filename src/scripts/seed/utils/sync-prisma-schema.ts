@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execSync } from "child_process";
 
 /**
  * Synchronizes the Prisma schema with the database using 'prisma db push'.
@@ -8,10 +8,10 @@ import { execSync } from 'child_process';
  */
 export function syncPrismaSchema(): void {
   try {
-    execSync('npx prisma db push', { stdio: 'inherit' });
-    console.log('Database schema synced with Prisma schema.');
+    execSync("npx prisma db push", { stdio: "inherit" });
+    console.log("Database schema synced with Prisma schema.");
   } catch (error) {
-    console.error('Failed to sync database schema:', error);
+    console.error("Failed to sync database schema:", error);
     throw error;
   }
 }

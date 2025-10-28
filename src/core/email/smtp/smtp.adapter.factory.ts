@@ -1,6 +1,6 @@
-import { EmailService } from '../interfaces/email-service.interface';
-import { SMTPConfig } from './interfaces/smtp-config.interface';
-import { SMTPAdapter } from './services/smtp-adapter';
+import { EmailService } from "../interfaces/email-service.interface";
+import { SMTPConfig } from "./interfaces/smtp-config.interface";
+import { SMTPAdapter } from "./services/smtp-adapter";
 
 export class SMTPAdapterFactory {
   static create(config: SMTPConfig): EmailService {

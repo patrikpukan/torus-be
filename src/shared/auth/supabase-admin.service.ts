@@ -1,9 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Config } from '../config/config.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { Config } from "../config/config.service";
 
-type CreateUserPayload = Parameters<SupabaseClient['auth']['admin']['createUser']>[0];
-type CreateUserResponse = ReturnType<SupabaseClient['auth']['admin']['createUser']>;
+type CreateUserPayload = Parameters<
+  SupabaseClient["auth"]["admin"]["createUser"]
+>[0];
+type CreateUserResponse = ReturnType<
+  SupabaseClient["auth"]["admin"]["createUser"]
+>;
 
 @Injectable()
 export class SupabaseAdminService {
@@ -20,7 +24,9 @@ export class SupabaseAdminService {
       });
     } else {
       this.client = null;
-      this.logger.debug('Supabase admin client not configured; skipping admin operations');
+      this.logger.debug(
+        "Supabase admin client not configured; skipping admin operations"
+      );
     }
   }
 
@@ -28,9 +34,11 @@ export class SupabaseAdminService {
     return this.client !== null;
   }
 
-  async createUser(payload: CreateUserPayload): Promise<Awaited<CreateUserResponse>> {
+  async createUser(
+    payload: CreateUserPayload
+  ): Promise<Awaited<CreateUserResponse>> {
     if (!this.client) {
-      throw new Error('Supabase admin client is not configured');
+      throw new Error("Supabase admin client is not configured");
     }
 
     return this.client.auth.admin.createUser(payload);

@@ -1,5 +1,5 @@
-import { Field, InputType } from '@nestjs/graphql';
-import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
+import { Field, InputType } from "@nestjs/graphql";
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs";
 
 // Define an interface instead of importing it
 interface FileUpload {

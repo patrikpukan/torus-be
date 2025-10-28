@@ -1,8 +1,8 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { ProfileStatusEnum, UserRoleEnum } from '../../domain/user';
-import { OrganizationType } from './organization.type';
+import { Field, ID, ObjectType } from "@nestjs/graphql";
+import { ProfileStatusEnum, UserRoleEnum } from "../../domain/user";
+import { OrganizationType } from "./organization.type";
 
-@ObjectType('CurrentUser')
+@ObjectType("CurrentUser")
 export class CurrentUserType {
   @Field(() => ID)
   id!: string;

@@ -1,5 +1,5 @@
-import { Field, ID, InputType } from '@nestjs/graphql';
-import { UserRoleEnum } from '../../domain/user';
+import { Field, ID, InputType } from "@nestjs/graphql";
+import { UserRoleEnum } from "../../domain/user";
 
 @InputType()
 export class UpdateUserInputType {

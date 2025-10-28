@@ -1,13 +1,13 @@
 export enum UserRoleEnum {
-  superAdmin = 'super_admin',
-  orgAdmin = 'org_admin',
-  user = 'user',
+  superAdmin = "super_admin",
+  orgAdmin = "org_admin",
+  user = "user",
 }
 
 export enum ProfileStatusEnum {
-  pending = 'pending',
-  active = 'active',
-  suspended = 'suspended',
+  pending = "pending",
+  active = "active",
+  suspended = "suspended",
 }
 
 export type User = {

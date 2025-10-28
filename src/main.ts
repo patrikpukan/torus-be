@@ -1,11 +1,11 @@
-import {NestFactory} from '@nestjs/core';
-import {DocumentBuilder, SwaggerModule} from '@nestjs/swagger';
-import cookieParser from 'cookie-parser';
-import * as express from 'express';
-import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.mjs';
-import {AppModule} from './app.module';
-import {Config} from './shared/config/config.service';
-import {AppLoggerService} from './shared/logger/logger.service';
+import { NestFactory } from "@nestjs/core";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import cookieParser from "cookie-parser";
+import * as express from "express";
+import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs";
+import { AppModule } from "./app.module";
+import { Config } from "./shared/config/config.service";
+import { AppLoggerService } from "./shared/logger/logger.service";
 
 /**
  * Main application entry point
@@ -25,11 +25,13 @@ async function main(): Promise<void> {
   const config = app.get(Config);
 
   // Configure CORS - Allows cross-origin requests from specific origins
-  const corsOrigins = [config.baseUrl, config.frontendBaseUrl, config.frontendProdUrl].filter(
-    (origin): origin is string => typeof origin === 'string',
-  );
+  const corsOrigins = [
+    config.baseUrl,
+    config.frontendBaseUrl,
+    config.frontendProdUrl,
+  ].filter((origin): origin is string => typeof origin === "string");
   app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : '*',
+    origin: corsOrigins.length > 0 ? corsOrigins : "*",
     credentials: true,
   });
 
@@ -43,36 +45,46 @@ async function main(): Promise<void> {
   appInstance.use(express.json());
 
   // Configure API prefix for all routes
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix("api");
 
   // Setup Swagger API documentation
   const swaggerConfig = new DocumentBuilder()
     .setTitle(config.name)
     .setDescription(config.description)
     .setVersion(config.version)
-    .addServer('/api')
+    .addServer("/api")
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document);
+  SwaggerModule.setup("docs", app, document);
 
   // Print debug information for development purposes
-  console.log('App configuration:', {
+  console.log("App configuration:", {
     nodeEnv: config.nodeEnv || process.env.NODE_ENV,
     port: config.port,
     baseUrl: config.baseUrl,
     frontendBaseUrl: config.frontendBaseUrl,
-    database: config.postgresConnectionString?.split('@')[1]?.split('/')[0] || 'not configured',
+    database:
+      config.postgresConnectionString?.split("@")[1]?.split("/")[0] ||
+      "not configured",
   });
 
   // Start the application
   await app.listen(config.port || 4000);
-  
-  logger.log(`🚀 Application is running on: ${config.baseUrl || `http://localhost:${config.port || 4000}`}`);
-  logger.log(`📊 GraphQL Playground: ${config.baseUrl || `http://localhost:${config.port || 4000}`}/graphql`);
-  logger.log(`📚 API Documentation: ${config.baseUrl || `http://localhost:${config.port || 4000}`}/docs`);
-  logger.log(`🗄️  Database: ${config.databaseProvider} (${config.postgresConnectionString?.includes('supabase') ? 'Supabase' : 'Local'})`);
+
+  logger.log(
+    `🚀 Application is running on: ${config.baseUrl || `http://localhost:${config.port || 4000}`}`
+  );
+  logger.log(
+    `📊 GraphQL Playground: ${config.baseUrl || `http://localhost:${config.port || 4000}`}/graphql`
+  );
+  logger.log(
+    `📚 API Documentation: ${config.baseUrl || `http://localhost:${config.port || 4000}`}/docs`
+  );
+  logger.log(
+    `🗄️  Database: ${config.databaseProvider} (${config.postgresConnectionString?.includes("supabase") ? "Supabase" : "Local"})`
+  );
 }
 
 // Execute the main function
-main().catch((error) => console.error('Application error:', error));
+main().catch((error) => console.error("Application error:", error));

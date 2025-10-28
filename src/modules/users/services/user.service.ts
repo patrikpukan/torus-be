@@ -1,20 +1,20 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { pipeline } from 'stream/promises';
+import * as fs from "fs";
+import * as path from "path";
+import { pipeline } from "stream/promises";
 import {
   BadRequestException,
   ConflictException,
   Injectable,
   Logger,
   NotFoundException,
-} from '@nestjs/common';
-import { CurrentUser, User, UserRoleEnum } from '../domain/user';
-import { UserRepository } from '../repositories/user.repository';
-import { Identity } from 'src/shared/auth/domain/identity';
-import { PrismaService } from 'src/core/prisma/prisma.service';
-import { withRls } from 'src/db/withRls';
-import { getRlsClaims } from 'src/shared/auth/utils/get-rls-claims';
-import { SupabaseAdminService } from 'src/shared/auth/supabase-admin.service';
+} from "@nestjs/common";
+import { CurrentUser, User, UserRoleEnum } from "../domain/user";
+import { UserRepository } from "../repositories/user.repository";
+import { Identity } from "src/shared/auth/domain/identity";
+import { PrismaService } from "src/core/prisma/prisma.service";
+import { withRls } from "src/db/withRls";
+import { getRlsClaims } from "src/shared/auth/utils/get-rls-claims";
+import { SupabaseAdminService } from "src/shared/auth/supabase-admin.service";
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -31,30 +31,33 @@ export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly prisma: PrismaService,
-    private readonly supabaseAdminService: SupabaseAdminService,
+    private readonly supabaseAdminService: SupabaseAdminService
   ) {}
 
   async getUserById(identity: Identity, id: string): Promise<User | null> {
     return withRls(this.prisma, getRlsClaims(identity), (tx) =>
-      this.userRepository.getUserById(id, tx),
+      this.userRepository.getUserById(id, tx)
     );
   }
 
   async getCurrentUser(identity: Identity): Promise<CurrentUser | null> {
     return withRls(this.prisma, getRlsClaims(identity), (tx) =>
-      this.userRepository.getUserWithOrganizationById(identity.id, tx),
+      this.userRepository.getUserWithOrganizationById(identity.id, tx)
     );
   }
 
-  async getUserByUsername(identity: Identity, username: string): Promise<User | null> {
+  async getUserByUsername(
+    identity: Identity,
+    username: string
+  ): Promise<User | null> {
     return withRls(this.prisma, getRlsClaims(identity), (tx) =>
-      this.userRepository.getUserByUserName(username, tx),
+      this.userRepository.getUserByUserName(username, tx)
     );
   }
 
   async listUsers(
     identity: Identity,
-    params?: { offset?: number; limit?: number },
+    params?: { offset?: number; limit?: number }
   ): Promise<User[]> {
     return withRls(this.prisma, getRlsClaims(identity), (tx) =>
       this.userRepository.listUsers(
@@ -62,8 +65,8 @@ export class UserService {
           offset: params?.offset,
           limit: params?.limit,
         },
-        tx,
-      ),
+        tx
+      )
     );
   }
 
@@ -97,7 +100,7 @@ export class UserService {
       interests?: string | null;
       isActive?: boolean;
       suspendedUntil?: Date | null;
-    },
+    }
   ): Promise<User> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const user = await this.userRepository.getUserById(id, tx);
@@ -120,13 +123,11 @@ export class UserService {
       preferredActivity?: string | null;
       interests?: string | null;
       avatarUrl?: string | null;
-    },
+    }
   ): Promise<CurrentUser> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
-      const existingUser = await this.userRepository.getUserWithOrganizationById(
-        identity.id,
-        tx,
-      );
+      const existingUser =
+        await this.userRepository.getUserWithOrganizationById(identity.id, tx);
 
       if (!existingUser) {
         throw new NotFoundException();
@@ -142,14 +143,14 @@ export class UserService {
           preferredActivity: data.preferredActivity,
           interests: data.interests,
           profileImageUrl:
-            typeof data.avatarUrl !== 'undefined' ? data.avatarUrl : undefined,
+            typeof data.avatarUrl !== "undefined" ? data.avatarUrl : undefined,
         },
-        tx,
+        tx
       );
 
       const updatedUser = await this.userRepository.getUserWithOrganizationById(
         identity.id,
-        tx,
+        tx
       );
 
       if (!updatedUser) {
@@ -168,13 +169,13 @@ export class UserService {
       firstName?: string | null;
       lastName?: string | null;
     },
-    profilePicture?: Promise<FileUpload>,
+    profilePicture?: Promise<FileUpload>
   ): Promise<User> {
     const existingUser = await this.userRepository.getUserByUserName(
-      data.username,
+      data.username
     );
     if (existingUser) {
-      throw new ConflictException('Username already exists');
+      throw new ConflictException("Username already exists");
     }
 
     let supabaseAuthId: string | undefined;
@@ -195,7 +196,7 @@ export class UserService {
         if (supabaseResult.error) {
           this.logger.error(
             `Supabase auth user creation error: ${supabaseResult.error.message}`,
-            supabaseResult.error.stack,
+            supabaseResult.error.stack
           );
         } else {
           supabaseAuthId = supabaseResult.data?.user?.id ?? undefined;
@@ -203,20 +204,20 @@ export class UserService {
       } catch (error) {
         const err = error as Error;
         this.logger.error(
-          'Supabase auth user creation failed',
-          err.stack ?? err.message,
+          "Supabase auth user creation failed",
+          err.stack ?? err.message
         );
       }
     } else {
       this.logger.warn(
-        'Supabase admin client is disabled; skipping Supabase user provisioning',
+        "Supabase admin client is disabled; skipping Supabase user provisioning"
       );
     }
 
     const newUser = await this.userRepository.getUserByEmail(data.email);
 
     if (!newUser) {
-      throw new BadRequestException('Failed to create user');
+      throw new BadRequestException("Failed to create user");
     }
 
     await this.userRepository.updateUser(newUser.id, {
@@ -232,15 +233,15 @@ export class UserService {
         const file = await profilePicture;
         const uploadDir = path.join(
           process.cwd(),
-          'uploads',
-          'profile-pictures',
+          "uploads",
+          "profile-pictures"
         );
 
         if (!fs.existsSync(uploadDir)) {
           fs.mkdirSync(uploadDir, { recursive: true });
         }
 
-        const fileExtension = file.filename.split('.').pop();
+        const fileExtension = file.filename.split(".").pop();
         const fileName = `${newUser.id}.${fileExtension}`;
         const filePath = path.join(uploadDir, fileName);
 
@@ -254,10 +255,10 @@ export class UserService {
       } catch (error) {
         const err = error as Error;
         this.logger.error(
-          'Error uploading profile picture',
-          err.stack ?? err.message,
+          "Error uploading profile picture",
+          err.stack ?? err.message
         );
-        throw new BadRequestException('Failed to upload profile picture');
+        throw new BadRequestException("Failed to upload profile picture");
       }
     }
 

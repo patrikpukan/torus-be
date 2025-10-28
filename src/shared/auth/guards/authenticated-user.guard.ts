@@ -3,9 +3,9 @@ import {
   ExecutionContext,
   Injectable,
   UnauthorizedException,
-} from '@nestjs/common';
-import { GqlExecutionContext } from '@nestjs/graphql';
-import { Identity } from '../domain/identity';
+} from "@nestjs/common";
+import { GqlExecutionContext } from "@nestjs/graphql";
+import { Identity } from "../domain/identity";
 
 @Injectable()
 export class AuthenticatedUserGuard implements CanActivate {
@@ -19,7 +19,7 @@ export class AuthenticatedUserGuard implements CanActivate {
     const identity = user ?? req?.user ?? null;
 
     if (!identity) {
-      throw new UnauthorizedException('Authentication required');
+      throw new UnauthorizedException("Authentication required");
     }
 
     return true;
