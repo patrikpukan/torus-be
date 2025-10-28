@@ -4,10 +4,10 @@ import { Identity } from "../domain/identity";
 export const getRlsClaims = (identity: Identity): SupabaseJwtClaims => {
   const claims: SupabaseJwtClaims = {
     ...(identity.rawClaims ?? {}),
-    sub: identity.id,
+    sub: identity.supabaseUserId ?? identity.id,
   };
 
-  if (!claims.role || typeof claims.role !== "string") {
+  if (!claims.role) {
     claims.role = identity.role ?? "authenticated";
   }
 
