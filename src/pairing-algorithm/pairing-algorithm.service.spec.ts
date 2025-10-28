@@ -35,9 +35,9 @@ describe('PairingAlgorithmService helpers', () => {
     pairingCreateMany = jest.fn();
     organizationFindUnique = jest.fn();
     algorithmSettingFindUnique = jest.fn();
-   algorithmSettingCreate = jest.fn();
-   algorithmSettingUpdate = jest.fn();
-   prismaTransaction = jest.fn();
+    algorithmSettingCreate = jest.fn();
+    algorithmSettingUpdate = jest.fn();
+    prismaTransaction = jest.fn();
   logger = { log: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
