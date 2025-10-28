@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { User } from '@prisma/client';
+import { PairingPeriodStatus, User } from '@prisma/client';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
 
@@ -13,6 +13,103 @@ export class PairingAlgorithmService {
   async executePairing(organizationId: string): Promise<void> {
     this.logger.log(
       `Pairing algorithm started for organization: ${organizationId}`,
+      PairingAlgorithmService.name,
+    );
+
+    let algorithmSettings = await this.prisma.algorithmSetting.findUnique({
+      where: { organizationId },
+    });
+
+    if (!algorithmSettings) {
+      algorithmSettings = await this.prisma.algorithmSetting.create({
+        data: {
+          organizationId,
+          periodLengthDays: 21,
+          randomSeed: Date.now(),
+        },
+      });
+    }
+
+    const periodLengthDays = algorithmSettings.periodLengthDays ?? 21;
+
+    let pairingPeriod = await this.prisma.pairingPeriod.findFirst({
+      where: {
+        organizationId,
+        status: PairingPeriodStatus.active,
+      },
+      orderBy: { startDate: 'desc' },
+    });
+
+    if (!pairingPeriod) {
+      const startDate = new Date();
+      const endDate = new Date(
+        startDate.getTime() + periodLengthDays * 24 * 60 * 60 * 1000,
+      );
+
+      pairingPeriod = await this.prisma.pairingPeriod.create({
+        data: {
+          organizationId,
+          status: PairingPeriodStatus.active,
+          startDate,
+          endDate,
+        },
+      });
+    }
+
+    const eligibleUsers = await this.getEligibleUsers(organizationId, pairingPeriod.id);
+
+    const [newUserIds, unpairedUserIds] = await Promise.all([
+      this.getNewUsers(organizationId),
+      this.getUnpairedFromLastPeriod(organizationId, pairingPeriod.id),
+    ]);
+
+    const guaranteedUserIds = Array.from(
+      new Set<string>([...newUserIds, ...unpairedUserIds]),
+    );
+
+    if (eligibleUsers.length < 2) {
+      throw new Error('Not enough users to create pairings');
+    }
+
+    if (eligibleUsers.length % 2 !== 0) {
+      this.logger.warn(
+        `Odd number of users, one will remain unpaired (eligible count: ${eligibleUsers.length})`,
+        PairingAlgorithmService.name,
+      );
+    }
+
+    const userHistories = new Map<string, Map<string, number>>();
+    const userBlocks = new Map<string, Set<string>>();
+
+    await Promise.all(
+      eligibleUsers.map(async (user) => {
+        const [history, blocks] = await Promise.all([
+          this.getUserPairingHistory(user.id, organizationId),
+          this.getUserBlocks(user.id),
+        ]);
+
+        userHistories.set(user.id, history);
+        userBlocks.set(user.id, blocks);
+      }),
+    );
+
+    const logPayload = {
+      algorithmSettings,
+      pairingPeriod,
+      eligibleUserIds: eligibleUsers.map((user) => user.id),
+      guaranteedUserIds,
+      histories: Array.from(userHistories.entries()).map(([userId, history]) => ({
+        userId,
+        history: Array.from(history.entries()),
+      })),
+      blocks: Array.from(userBlocks.entries()).map(([userId, blocks]) => ({
+        userId,
+        blocks: Array.from(blocks.values()),
+      })),
+    };
+
+    this.logger.debug(
+      `Pairing algorithm context: ${JSON.stringify(logPayload)}`,
       PairingAlgorithmService.name,
     );
   }
