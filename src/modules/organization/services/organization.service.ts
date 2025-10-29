@@ -96,7 +96,7 @@ export class OrganizationService {
                   username: tempUsername,
                   organization_id: organization.id,
                   organization_name: organization.name,
-                  role: UserRoleEnum.orgAdmin,
+                  role: UserRoleEnum.org_admin,
                 },
               }
             );
@@ -157,7 +157,7 @@ export class OrganizationService {
             email: data.adminEmail,
             emailVerified: false,
             username: data.adminEmail.split("@")[0],
-            role: UserRoleEnum.orgAdmin,
+            role: UserRoleEnum.org_admin,
             supabaseUserId: supabaseAuthId,
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -170,7 +170,7 @@ export class OrganizationService {
           data: {
             organizationId: organization.id,
             username: data.adminEmail.split("@")[0],
-            role: UserRoleEnum.orgAdmin,
+            role: UserRoleEnum.org_admin,
           },
         });
       }

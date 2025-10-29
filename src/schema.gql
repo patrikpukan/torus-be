@@ -166,7 +166,7 @@ type User {
 
 """User role"""
 enum UserRoleEnum {
-  orgAdmin
-  superAdmin
+  org_admin
+  super_admin
   user
 }

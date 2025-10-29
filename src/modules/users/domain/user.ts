@@ -1,6 +1,6 @@
 export enum UserRoleEnum {
-  superAdmin = "super_admin",
-  orgAdmin = "org_admin",
+  super_admin = "super_admin",
+  org_admin = "org_admin",
   user = "user",
 }
 
