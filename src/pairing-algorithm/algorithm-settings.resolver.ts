@@ -1,10 +1,11 @@
 import { BadRequestException, ForbiddenException, UseGuards } from "@nestjs/common";
+import { randomInt } from "crypto";
 import { Args, Mutation, Query, Resolver } from "@nestjs/graphql";
 import { UserRole } from "@prisma/client";
 import { AlgorithmSettingsResponse, AlgorithmSettingsType } from "./types/algorithm-settings.type";
 import { UpdateAlgorithmSettingsInput } from "./types/update-algorithm-settings.input";
-import { AuthenticatedUserGuard } from "../shared/auth/guards/authenticated-user.guard";
 import { User } from "../shared/auth/decorators/user.decorator";
+import { AuthenticatedUserGuard } from "../shared/auth/guards/authenticated-user.guard";
 import type { Identity } from "../shared/auth/domain/identity";
 import { PrismaService } from "../core/prisma/prisma.service";
 import { AppLoggerService } from "../shared/logger/logger.service";
@@ -218,10 +219,10 @@ export class AlgorithmSettingsResolver {
   }
 
   private resolvePeriodLengthDays(
-  input: number | null | undefined,
-  fallback?: number | null
+    input: number | null | undefined,
+    fallback?: number | null
   ): number {
-  const value = input ?? fallback ?? this.pairingConfig.defaultPeriodDays;
+    const value = input ?? fallback ?? this.pairingConfig.defaultPeriodDays;
 
     if (!Number.isInteger(value) || value <= 0) {
       throw new BadRequestException("periodLengthDays must be a positive integer");
@@ -232,23 +233,24 @@ export class AlgorithmSettingsResolver {
 
   private resolveRandomSeed(
     input: number | null | undefined,
-  fallback?: number | null
+    fallback?: number | null
   ): number {
-    if (input == null) {
-      const fallbackSeed = fallback ?? Math.abs(Date.now());
+    const minSeed = 1;
+    const maxSeed = 2_147_483_647; // INT4 max value
 
-      if (!Number.isInteger(fallbackSeed) || fallbackSeed <= 0) {
-        throw new BadRequestException("randomSeed must be a positive integer");
+    const candidate = input ?? fallback;
+
+    if (candidate != null) {
+      if (!Number.isInteger(candidate) || candidate < minSeed || candidate > maxSeed) {
+        throw new BadRequestException(
+          `randomSeed must be an integer between ${minSeed} and ${maxSeed}`
+        );
       }
 
-      return fallbackSeed;
+      return candidate;
     }
 
-    if (!Number.isInteger(input) || input <= 0) {
-      throw new BadRequestException("randomSeed must be a positive integer");
-    }
-
-    return input;
+    return randomInt(minSeed, maxSeed + 1);
   }
 
   private buildWarning(periodLengthDays: number): string | null {
