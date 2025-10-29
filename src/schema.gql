@@ -81,6 +81,25 @@ type PairingExecutionResult {
   unpairedUsers: Int
 }
 
+type PairingHistory {
+  createdAt: DateTime!
+  id: ID!
+  status: PairingStatusEnum!
+  userA: User!
+  userAId: ID!
+  userB: User!
+  userBId: ID!
+}
+
+"""Pairing status"""
+enum PairingStatusEnum {
+  cancelled
+  matched
+  met
+  not_met
+  planned
+}
+
 """Profile onboarding status"""
 enum ProfileStatusEnum {
   active
@@ -92,6 +111,7 @@ type Query {
   getAlgorithmSettings(organizationId: String!): AlgorithmSettings!
   getCurrentUser: CurrentUser
   getPairedUsers: [User!]!
+  getPairingHistory: [PairingHistory!]!
   user(username: String!): User
   userById(id: ID!): User
   users: [User!]!
@@ -161,7 +181,7 @@ type User {
   profileImageUrl: String
   profileStatus: ProfileStatusEnum!
   role: UserRoleEnum!
-  username: String!
+  username: String
 }
 
 """User role"""

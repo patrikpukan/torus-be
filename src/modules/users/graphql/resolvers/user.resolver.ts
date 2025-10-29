@@ -9,6 +9,7 @@ import { UpdateUserInputType } from "../types/update-user-input.type";
 import { UserType } from "../types/user.type";
 import { CurrentUserType } from "../types/current-user.type";
 import { UpdateCurrentUserProfileInputType } from "../types/update-current-user-profile-input.type";
+import { PairingHistoryType } from "../types/pairing-history.type";
 
 @Resolver(() => UserType)
 export class UserResolver {
@@ -42,6 +43,14 @@ export class UserResolver {
   @Query(() => [UserType])
   async getPairedUsers(@User() identity: Identity): Promise<UserType[]> {
     return this.userService.getPairedUsers(identity);
+  }
+
+  @UseGuards(AuthenticatedUserGuard)
+  @Query(() => [PairingHistoryType])
+  async getPairingHistory(
+    @User() identity: Identity
+  ): Promise<PairingHistoryType[]> {
+    return this.userService.getPairingHistory(identity);
   }
 
   @UseGuards(AuthenticatedUserGuard)

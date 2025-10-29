@@ -15,6 +15,7 @@ import { PrismaService } from "src/core/prisma/prisma.service";
 import { withRls } from "src/db/withRls";
 import { getRlsClaims } from "src/shared/auth/utils/get-rls-claims";
 import { SupabaseAdminService } from "src/shared/auth/supabase-admin.service";
+import { PairingStatusEnum } from "../graphql/types/pairing-history.type";
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -295,6 +296,50 @@ export class UserService {
       }
 
       return pairedUsers;
+    });
+  }
+
+  /**
+   * Get pairing history for current user with detailed pairing information.
+   * Returns all pairings (both as userA and userB) sorted by creation date (newest first).
+   */
+  async getPairingHistory(
+    identity: Identity
+  ): Promise<
+    Array<{
+      id: string;
+      userAId: string;
+      userBId: string;
+      status: PairingStatusEnum;
+      createdAt: Date;
+      userA: User;
+      userB: User;
+    }>
+  > {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      // Get all pairings where current user is involved, sorted by newest first
+      const pairings = await tx.pairing.findMany({
+        where: {
+          OR: [{ userAId: identity.id }, { userBId: identity.id }],
+        },
+        include: {
+          userA: true,
+          userB: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      return pairings.map((pairing) => ({
+        id: pairing.id,
+        userAId: pairing.userAId,
+        userBId: pairing.userBId,
+        status: pairing.status as PairingStatusEnum,
+        createdAt: pairing.createdAt,
+        userA: pairing.userA as User,
+        userB: pairing.userB as User,
+      }));
     });
   }
 }
