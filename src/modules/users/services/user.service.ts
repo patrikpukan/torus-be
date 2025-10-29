@@ -1,21 +1,20 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { pipeline } from 'stream/promises';
+import * as fs from "fs";
+import * as path from "path";
+import { pipeline } from "stream/promises";
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
-} from '@nestjs/common';
-import type { BetterAuth } from 'src/shared/auth/providers/better-auth.provider';
-import { InjectBetterAuth } from 'src/shared/auth/providers/better-auth.provider';
-import { AbilityFactory } from 'src/shared/permissions/factory/ability.factory';
-import { Identity } from '../../../shared/auth/domain/identity';
-import { User, UserRoleEnum } from '../domain/user';
-import { UserRepository } from '../repositories/user.repository';
-import { SupabaseAdminService } from 'src/shared/auth/services/supabase-admin.service';
+} from "@nestjs/common";
+import { CurrentUser, User, UserRoleEnum } from "../domain/user";
+import { UserRepository } from "../repositories/user.repository";
+import { Identity } from "src/shared/auth/domain/identity";
+import { PrismaService } from "src/core/prisma/prisma.service";
+import { withRls } from "src/db/withRls";
+import { getRlsClaims } from "src/shared/auth/utils/get-rls-claims";
+import { SupabaseAdminService } from "src/shared/auth/supabase-admin.service";
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -31,91 +30,150 @@ export class UserService {
 
   constructor(
     private readonly userRepository: UserRepository,
-    private readonly abilityFactory: AbilityFactory,
-    @InjectBetterAuth private readonly betterAuth: BetterAuth,
-    private readonly supabaseAdminService: SupabaseAdminService,
+    private readonly prisma: PrismaService,
+    private readonly supabaseAdminService: SupabaseAdminService
   ) {}
 
-  async getUserById(id: string): Promise<User | null> {
-    return this.userRepository.getUserById(id);
+  async getUserById(identity: Identity, id: string): Promise<User | null> {
+    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
+      this.userRepository.getUserById(id, tx)
+    );
   }
 
-  async getUserByUsername(username: string): Promise<User | null> {
-    return this.userRepository.getUserByUserName(username);
+  async getCurrentUser(identity: Identity): Promise<CurrentUser | null> {
+    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
+      this.userRepository.getUserWithOrganizationById(identity.id, tx)
+    );
   }
 
-  async getUsersByIds(ids: string[]): Promise<User[]> {
-    return this.userRepository.getUsersByIds(ids);
+  async getUserByUsername(
+    identity: Identity,
+    username: string
+  ): Promise<User | null> {
+    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
+      this.userRepository.getUserByUserName(username, tx)
+    );
   }
+
+  async listUsers(identity: Identity): Promise<User[]> {
+    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
+      this.userRepository.listUsers(tx)
+    );
+  }
+
+  // Creation of users is handled via signUp (BetterAuth) flow.
 
   async deleteUserById(identity: Identity, id: string): Promise<User> {
-    const ability = this.abilityFactory.createForUser(identity);
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const user = await this.userRepository.getUserById(id, tx);
 
-    const user = await this.userRepository.getUserById(id);
+      if (!user) {
+        throw new NotFoundException();
+      }
 
-    if (!user) {
-      throw new NotFoundException();
-    }
-
-    if (!ability.canDeleteUser(user)) {
-      throw new ForbiddenException();
-    }
-
-    return this.userRepository.deleteUserById(id);
+      return this.userRepository.deleteUserById(id, tx);
+    });
   }
 
   async updateUserById(
     identity: Identity,
     id: string,
     data: {
-      name?: string;
       email?: string;
       role?: UserRoleEnum;
-      profileImageUrl?: string;
-    },
+      profileImageUrl?: string | null;
+      username?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      about?: string | null;
+      hobbies?: string | null;
+      preferredActivity?: string | null;
+      interests?: string | null;
+      isActive?: boolean;
+      suspendedUntil?: Date | null;
+      displayUsername?: string | null;
+    }
   ): Promise<User> {
-    const ability = this.abilityFactory.createForUser(identity);
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const user = await this.userRepository.getUserById(id, tx);
 
-    const user = await this.userRepository.getUserById(id);
+      if (!user) {
+        throw new NotFoundException();
+      }
 
-    if (!user) {
-      throw new NotFoundException();
+      return this.userRepository.updateUser(id, data, tx);
+    });
+  }
+
+  async updateCurrentUserProfile(
+    identity: Identity,
+    data: {
+      firstName?: string | null;
+      lastName?: string | null;
+      about?: string | null;
+      hobbies?: string | null;
+      preferredActivity?: string | null;
+      interests?: string | null;
+      avatarUrl?: string | null;
+      displayUsername?: string | null;
     }
+  ): Promise<CurrentUser> {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const existingUser =
+        await this.userRepository.getUserWithOrganizationById(identity.id, tx);
 
-    if (!ability.canUpdateUser(user)) {
-      throw new ForbiddenException();
-    }
+      if (!existingUser) {
+        throw new NotFoundException();
+      }
 
-    return this.userRepository.updateUser(id, data);
+      await this.userRepository.updateUser(
+        identity.id,
+        {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          about: data.about,
+          hobbies: data.hobbies,
+          preferredActivity: data.preferredActivity,
+          interests: data.interests,
+          profileImageUrl:
+            typeof data.avatarUrl !== "undefined" ? data.avatarUrl : undefined,
+          displayUsername: data.displayUsername,
+        },
+        tx
+      );
+
+      const updatedUser = await this.userRepository.getUserWithOrganizationById(
+        identity.id,
+        tx
+      );
+
+      if (!updatedUser) {
+        throw new NotFoundException();
+      }
+
+      return updatedUser;
+    });
   }
 
   async signUp(
     data: {
       email: string;
       password: string;
-      name: string;
       username: string;
+      firstName?: string | null;
+      lastName?: string | null;
+      organizationId?: string; // Add organization ID parameter
     },
-    profilePicture?: Promise<FileUpload>,
+    profilePicture?: Promise<FileUpload>
   ): Promise<User> {
-    // Check if username already exists
     const existingUser = await this.userRepository.getUserByUserName(
-      data.username,
+      data.username
     );
     if (existingUser) {
-      throw new ConflictException('Username already exists');
+      throw new ConflictException("Username already exists");
     }
 
-    // Create user with BetterAuth using the correct API structure
-    const betterAuthResult = await this.betterAuth.api.signUpEmail({
-      body: {
-        email: data.email,
-        password: data.password,
-        name: data.name,
-      },
-    });
-
-  let supabaseAuthId: string | undefined;
+    let supabaseAuthId: string | undefined;
 
     if (this.supabaseAdminService.isEnabled()) {
       try {
@@ -124,75 +182,119 @@ export class UserService {
           password: data.password,
           email_confirm: true,
           user_metadata: {
-            betterAuthUserId: (betterAuthResult as { user?: { id?: string } } | undefined)?.user?.id ?? null,
+            username: data.username,
+            first_name: data.firstName ?? undefined,
+            last_name: data.lastName ?? undefined,
+            organization_id: data.organizationId ?? undefined, // Pass org ID to Supabase
           },
         });
 
         if (supabaseResult.error) {
           this.logger.error(
             `Supabase auth user creation error: ${supabaseResult.error.message}`,
-            supabaseResult.error.stack,
+            supabaseResult.error.stack
           );
         } else {
           supabaseAuthId = supabaseResult.data?.user?.id ?? undefined;
         }
       } catch (error) {
         const err = error as Error;
-        this.logger.error('Supabase auth user creation failed', err.stack ?? err.message);
+        this.logger.error(
+          "Supabase auth user creation failed",
+          err.stack ?? err.message
+        );
       }
+    } else {
+      this.logger.warn(
+        "Supabase admin client is disabled; skipping Supabase user provisioning"
+      );
     }
 
-    // Find the newly created user by email
     const newUser = await this.userRepository.getUserByEmail(data.email);
 
     if (!newUser) {
-      throw new BadRequestException('Failed to create user');
+      throw new BadRequestException("Failed to create user");
     }
 
-    // Update the user with the username and role
     await this.userRepository.updateUser(newUser.id, {
       username: data.username,
       role: UserRoleEnum.user,
       supabaseUserId: supabaseAuthId ?? newUser.supabaseUserId,
+      firstName: data.firstName,
+      lastName: data.lastName,
     });
 
-    // Handle profile picture if it exists
     if (profilePicture) {
       try {
         const file = await profilePicture;
         const uploadDir = path.join(
           process.cwd(),
-          'uploads',
-          'profile-pictures',
+          "uploads",
+          "profile-pictures"
         );
 
-        // Ensure the upload directory exists
         if (!fs.existsSync(uploadDir)) {
           fs.mkdirSync(uploadDir, { recursive: true });
         }
 
-        // Generate a unique filename
-        const fileExtension = file.filename.split('.').pop();
+        const fileExtension = file.filename.split(".").pop();
         const fileName = `${newUser.id}.${fileExtension}`;
         const filePath = path.join(uploadDir, fileName);
 
-        // Create a write stream
         const writeStream = fs.createWriteStream(filePath);
 
-        // Use pipeline for proper error handling during stream operations
         await pipeline(file.createReadStream(), writeStream);
 
-        // Update user with profile picture path
         await this.userRepository.updateUser(newUser.id, {
           profileImageUrl: `/uploads/profile-pictures/${fileName}`,
         });
       } catch (error) {
-        console.error('Error uploading profile picture:', error);
-        throw new BadRequestException('Failed to upload profile picture');
+        const err = error as Error;
+        this.logger.error(
+          "Error uploading profile picture",
+          err.stack ?? err.message
+        );
+        throw new BadRequestException("Failed to upload profile picture");
       }
     }
 
-    // Return the created user
     return this.userRepository.getUserById(newUser.id) as Promise<User>;
+  }
+
+  /**
+   * Get all users that the current user has been paired with historically.
+   * Returns distinct users from all pairings (both as userA and userB).
+   */
+  async getPairedUsers(identity: Identity): Promise<User[]> {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      // Get all pairings where current user is involved
+      const pairings = await tx.pairing.findMany({
+        where: {
+          OR: [{ userAId: identity.id }, { userBId: identity.id }],
+        },
+        include: {
+          userA: true,
+          userB: true,
+        },
+      });
+
+      // Extract paired users (remove duplicates)
+      const pairedUserIds = new Set<string>();
+      const pairedUsers: User[] = [];
+
+      for (const pairing of pairings) {
+        const pairedUserId =
+          pairing.userAId === identity.id ? pairing.userBId : pairing.userAId;
+        const pairedUser =
+          pairing.userAId === identity.id ? pairing.userB : pairing.userA;
+
+        if (!pairedUserIds.has(pairedUserId)) {
+          pairedUserIds.add(pairedUserId);
+          pairedUsers.push(pairedUser as User);
+        }
+      }
+
+      return pairedUsers;
+    });
   }
 }

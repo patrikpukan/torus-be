@@ -4,8 +4,8 @@ import {
   Module,
   OptionalFactoryDependency,
   Provider,
-} from '@nestjs/common';
-import { EmailService } from './interfaces/email-service.interface';
+} from "@nestjs/common";
+import { EmailService } from "./interfaces/email-service.interface";
 
 @Module({})
 export class EmailModule {
@@ -14,7 +14,7 @@ export class EmailModule {
     inject: (InjectionToken | OptionalFactoryDependency)[];
   }): DynamicModule {
     const emailProvider: Provider = {
-      provide: 'EmailService',
+      provide: "EmailService",
       useFactory: options.useFactory,
       inject: options.inject,
     };

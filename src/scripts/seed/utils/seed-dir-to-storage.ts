@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync } from "node:fs";
 import {
   mkdir,
   readdir,
@@ -6,14 +6,14 @@ import {
   rm,
   stat,
   writeFile,
-} from 'node:fs/promises';
-import { join } from 'node:path';
+} from "node:fs/promises";
+import { join } from "node:path";
 
 // All paths passed to this module should be absolute, resolved from the project root, not relative to __dirname.
 
 export const seedDirToStorage = async (
   localDirectoryPath: string,
-  uploadDirectoryPath: string,
+  uploadDirectoryPath: string
 ): Promise<Array<{ name: string; size: number }>> => {
   try {
     // Ensure upload directory exists
@@ -25,7 +25,7 @@ export const seedDirToStorage = async (
       await Promise.all(
         existingFiles.map(async (file) => {
           await rm(join(uploadDirectoryPath, file), { force: true });
-        }),
+        })
       );
     }
 
@@ -40,7 +40,7 @@ export const seedDirToStorage = async (
           name: file,
           size: fileStat.size,
         };
-      }),
+      })
     );
 
     // Copy all files to the upload directory
@@ -53,15 +53,15 @@ export const seedDirToStorage = async (
         await writeFile(destinationPath, fileContent);
 
         return file;
-      }),
+      })
     );
 
     console.log(
-      `Successfully copied ${files.length} files to ${uploadDirectoryPath}`,
+      `Successfully copied ${files.length} files to ${uploadDirectoryPath}`
     );
     return filesObject;
   } catch (error) {
-    console.error('Error copying files to upload directory:', error);
+    console.error("Error copying files to upload directory:", error);
     throw error;
   }
 };

@@ -10,7 +10,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-  "useDefineForClassFields": false,
+    "useDefineForClassFields": false,
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",

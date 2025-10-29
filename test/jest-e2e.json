@@ -3,7 +3,13 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "setupFiles": ["<rootDir>/setup-e2e-env.ts"],
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/../src/$1",
+    "^graphql-upload/GraphQLUpload.mjs$": "<rootDir>/__mocks__/graphql-upload.ts",
+    "^graphql-upload/graphqlUploadExpress.mjs$": "<rootDir>/__mocks__/graphql-upload-express.ts"
   }
 }

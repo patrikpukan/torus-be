@@ -1,20 +1,20 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { Injectable } from '@nestjs/common';
-import Handlebars from 'handlebars';
+import * as fs from "fs/promises";
+import * as path from "path";
+import { Injectable } from "@nestjs/common";
+import Handlebars from "handlebars";
 import {
   CompilableTemplate,
   TemplateVariableValue,
-} from './interfaces/compilable-template.interface';
+} from "./interfaces/compilable-template.interface";
 
 @Injectable()
 export class EmailTemplateService {
   private readonly templateDirectories: string[] = [
     // Prefer project root assets (works in dev and prod after copying assets)
-    path.resolve(process.cwd(), 'assets/templates/html'),
+    path.resolve(process.cwd(), "assets/templates/html"),
     // Fallback for environments where templates remain alongside compiled sources
-    path.resolve(__dirname, '../../../assets/templates/html'),
-    path.resolve(__dirname, '../../../../assets/templates/html'),
+    path.resolve(__dirname, "../../../assets/templates/html"),
+    path.resolve(__dirname, "../../../../assets/templates/html"),
   ];
 
   /**
@@ -29,13 +29,13 @@ export class EmailTemplateService {
   }: CompilableTemplate<T>): Promise<string> {
     try {
       const filePath = await this.resolveTemplatePath(templatePath);
-      const htmlTemplate = await fs.readFile(filePath, 'utf8');
+      const htmlTemplate = await fs.readFile(filePath, "utf8");
       const handlebarsTemplate = Handlebars.compile(htmlTemplate);
       const filledTemplate = handlebarsTemplate(variables);
       return filledTemplate;
     } catch (error) {
-      console.error('Error compiling template:', error);
-      throw new Error('Failed to read or compile email template.');
+      console.error("Error compiling template:", error);
+      throw new Error("Failed to read or compile email template.");
     }
   }
 
@@ -47,7 +47,7 @@ export class EmailTemplateService {
         await fs.access(candidate);
         return candidate;
       } catch (err) {
-        if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") {
           throw err;
         }
       }

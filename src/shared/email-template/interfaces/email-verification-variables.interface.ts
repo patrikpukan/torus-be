@@ -1,4 +1,4 @@
-import { TemplateVariableValue } from './compilable-template.interface';
+import { TemplateVariableValue } from "./compilable-template.interface";
 
 export interface EmailVerificationTemplateVariables
   extends Record<string, TemplateVariableValue> {

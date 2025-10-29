@@ -1,29 +1,38 @@
-import { User, UserRole } from '@prisma/client';
-import { PrismaService } from '../../../core/prisma/prisma.service';
-import { BetterAuth } from '../../../shared/auth/providers/better-auth.provider';
+import { User, UserRole } from "@prisma/client";
+import { PrismaService } from "../../../core/prisma/prisma.service";
 
 type CreateUserParams = {
   email: string;
   password: string;
-  name: string;
+  firstName?: string;
+  lastName?: string;
   username: string;
   role?: string;
   profilePictureUrl?: string;
   profileStatus?: string;
+  organizationId?: string;
 };
 
 export async function createUser(
   prisma: PrismaService,
-  auth: BetterAuth,
-  params: CreateUserParams,
+  params: CreateUserParams
 ): Promise<User> {
-  const { email, password, name, username, role, profilePictureUrl, profileStatus } = params;
+  const {
+    email,
+    password,
+    firstName,
+    lastName,
+    username,
+    role,
+    profilePictureUrl,
+    profileStatus,
+    organizationId,
+  } = params;
   const db = prisma as any;
 
-  // NOTE: Do NOT call BetterAuth here. During seeding we avoid email flows/templates.
   // Create or update the user directly via Prisma.
-  const bcrypt = require('bcryptjs');
-  const { randomUUID } = require('crypto');
+  const bcrypt = require("bcryptjs");
+  const { randomUUID } = require("crypto");
   const now = new Date();
 
   let user = await db.user.findFirst({ where: { email } });
@@ -32,10 +41,12 @@ export async function createUser(
       data: {
         id: randomUUID(),
         email,
-        name,
+        firstName,
+        lastName,
         emailVerified: true,
         createdAt: now,
         updatedAt: now,
+        organizationId: organizationId || randomUUID(),
       },
     });
   }
@@ -47,14 +58,14 @@ export async function createUser(
       username,
       role: (role as UserRole) ?? undefined,
       image: profilePictureUrl ?? undefined,
-      profileStatus: profileStatus ?? 'active',
+      profileStatus: profileStatus ?? "active",
       updatedAt: now,
     },
   });
 
   // Ensure there is an email/password account linked
   const existingAccount = await db.account.findFirst({
-    where: { userId: user.id, providerId: 'email' },
+    where: { userId: user.id, providerId: "email" },
   });
   const hashedPassword = await bcrypt.hash(password, 10);
   if (existingAccount) {
@@ -67,7 +78,7 @@ export async function createUser(
       data: {
         id: randomUUID(),
         accountId: `${email}-email`,
-        providerId: 'email',
+        providerId: "email",
         userId: user.id,
         password: hashedPassword,
         createdAt: now,

@@ -1,1 +1,1 @@
-export const PubSubSymbol = Symbol.for('PubSub');
+export const PubSubSymbol = Symbol.for("PubSub");

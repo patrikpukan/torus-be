@@ -1,17 +1,36 @@
-import { Module } from '@nestjs/common';
-import { PrismaModule } from 'src/core/prisma/prisma.module';
-import { EmailSharedModule } from '../../core/email/shared-email-module';
-import { EmailTemplateModule } from '../email-template/email-template.module';
-import { UserRepository } from 'src/modules/users/repositories/user.repository';
-import { betterAuthProvider } from './providers/better-auth.provider';
-import { AuthService } from './services/auth.service';
-import { AuthHttpRouter } from './http/auth-http.router';
-import { OrgAdminRepository } from './repositories/org-admin.repository';
-import { SupabaseAdminService } from './services/supabase-admin.service';
+import { Module } from "@nestjs/common";
+import { PrismaModule } from "../../core/prisma/prisma.module";
+import { AuthorizationService } from "./services/authorization.service";
+import { RoleGuard } from "./guards/role.guard";
+import { OrgAdminGuard } from "./guards/org-admin.guard";
+import { SuperAdminGuard } from "./guards/super-admin.guard";
+import { AuthenticatedUserGuard } from "./guards/authenticated-user.guard";
 
+/**
+ * Authentication & Authorization Module
+ *
+ * Provides:
+ * - AuthorizationService: Business logic for role-based access control
+ * - Guards: OrgAdminGuard, SuperAdminGuard, RoleGuard, AuthenticatedUserGuard
+ *
+ * Usage:
+ * Import this module in your module to use the authorization system.
+ */
 @Module({
-  imports: [PrismaModule, EmailSharedModule, EmailTemplateModule],
-  providers: [betterAuthProvider, AuthService, AuthHttpRouter, OrgAdminRepository, UserRepository, SupabaseAdminService],
-  exports: [betterAuthProvider, AuthService, AuthHttpRouter, OrgAdminRepository, UserRepository, SupabaseAdminService],
+  imports: [PrismaModule],
+  providers: [
+    AuthorizationService,
+    RoleGuard,
+    OrgAdminGuard,
+    SuperAdminGuard,
+    AuthenticatedUserGuard,
+  ],
+  exports: [
+    AuthorizationService,
+    RoleGuard,
+    OrgAdminGuard,
+    SuperAdminGuard,
+    AuthenticatedUserGuard,
+  ],
 })
 export class AuthModule {}

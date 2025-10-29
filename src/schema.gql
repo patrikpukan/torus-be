@@ -2,10 +2,83 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type AlgorithmSettings {
+  createdAt: DateTime!
+  id: String!
+  organizationId: String!
+  periodLengthDays: Int!
+  randomSeed: Int!
+  updatedAt: DateTime!
+}
+
+type AlgorithmSettingsResponse {
+  createdAt: DateTime!
+  id: String!
+  organizationId: String!
+  periodLengthDays: Int!
+  randomSeed: Int!
+  updatedAt: DateTime!
+  warning: String
+}
+
+type CurrentUser {
+  about: String
+  displayUsername: String
+  email: String!
+  firstName: String
+  hobbies: String
+  id: ID!
+  interests: String
+  isActive: Boolean!
+  lastName: String
+  organization: Organization!
+  organizationId: ID!
+  preferredActivity: String
+  profileImageUrl: String
+  profileStatus: ProfileStatusEnum!
+  role: UserRoleEnum!
+  supabaseUserId: String
+  username: String
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
 type Mutation {
   deleteUser(id: ID!): User!
+  executePairingAlgorithm(organizationId: String!): PairingExecutionResult!
+  registerOrganization(input: RegisterOrganizationInputType!): RegisterOrganizationResponseType!
   signUp(data: SignUpInputType!): User!
+  updateAlgorithmSettings(input: UpdateAlgorithmSettingsInput!): AlgorithmSettingsResponse!
+  updateCurrentUserProfile(input: UpdateCurrentUserProfileInputType!): CurrentUser!
   updateUser(data: UpdateUserInputType!): User!
+}
+
+type Organization {
+  code: String!
+  id: ID!
+  imageUrl: String
+  name: String!
+}
+
+type OrganizationType {
+  address: String
+  code: String!
+  createdAt: DateTime!
+  id: ID!
+  imageUrl: String
+  name: String!
+  size: Float
+  updatedAt: DateTime!
+}
+
+type PairingExecutionResult {
+  message: String!
+  pairingsCreated: Int!
+  success: Boolean!
+  unpairedUsers: Int
 }
 
 """Profile onboarding status"""
@@ -16,22 +89,65 @@ enum ProfileStatusEnum {
 }
 
 type Query {
+  getAlgorithmSettings(organizationId: String!): AlgorithmSettings!
+  getCurrentUser: CurrentUser
+  getPairedUsers: [User!]!
   user(username: String!): User
+  userById(id: ID!): User
+  users: [User!]!
+}
+
+input RegisterOrganizationInputType {
+  adminEmail: String!
+  organizationAddress: String!
+  organizationName: String!
+  organizationSize: String!
+}
+
+type RegisterOrganizationResponseType {
+  adminEmail: String!
+  message: String!
+  organization: OrganizationType!
 }
 
 input SignUpInputType {
   email: String!
-  name: String!
+  firstName: String
+  lastName: String
   password: String!
   profilePicture: Upload
   username: String!
 }
 
+input UpdateAlgorithmSettingsInput {
+  organizationId: String!
+  periodLengthDays: Int
+  randomSeed: Int
+}
+
+input UpdateCurrentUserProfileInputType {
+  about: String
+  avatarUrl: String
+  displayUsername: String
+  firstName: String
+  hobbies: String
+  interests: String
+  lastName: String
+  preferredActivity: String
+}
+
 input UpdateUserInputType {
+  about: String
   email: String
+  firstName: String
+  hobbies: String
   id: ID!
-  name: String
+  interests: String
+  lastName: String
+  preferredActivity: String
+  profileImageUrl: String
   role: UserRoleEnum
+  username: String
 }
 
 """The `Upload` scalar type represents a file upload."""
@@ -39,8 +155,9 @@ scalar Upload
 
 type User {
   email: String!
+  firstName: String
   id: ID!
-  name: String!
+  lastName: String
   profileImageUrl: String
   profileStatus: ProfileStatusEnum!
   role: UserRoleEnum!
@@ -50,6 +167,6 @@ type User {
 """User role"""
 enum UserRoleEnum {
   orgAdmin
-  systemAdmin
+  superAdmin
   user
 }

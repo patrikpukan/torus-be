@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { Test } from '@nestjs/testing';
-import { PubSubSymbol } from '../utils/pubsub.symbol';
-import { PubSubService } from './pub-sub.service';
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { Test } from "@nestjs/testing";
+import { PubSubSymbol } from "../utils/pubsub.symbol";
+import { PubSubService } from "./pub-sub.service";
 
-describe('PubSubService', () => {
+describe("PubSubService", () => {
   let service: PubSubService;
   let mockPubSub: any;
 
@@ -26,14 +26,14 @@ describe('PubSubService', () => {
     service = module.get<PubSubService>(PubSubService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('publish', () => {
-    it('should call publish method of AMQPPubSub with correct parameters', async () => {
-      const topic = 'testTopic';
-      const payload = 'testPayload';
+  describe("publish", () => {
+    it("should call publish method of AMQPPubSub with correct parameters", async () => {
+      const topic = "testTopic";
+      const payload = "testPayload";
 
       await service.publish(topic, payload);
 
@@ -41,9 +41,9 @@ describe('PubSubService', () => {
     });
   });
 
-  describe('asyncIterator', () => {
-    it('should call asyncIterator method of AMQPPubSub with correct parameters', () => {
-      const topic = 'testTopic';
+  describe("asyncIterator", () => {
+    it("should call asyncIterator method of AMQPPubSub with correct parameters", () => {
+      const topic = "testTopic";
 
       service.asyncIterator(topic);
 

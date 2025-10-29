@@ -4,7 +4,7 @@ stages:
   - deploy
 
 variables:
-  YARN_CACHE_FOLDER: '$CI_PROJECT_DIR/cache/yarn'
+  YARN_CACHE_FOLDER: "$CI_PROJECT_DIR/cache/yarn"
 
 .rules:
   rules:

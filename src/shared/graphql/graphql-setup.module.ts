@@ -1,46 +1,161 @@
-import { join } from 'path';
-import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
-import { ConfigModule } from '@applifting-io/nestjs-decorated-config';
-import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { Logger, Module } from '@nestjs/common';
-import { GraphQLModule } from '@nestjs/graphql';
-import { AuthModule } from 'src/shared/auth/auth.module';
-import { BetterAuth } from '../auth/providers/better-auth.provider';
-import { getSessionFromRequest } from '../auth/utils/get-session-from-request';
-import { Config } from '../config/config.service';
+import { join } from "path";
+import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
+import { ConfigModule } from "@applifting-io/nestjs-decorated-config";
+import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
+import { Logger, Module } from "@nestjs/common";
+import { GraphQLModule } from "@nestjs/graphql";
+import type { Request, Response } from "express";
+import { verifySupabaseJwt } from "../../auth/verifySupabaseJwt";
+import { Identity } from "../auth/domain/identity";
+import { Config } from "../config/config.service";
+import { PrismaModule } from "../../core/prisma/prisma.module";
+import { PrismaService } from "../../core/prisma/prisma.service";
 
-const logger = new Logger('GraphqlSetupModule');
+const logger = new Logger("GraphqlSetupModule");
+
+interface GraphQLContextShape {
+  req: Request & { user?: Identity | null };
+  res: Response;
+  user: Identity | null;
+}
+
+const extractBearerToken = (
+  value?: string | string[] | null
+): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  const header = Array.isArray(value) && value.length > 0 ? value[0] : value;
+
+  if (typeof header !== "string") {
+    return null;
+  }
+
+  const trimmed = header.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const lowerCased = trimmed.toLowerCase();
+
+  return lowerCased.startsWith("bearer ") ? trimmed.slice(7).trim() : trimmed;
+};
+
+const buildIdentity = async (
+  token: string,
+  secret: string | undefined,
+  prisma: PrismaService
+): Promise<Identity | null> => {
+  if (!token || !secret) {
+    return null;
+  }
+
+  const claims = verifySupabaseJwt(token, secret);
+  const supabaseUserId = claims.sub;
+  let resolvedUserId = supabaseUserId;
+  let appRole: string | undefined;
+  let organizationId: string | undefined;
+
+  if (prisma) {
+    try {
+      const dbUser =
+        supabaseUserId &&
+        (await prisma.user.findFirst({
+          where: { supabaseUserId },
+          select: { id: true, role: true, organizationId: true },
+        }));
+
+      if (dbUser) {
+        resolvedUserId = dbUser.id;
+        appRole = dbUser.role ?? undefined;
+        organizationId = dbUser.organizationId ?? undefined;
+      } else if (typeof claims.email === "string" && claims.email) {
+        const fallbackUser = await prisma.user.findFirst({
+          where: { email: claims.email },
+          select: { id: true, role: true, supabaseUserId: true, organizationId: true },
+        });
+
+        if (fallbackUser) {
+          resolvedUserId = fallbackUser.id;
+          appRole = fallbackUser.role ?? undefined;
+          organizationId = fallbackUser.organizationId ?? undefined;
+        }
+      }
+    } catch (error) {
+      const err = error as Error;
+      logger.warn(
+        `Failed to resolve application user for Supabase identity: ${err.message}`
+      );
+    }
+  }
+
+  return {
+    id: resolvedUserId,
+    supabaseUserId,
+    email: typeof claims.email === "string" ? claims.email : undefined,
+    role: typeof claims.role === "string" ? claims.role : undefined,
+    appRole,
+    organizationId,
+    rawClaims: claims,
+    metadata:
+      typeof claims.user_metadata === "object" && claims.user_metadata !== null
+        ? (claims.user_metadata as Record<string, unknown>)
+        : undefined,
+  };
+};
 
 @Module({
   imports: [
+    ConfigModule,
+    PrismaModule,
     GraphQLModule.forRootAsync({
-      imports: [AuthModule, ConfigModule],
-      inject: [Config, 'BetterAuth'],
       driver: ApolloDriver,
-      useFactory: (
-        config: Config,
-        betterAuth: BetterAuth,
-      ): ApolloDriverConfig => {
+      imports: [ConfigModule, PrismaModule],
+      inject: [Config, PrismaService],
+      useFactory: (config: Config, prisma: PrismaService): ApolloDriverConfig => {
         return {
-          autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+          autoSchemaFile: join(process.cwd(), "src/schema.gql"),
           sortSchema: true,
           playground: false,
           introspection: true,
-          context: async ({
-            req,
-            res,
-            extra,
-          }): Promise<{
-            req: Request;
-            res: Response;
-            // todo: figure out proper typing here
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            extra: any;
-          }> => {
+          context: async (ctx): Promise<GraphQLContextShape> => {
+            const { req, res } = ctx as {
+              req: Request;
+              res: Response;
+            };
+            const request = req as GraphQLContextShape["req"];
+            let identity: Identity | null = null;
+
+            const headerToken = extractBearerToken(
+              request.headers?.authorization ?? request.headers?.Authorization
+            );
+            const token = headerToken ?? null;
+
+            if (token) {
+              try {
+                identity = await buildIdentity(
+                  token,
+                  config.supabaseJwtSecret,
+                  prisma
+                );
+              } catch (error) {
+                const err = error as Error;
+                logger.warn(
+                  `Failed to verify Supabase JWT: ${err.message}`,
+                  err.stack
+                );
+                identity = null;
+              }
+            }
+
+            request.user = identity;
+
             return {
-              req: extra?.request ?? req,
+              req: request,
               res,
-              extra,
+              user: identity,
             };
           },
           plugins: [
@@ -49,30 +164,6 @@ const logger = new Logger('GraphqlSetupModule');
               embed: true,
             }),
           ],
-          subscriptions: {
-            'graphql-ws': {
-              // todo: add proper type for context
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              onConnect: async (context: any): Promise<any> => {
-                logger.log('Subscription connection established');
-
-                const { extra } = context;
-                /* parse user from cookies on connection using the JwtStrategy
-                Todo: Not entirely sure that this is the best way to achieve it. It seems to retain the user even when logged out. Wasn't able to make the strategy work on it's own
-                Todo: Maybe move this code to the AuthenticatedUserGuard?
-                 */
-
-                // todo: test this
-                const session = await getSessionFromRequest(
-                  extra.request,
-                  betterAuth,
-                );
-
-                extra.request.session = session;
-                return context;
-              },
-            },
-          },
         };
       },
     }),
