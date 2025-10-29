@@ -8,6 +8,7 @@ import { SeedModule } from "./scripts/seed/seed.module";
 import { Config } from "./shared/config/config.service";
 import { GraphqlSetupModule } from "./shared/graphql/graphql-setup.module";
 import { LoggerModule } from "./shared/logger/logger.module";
+import { PairingAlgorithmModule } from "./pairing-algorithm/pairing-algorithm.module";
 
 const imports = [
   LoggerModule,
@@ -21,6 +22,7 @@ const imports = [
   UsersModule,
   WelcomeModule,
   GraphqlSetupModule,
+  PairingAlgorithmModule,
 ];
 
 @Module({
