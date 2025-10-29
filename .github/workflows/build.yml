@@ -24,6 +24,11 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        run: |
+          echo '📦 Installing dependencies...'
+          npm install
+
+      - name: Run CI
         run: npm ci
 
       - name: Build
