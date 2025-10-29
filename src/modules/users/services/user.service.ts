@@ -159,6 +159,7 @@ export class UserService {
       username: string;
       firstName?: string | null;
       lastName?: string | null;
+      organizationId?: string; // Add organization ID parameter
     },
     profilePicture?: Promise<FileUpload>
   ): Promise<User> {
@@ -181,6 +182,7 @@ export class UserService {
             username: data.username,
             first_name: data.firstName ?? undefined,
             last_name: data.lastName ?? undefined,
+            organization_id: data.organizationId ?? undefined, // Pass org ID to Supabase
           },
         });
 
