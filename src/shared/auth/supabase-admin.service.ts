@@ -43,4 +43,54 @@ export class SupabaseAdminService {
 
     return this.client.auth.admin.createUser(payload);
   }
+
+  /**
+   * Invite a user by email - sends an invitation email automatically
+   * This is the preferred method for inviting organization admins
+   */
+  async inviteUserByEmail(
+    email: string,
+    options?: {
+      data?: Record<string, unknown>;
+      redirectTo?: string;
+    }
+  ): Promise<Awaited<CreateUserResponse>> {
+    if (!this.client) {
+      throw new Error("Supabase admin client is not configured");
+    }
+
+    this.logger.log(`Inviting user by email: ${email}`);
+
+    return this.client.auth.admin.inviteUserByEmail(email, options);
+  }
+
+  /**
+   * Generate a password reset link for a user
+   * This can be used to invite users to set their password
+   */
+  async generatePasswordResetLink(email: string): Promise<string | null> {
+    if (!this.client) {
+      throw new Error("Supabase admin client is not configured");
+    }
+
+    try {
+      const { data, error } =
+        await this.client.auth.admin.generateLink({
+          type: "recovery",
+          email: email,
+        });
+
+      if (error) {
+        this.logger.error(
+          `Failed to generate password reset link: ${error.message}`
+        );
+        return null;
+      }
+
+      return data.properties?.action_link ?? null;
+    } catch (error) {
+      this.logger.error("Error generating password reset link", error);
+      return null;
+    }
+  }
 }

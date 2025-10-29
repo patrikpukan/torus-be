@@ -48,6 +48,7 @@ scalar DateTime
 type Mutation {
   deleteUser(id: ID!): User!
   executePairingAlgorithm(organizationId: String!): PairingExecutionResult!
+  registerOrganization(input: RegisterOrganizationInputType!): RegisterOrganizationResponseType!
   signUp(data: SignUpInputType!): User!
   updateAlgorithmSettings(input: UpdateAlgorithmSettingsInput!): AlgorithmSettingsResponse!
   updateCurrentUserProfile(input: UpdateCurrentUserProfileInputType!): CurrentUser!
@@ -59,6 +60,17 @@ type Organization {
   id: ID!
   imageUrl: String
   name: String!
+}
+
+type OrganizationType {
+  address: String
+  code: String!
+  createdAt: DateTime!
+  id: ID!
+  imageUrl: String
+  name: String!
+  size: Float
+  updatedAt: DateTime!
 }
 
 type PairingExecutionResult {
@@ -81,6 +93,19 @@ type Query {
   user(username: String!): User
   userById(id: ID!): User
   users: [User!]!
+}
+
+input RegisterOrganizationInputType {
+  adminEmail: String!
+  organizationAddress: String!
+  organizationName: String!
+  organizationSize: String!
+}
+
+type RegisterOrganizationResponseType {
+  adminEmail: String!
+  message: String!
+  organization: OrganizationType!
 }
 
 input SignUpInputType {
