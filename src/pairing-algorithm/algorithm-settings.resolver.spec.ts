@@ -1,11 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
+import { randomInt } from 'crypto';
 import { AlgorithmSettingsResolver } from './algorithm-settings.resolver';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
 import { PairingAlgorithmConfig } from './pairing-algorithm.config';
 
 const fixedDate = new Date('2025-01-01T00:00:00.000Z');
+
+jest.mock('crypto', () => ({
+  ...jest.requireActual('crypto'),
+  randomInt: jest.fn(),
+}));
 
 describe('AlgorithmSettingsResolver', () => {
   let resolver: AlgorithmSettingsResolver;
@@ -216,7 +222,7 @@ describe('AlgorithmSettingsResolver', () => {
     });
 
     it('should return defaults when no settings exist', async () => {
-      jest.spyOn(Date, 'now').mockReturnValue(987654321);
+      (randomInt as jest.Mock).mockReturnValue(987654321);
       (prisma.algorithmSetting.findUnique as jest.Mock).mockResolvedValue(null);
       (prisma.algorithmSetting.create as jest.Mock).mockResolvedValue({
         id: 'setting-2',

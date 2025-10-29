@@ -170,6 +170,9 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "setupFiles": [
+      "../test/setup-e2e-env.ts"
+    ]
   }
 }

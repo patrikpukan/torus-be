@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 
-async function main() {
+export async function main() {
   console.log("🗑️  Dropping all tables...");
 
   try {
@@ -57,13 +57,14 @@ async function main() {
     `);
   } catch (error) {
     console.error("❌ Error during reset:", error);
-    throw error;
   } finally {
     await prisma.$disconnect();
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}
