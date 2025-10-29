@@ -29,6 +29,7 @@ type CurrentUser {
   hobbies: String
   id: ID!
   interests: String
+  isActive: Boolean!
   lastName: String
   organization: Organization!
   organizationId: ID!
@@ -90,6 +91,7 @@ enum ProfileStatusEnum {
 type Query {
   getAlgorithmSettings(organizationId: String!): AlgorithmSettings!
   getCurrentUser: CurrentUser
+  getPairedUsers: [User!]!
   user(username: String!): User
   userById(id: ID!): User
   users: [User!]!
@@ -126,6 +128,7 @@ input UpdateAlgorithmSettingsInput {
 input UpdateCurrentUserProfileInputType {
   about: String
   avatarUrl: String
+  displayUsername: String
   firstName: String
   hobbies: String
   interests: String

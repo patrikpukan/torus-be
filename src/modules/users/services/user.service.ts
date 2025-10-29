@@ -91,6 +91,7 @@ export class UserService {
       interests?: string | null;
       isActive?: boolean;
       suspendedUntil?: Date | null;
+      displayUsername?: string | null;
     }
   ): Promise<User> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
@@ -114,6 +115,7 @@ export class UserService {
       preferredActivity?: string | null;
       interests?: string | null;
       avatarUrl?: string | null;
+      displayUsername?: string | null;
     }
   ): Promise<CurrentUser> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
@@ -135,6 +137,7 @@ export class UserService {
           interests: data.interests,
           profileImageUrl:
             typeof data.avatarUrl !== "undefined" ? data.avatarUrl : undefined,
+          displayUsername: data.displayUsername,
         },
         tx
       );
@@ -256,5 +259,42 @@ export class UserService {
     }
 
     return this.userRepository.getUserById(newUser.id) as Promise<User>;
+  }
+
+  /**
+   * Get all users that the current user has been paired with historically.
+   * Returns distinct users from all pairings (both as userA and userB).
+   */
+  async getPairedUsers(identity: Identity): Promise<User[]> {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      // Get all pairings where current user is involved
+      const pairings = await tx.pairing.findMany({
+        where: {
+          OR: [{ userAId: identity.id }, { userBId: identity.id }],
+        },
+        include: {
+          userA: true,
+          userB: true,
+        },
+      });
+
+      // Extract paired users (remove duplicates)
+      const pairedUserIds = new Set<string>();
+      const pairedUsers: User[] = [];
+
+      for (const pairing of pairings) {
+        const pairedUserId =
+          pairing.userAId === identity.id ? pairing.userBId : pairing.userAId;
+        const pairedUser =
+          pairing.userAId === identity.id ? pairing.userB : pairing.userA;
+
+        if (!pairedUserIds.has(pairedUserId)) {
+          pairedUserIds.add(pairedUserId);
+          pairedUsers.push(pairedUser as User);
+        }
+      }
+
+      return pairedUsers;
+    });
   }
 }

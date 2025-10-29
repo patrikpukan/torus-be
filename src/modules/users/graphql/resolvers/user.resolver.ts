@@ -39,6 +39,12 @@ export class UserResolver {
   }
 
   @UseGuards(AuthenticatedUserGuard)
+  @Query(() => [UserType])
+  async getPairedUsers(@User() identity: Identity): Promise<UserType[]> {
+    return this.userService.getPairedUsers(identity);
+  }
+
+  @UseGuards(AuthenticatedUserGuard)
   @Query(() => CurrentUserType, { nullable: true })
   async getCurrentUser(
     @User() identity: Identity

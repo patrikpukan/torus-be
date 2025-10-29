@@ -51,4 +51,7 @@ export class CurrentUserType {
 
   @Field(() => String, { nullable: true })
   supabaseUserId?: string | null;
+
+  @Field()
+  isActive!: boolean;
 }

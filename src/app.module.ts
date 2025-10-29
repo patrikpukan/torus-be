@@ -10,6 +10,7 @@ import { Config } from "./shared/config/config.service";
 import { GraphqlSetupModule } from "./shared/graphql/graphql-setup.module";
 import { LoggerModule } from "./shared/logger/logger.module";
 import { PairingAlgorithmModule } from "./pairing-algorithm/pairing-algorithm.module";
+import { AuthModule } from "./shared/auth/auth.module";
 
 const imports = [
   LoggerModule,
@@ -18,6 +19,7 @@ const imports = [
     rootPath: join(process.cwd(), "uploads"),
     serveRoot: "/uploads", // This means files are accessible under http://host/uploads/...
   }),
+  AuthModule,
   SeedModule,
   WelcomeModule,
   UsersModule,

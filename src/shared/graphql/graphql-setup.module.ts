@@ -56,6 +56,7 @@ const buildIdentity = async (
   const supabaseUserId = claims.sub;
   let resolvedUserId = supabaseUserId;
   let appRole: string | undefined;
+  let organizationId: string | undefined;
 
   if (prisma) {
     try {
@@ -63,21 +64,23 @@ const buildIdentity = async (
         supabaseUserId &&
         (await prisma.user.findFirst({
           where: { supabaseUserId },
-          select: { id: true, role: true },
+          select: { id: true, role: true, organizationId: true },
         }));
 
       if (dbUser) {
         resolvedUserId = dbUser.id;
         appRole = dbUser.role ?? undefined;
+        organizationId = dbUser.organizationId ?? undefined;
       } else if (typeof claims.email === "string" && claims.email) {
         const fallbackUser = await prisma.user.findFirst({
           where: { email: claims.email },
-          select: { id: true, role: true, supabaseUserId: true },
+          select: { id: true, role: true, supabaseUserId: true, organizationId: true },
         });
 
         if (fallbackUser) {
           resolvedUserId = fallbackUser.id;
           appRole = fallbackUser.role ?? undefined;
+          organizationId = fallbackUser.organizationId ?? undefined;
         }
       }
     } catch (error) {
@@ -94,6 +97,7 @@ const buildIdentity = async (
     email: typeof claims.email === "string" ? claims.email : undefined,
     role: typeof claims.role === "string" ? claims.role : undefined,
     appRole,
+    organizationId,
     rawClaims: claims,
     metadata:
       typeof claims.user_metadata === "object" && claims.user_metadata !== null

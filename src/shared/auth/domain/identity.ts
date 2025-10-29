@@ -16,6 +16,10 @@ export interface Identity {
    * Application-level role resolved from the database (e.g. UserRoleEnum).
    */
   appRole?: string;
+  /**
+   * Organization ID for the current user (if applicable).
+   */
+  organizationId?: string;
   rawClaims: SupabaseJwtClaims;
   /**
    * Additional metadata copied from JWT claims (e.g. user metadata).
