@@ -3,7 +3,6 @@ import { ConfigModule } from "@applifting-io/nestjs-decorated-config";
 import { Module } from "@nestjs/common";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { UsersModule } from "./modules/users/users.module";
-import { WelcomeModule } from "./modules/welcome/welcome.module";
 import { OrganizationModule } from "./modules/organization/organization.module";
 import { SeedModule } from "./scripts/seed/seed.module";
 import { Config } from "./shared/config/config.service";
@@ -21,7 +20,6 @@ const imports = [
   }),
   AuthModule,
   SeedModule,
-  WelcomeModule,
   UsersModule,
   OrganizationModule,
   GraphqlSetupModule,

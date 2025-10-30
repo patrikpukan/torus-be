@@ -47,15 +47,6 @@ export class UserService {
     );
   }
 
-  async getUserByUsername(
-    identity: Identity,
-    username: string
-  ): Promise<User | null> {
-    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
-      this.userRepository.getUserByUserName(username, tx)
-    );
-  }
-
   async listUsers(identity: Identity): Promise<User[]> {
     return withRls(this.prisma, getRlsClaims(identity), (tx) =>
       this.userRepository.listUsers(tx)
@@ -83,16 +74,14 @@ export class UserService {
       email?: string;
       role?: UserRoleEnum;
       profileImageUrl?: string | null;
-      username?: string | null;
       firstName?: string | null;
       lastName?: string | null;
       about?: string | null;
       hobbies?: string | null;
-      preferredActivity?: string | null;
       interests?: string | null;
+      preferredActivity?: string | null;
       isActive?: boolean;
       suspendedUntil?: Date | null;
-      displayUsername?: string | null;
     }
   ): Promise<User> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
@@ -113,10 +102,9 @@ export class UserService {
       lastName?: string | null;
       about?: string | null;
       hobbies?: string | null;
-      preferredActivity?: string | null;
       interests?: string | null;
+      preferredActivity?: string | null;
       avatarUrl?: string | null;
-      displayUsername?: string | null;
     }
   ): Promise<CurrentUser> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
@@ -134,11 +122,10 @@ export class UserService {
           lastName: data.lastName,
           about: data.about,
           hobbies: data.hobbies,
-          preferredActivity: data.preferredActivity,
           interests: data.interests,
+          preferredActivity: data.preferredActivity,
           profileImageUrl:
             typeof data.avatarUrl !== "undefined" ? data.avatarUrl : undefined,
-          displayUsername: data.displayUsername,
         },
         tx
       );
@@ -160,18 +147,17 @@ export class UserService {
     data: {
       email: string;
       password: string;
-      username: string;
       firstName?: string | null;
       lastName?: string | null;
       organizationId?: string; // Add organization ID parameter
     },
     profilePicture?: Promise<FileUpload>
   ): Promise<User> {
-    const existingUser = await this.userRepository.getUserByUserName(
-      data.username
+    const existingUser = await this.userRepository.getUserByEmail(
+      data.email
     );
     if (existingUser) {
-      throw new ConflictException("Username already exists");
+      throw new ConflictException("Email already exists");
     }
 
     let supabaseAuthId: string | undefined;
@@ -183,7 +169,6 @@ export class UserService {
           password: data.password,
           email_confirm: true,
           user_metadata: {
-            username: data.username,
             first_name: data.firstName ?? undefined,
             last_name: data.lastName ?? undefined,
             organization_id: data.organizationId ?? undefined, // Pass org ID to Supabase
@@ -218,7 +203,6 @@ export class UserService {
     }
 
     await this.userRepository.updateUser(newUser.id, {
-      username: data.username,
       role: UserRoleEnum.user,
       supabaseUserId: supabaseAuthId ?? newUser.supabaseUserId,
       firstName: data.firstName,

@@ -20,9 +20,6 @@ export class UserType {
   email!: string;
 
   @Field(() => String, { nullable: true })
-  username?: string | null;
-
-  @Field(() => String, { nullable: true })
   firstName?: string | null;
 
   @Field(() => String, { nullable: true })

@@ -51,55 +51,6 @@ enum PairingStatus {
   @@map("pairing_status")
 }
 
-model Session {
-  id        String   @id
-  expiresAt DateTime
-  token     String   @db.VarChar(255)
-  createdAt DateTime
-  updatedAt DateTime
-  ipAddress String?  @db.VarChar(45)
-  userAgent String?  @db.Text
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  activeOrganizationId String?
-
-  @@unique([token])
-  @@index([userId])
-  @@map("session")
-}
-
-model Account {
-  id                    String    @id
-  accountId             String
-  providerId            String
-  userId                String    @db.Uuid
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken           String?   @db.Text
-  refreshToken          String?   @db.Text
-  idToken               String?   @db.Text
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  scope                 String?
-  password              String?   @db.Text
-  createdAt             DateTime
-  updatedAt             DateTime
-
-  @@index([userId])
-  @@map("account")
-}
-
-model Verification {
-  id         String    @id
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime?
-  updatedAt  DateTime?
-
-  @@map("verification")
-}
-
 model Organization {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -115,7 +66,6 @@ model Organization {
   pairings        Pairing[]
   bans            Ban[]
   algorithmConfig AlgorithmSetting?
-  userBlocks      UserBlock[]
 
   @@map("organizations")
 }
@@ -139,13 +89,9 @@ model User {
   image             String?            @db.Text
   createdAt         DateTime
   updatedAt         DateTime
-  sessions          Session[]
-  accounts          Account[]
   role              UserRole           @default(user)
   profileStatus     ProfileStatus      @default(pending)
   supabaseUserId    String?            @unique
-  username          String?            @db.VarChar(50)
-  displayUsername   String?            @db.VarChar(50)
   pairingsAsUserA   Pairing[]          @relation("UserPairingA")
   pairingsAsUserB   Pairing[]          @relation("UserPairingB")
   messages          Message[]          @relation("MessageSender")
@@ -155,19 +101,17 @@ model User {
   reportsResolved   Report[]           @relation("ReportsResolved")
   bans              Ban[]              @relation("UserBans")
   bansIssued        Ban[]              @relation("UserBanActions")
-  googleConnection  GoogleConnection?
   blocksInitiated   UserBlock[]        @relation("UserBlocksBlocker")
   blocksReceived    UserBlock[]        @relation("UserBlocksBlocked")
 
   @@unique([email])
-  @@unique([username])
   @@map("user")
 }
 
 model PairingPeriod {
   id             String              @id @default(uuid()) @db.Uuid
   organizationId String              @map("organization_id") @db.Uuid
-  organization   Organization        @relation(fields: [organizationId], references: [id])
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   startDate      DateTime?           @map("start_date") @db.Date
   endDate        DateTime?           @map("end_date") @db.Date
   status         PairingPeriodStatus @default(active)
@@ -210,8 +154,8 @@ model Message {
   isRead    Boolean  @default(false) @map("is_read")
   createdAt DateTime @default(now()) @map("created_at")
 
-  pairing Pairing @relation(fields: [pairingId], references: [id])
-  sender  User    @relation("MessageSender", fields: [senderId], references: [id])
+  pairing Pairing @relation(fields: [pairingId], references: [id], onDelete: Cascade)
+  sender  User    @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([pairingId])
   @@index([senderId])
@@ -227,7 +171,7 @@ model UserAvailability {
   note      String?
   recurring Boolean   @default(true)
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("user_availability")
@@ -280,46 +224,20 @@ model AlgorithmSetting {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("algorithm_settings")
 }
 
-model GoogleConnection {
-  id           String    @id @default(uuid()) @db.Uuid
-  userId       String    @unique @map("user_id") @db.Uuid
-  googleUserId String?   @map("google_user_id")
-  accessToken  String?   @map("access_token")
-  refreshToken String?   @map("refresh_token")
-  tokenExpiry  DateTime? @map("token_expiry")
-  connectedAt  DateTime? @map("connected_at")
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@map("google_connections")
-}
-
-model OrgAdmin {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("org_admin")
-}
-
 model UserBlock {
   id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
   blockerId      String   @map("blocker_id") @db.Uuid
   blockedId      String   @map("blocked_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
   blocker      User         @relation("UserBlocksBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
   blocked      User         @relation("UserBlocksBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
 
   @@unique([blockerId, blockedId])
-  @@index([organizationId])
   @@map("user_blocks")
 }

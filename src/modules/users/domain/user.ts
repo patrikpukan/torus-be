@@ -14,8 +14,6 @@ export type User = {
   id: string;
   organizationId: string;
   email: string;
-  username: string;
-  displayUsername?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   about?: string | null;

@@ -23,10 +23,10 @@ export class CurrentUserType {
   hobbies?: string | null;
 
   @Field(() => String, { nullable: true })
-  preferredActivity?: string | null;
+  interests?: string | null;
 
   @Field(() => String, { nullable: true })
-  interests?: string | null;
+  preferredActivity?: string | null;
 
   @Field(() => String, { nullable: true })
   profileImageUrl?: string | null;
@@ -42,12 +42,6 @@ export class CurrentUserType {
 
   @Field(() => ProfileStatusEnum)
   profileStatus!: ProfileStatusEnum;
-
-  @Field(() => String, { nullable: true })
-  username?: string | null;
-
-  @Field(() => String, { nullable: true })
-  displayUsername?: string | null;
 
   @Field(() => String, { nullable: true })
   supabaseUserId?: string | null;

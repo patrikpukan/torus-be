@@ -17,15 +17,6 @@ export class UserResolver {
 
   @UseGuards(AuthenticatedUserGuard)
   @Query(() => UserType, { nullable: true })
-  async user(
-    @User() identity: Identity,
-    @Args("username", { type: () => String }) username: string
-  ): Promise<UserType | null> {
-    return this.userService.getUserByUsername(identity, username);
-  }
-
-  @UseGuards(AuthenticatedUserGuard)
-  @Query(() => UserType, { nullable: true })
   async userById(
     @User() identity: Identity,
     @Args("id", { type: () => ID }) id: string
@@ -94,7 +85,6 @@ export class UserResolver {
       {
         email: data.email,
         password: data.password,
-        username: data.username,
         firstName: data.firstName ?? null,
         lastName: data.lastName ?? null,
       },

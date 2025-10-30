@@ -61,7 +61,7 @@ export class OrganizationService {
     // Parse organization size
     const sizeNumber = this.parseOrganizationSize(data.organizationSize);
 
-    return await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       // 1. Create organization
       const organization = await this.organizationRepository.createOrganization(
         {
@@ -83,8 +83,6 @@ export class OrganizationService {
 
       if (this.supabaseAdminService.isEnabled()) {
         try {
-          // Generate a temporary username from email
-          const tempUsername = data.adminEmail.split("@")[0];
 
           // Use inviteUserByEmail - this automatically sends an invitation email
           // with a link for the user to set their password
@@ -93,7 +91,6 @@ export class OrganizationService {
               data.adminEmail,
               {
                 data: {
-                  username: tempUsername,
                   organization_id: organization.id,
                   organization_name: organization.name,
                   role: UserRoleEnum.org_admin,
@@ -156,7 +153,6 @@ export class OrganizationService {
             organizationId: organization.id,
             email: data.adminEmail,
             emailVerified: false,
-            username: data.adminEmail.split("@")[0],
             role: UserRoleEnum.org_admin,
             supabaseUserId: supabaseAuthId,
             createdAt: new Date(),
@@ -169,7 +165,6 @@ export class OrganizationService {
           where: { id: supabaseAuthId },
           data: {
             organizationId: organization.id,
-            username: data.adminEmail.split("@")[0],
             role: UserRoleEnum.org_admin,
           },
         });
@@ -184,7 +179,6 @@ export class OrganizationService {
         adminUser: {
           id: adminUser.id,
           email: adminUser.email,
-          username: adminUser.username ?? "",
         },
       };
     });
@@ -311,13 +305,11 @@ export class OrganizationService {
     }
 
     try {
-      const tempUsername = email.split("@")[0];
 
       const supabaseResult = await this.supabaseAdminService.inviteUserByEmail(
         email,
         {
           data: {
-            username: tempUsername,
             organization_id: organizationId,
             organization_name: organization.name,
             role: UserRoleEnum.user,
@@ -353,7 +345,6 @@ export class OrganizationService {
         where: { id: supabaseUserId },
         data: {
           organizationId: organizationId,
-          username: tempUsername,
           role: UserRoleEnum.user,
         },
       });

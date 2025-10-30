@@ -23,6 +23,4 @@ export class UpdateCurrentUserProfileInputType {
   @Field(() => String, { nullable: true })
   avatarUrl?: string;
 
-  @Field(() => String, { nullable: true })
-  displayUsername?: string;
 }

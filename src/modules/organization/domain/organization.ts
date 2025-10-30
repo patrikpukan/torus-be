@@ -13,6 +13,5 @@ export type OrganizationWithAdmin = Organization & {
   adminUser: {
     id: string;
     email: string;
-    username: string;
   };
 };

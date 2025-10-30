@@ -13,9 +13,6 @@ export class UpdateUserInputType {
   email?: string;
 
   @Field(() => String, { nullable: true })
-  username?: string;
-
-  @Field(() => String, { nullable: true })
   firstName?: string;
 
   @Field(() => String, { nullable: true })

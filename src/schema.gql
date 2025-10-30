@@ -23,7 +23,6 @@ type AlgorithmSettingsResponse {
 
 type CurrentUser {
   about: String
-  displayUsername: String
   email: String!
   firstName: String
   hobbies: String
@@ -38,7 +37,6 @@ type CurrentUser {
   profileStatus: ProfileStatusEnum!
   role: UserRoleEnum!
   supabaseUserId: String
-  username: String
 }
 
 """
@@ -128,7 +126,6 @@ type Query {
   myOrganization: OrganizationType
   organizationById(id: ID!): OrganizationType
   organizations: [OrganizationType!]!
-  user(username: String!): User
   userById(id: ID!): User
   users: [User!]!
 }
@@ -152,7 +149,6 @@ input SignUpInputType {
   lastName: String
   password: String!
   profilePicture: Upload
-  username: String!
 }
 
 input UpdateAlgorithmSettingsInput {
@@ -164,7 +160,6 @@ input UpdateAlgorithmSettingsInput {
 input UpdateCurrentUserProfileInputType {
   about: String
   avatarUrl: String
-  displayUsername: String
   firstName: String
   hobbies: String
   interests: String
@@ -191,7 +186,6 @@ input UpdateUserInputType {
   preferredActivity: String
   profileImageUrl: String
   role: UserRoleEnum
-  username: String
 }
 
 """The `Upload` scalar type represents a file upload."""
@@ -205,7 +199,6 @@ type User {
   profileImageUrl: String
   profileStatus: ProfileStatusEnum!
   role: UserRoleEnum!
-  username: String
 }
 
 """User role"""

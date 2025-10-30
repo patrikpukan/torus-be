@@ -6,7 +6,6 @@ type CreateUserParams = {
   password: string;
   firstName?: string;
   lastName?: string;
-  username: string;
   role?: string;
   profilePictureUrl?: string;
   profileStatus?: string;
@@ -22,7 +21,6 @@ export async function createUser(
     password,
     firstName,
     lastName,
-    username,
     role,
     profilePictureUrl,
     profileStatus,
@@ -51,11 +49,10 @@ export async function createUser(
     });
   }
 
-  // Always update username/role/image if provided
+  // Always update role/image if provided
   user = await db.user.update({
     where: { id: user.id },
     data: {
-      username,
       role: (role as UserRole) ?? undefined,
       image: profilePictureUrl ?? undefined,
       profileStatus: profileStatus ?? "active",

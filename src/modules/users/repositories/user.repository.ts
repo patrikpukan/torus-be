@@ -25,7 +25,6 @@ const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
 
   return {
     ...user,
-    username: user.username ?? "",
     role: user.role as UserRoleEnum,
     profileStatus,
     profileImageUrl: user.profileImageUrl ?? undefined,
@@ -82,16 +81,6 @@ export class UserRepository {
     return user ? mapPrismaUserWithOrganizationToDomain(user) : null;
   }
 
-  async getUserByUserName(
-    username: string,
-    tx?: Prisma.TransactionClient
-  ): Promise<User | null> {
-    const client = this.getClient(tx);
-    const user = await client.user.findUnique({ where: { username } });
-
-    return user ? mapPrismaUserToDomainUser(user) : null;
-  }
-
   async getUserByEmail(
     email: string,
     tx?: Prisma.TransactionClient
@@ -100,18 +89,6 @@ export class UserRepository {
     const user = await client.user.findUnique({ where: { email } });
 
     return user ? mapPrismaUserToDomainUser(user) : null;
-  }
-
-  async getUsersByIds(
-    ids: string[],
-    tx?: Prisma.TransactionClient
-  ): Promise<User[]> {
-    const client = this.getClient(tx);
-    const users = await client.user.findMany({
-      where: { id: { in: ids } },
-    });
-
-    return users.map(mapPrismaUserToDomainUser);
   }
 
   async listUsers(tx?: Prisma.TransactionClient): Promise<User[]> {
@@ -138,7 +115,6 @@ export class UserRepository {
       email?: string;
       role?: UserRoleEnum;
       profileImageUrl?: string | null;
-      username?: string | null;
       profileStatus?: ProfileStatusEnum;
       supabaseUserId?: string | null;
       firstName?: string | null;
@@ -149,7 +125,6 @@ export class UserRepository {
       preferredActivity?: string | null;
       isActive?: boolean;
       suspendedUntil?: Date | null;
-      displayUsername?: string | null;
     },
     tx?: Prisma.TransactionClient
   ): Promise<User> {

@@ -16,10 +16,6 @@ export const seedDatabase = async (
     await db.message.deleteMany({});
     await db.pairing.deleteMany({});
     await db.pairingPeriod.deleteMany({});
-    await db.session.deleteMany({});
-    await db.account.deleteMany({});
-    await db.verification.deleteMany({});
-    await db.orgAdmin.deleteMany({});
     await db.user.deleteMany({});
     await db.organization.deleteMany({});
     console.log("All existing data deleted successfully.");
@@ -72,7 +68,6 @@ export const seedDatabase = async (
     password,
     firstName: "Admin",
     lastName: "(Delete in Prod)",
-    username: "superadmin",
     role: "super_admin",
     profileStatus: "active",
     profilePictureUrl: "uploads/profile-pictures/superadminavatar.png",
@@ -96,7 +91,6 @@ export const seedDatabase = async (
     password: "admin",
     firstName: "Admin",
     lastName: "User",
-    username: "admin",
     role: "org_admin",
     profileStatus: "active",
     organizationId: defaultOrg.id,
@@ -114,7 +108,6 @@ export const seedDatabase = async (
     password: "password1",
     firstName: "Caffeinated",
     lastName: "Duck",
-    username: "CaffeinatedDuck",
     role: "org_admin",
     profileStatus: "active",
     profilePictureUrl: "uploads/profile-pictures/caffeduckavatar.png",
@@ -126,7 +119,6 @@ export const seedDatabase = async (
     password: "password2",
     firstName: "Deep",
     lastName: "Duck Thoughts",
-    username: "DeepDuckThoughts",
     role: "user",
     profileStatus: "active",
     profilePictureUrl: "uploads/profile-pictures/deepduckavatar.png",

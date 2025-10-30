@@ -23,9 +23,6 @@ export class SignUpInputType {
   @Field(() => String, { nullable: true })
   lastName?: string;
 
-  @Field()
-  username!: string;
-
   @Field(() => GraphQLUpload, { nullable: true })
   profilePicture?: Promise<FileUpload>;
 }
