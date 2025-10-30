@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PairingPeriodStatus, PairingStatus, User } from '@prisma/client';
+import { randomInt } from 'crypto';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
 import { PairingAlgorithmConfig } from './pairing-algorithm.config';
@@ -232,7 +233,7 @@ export class PairingAlgorithmService {
           data: {
             organizationId,
             periodLengthDays: this.config.defaultPeriodDays,
-            randomSeed: Date.now(),
+            randomSeed: randomInt(-2147483648, 2147483647),
           },
         });
       }
@@ -253,7 +254,7 @@ export class PairingAlgorithmService {
       if (!algorithmSettings.randomSeed || algorithmSettings.randomSeed <= 0) {
         algorithmSettings = await this.prisma.algorithmSetting.update({
           where: { organizationId },
-          data: { randomSeed: Math.abs(Date.now()) },
+          data: { randomSeed: randomInt(-2147483648, 2147483647) },
         });
       }
 
