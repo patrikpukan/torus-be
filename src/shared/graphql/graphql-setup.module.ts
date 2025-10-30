@@ -115,9 +115,7 @@ const buildIdentity = async (
       }
     } catch (error) {
       const err = error as Error;
-      logger.error(
-        `[buildIdentity] DB query failed: ${err.message}`
-      );
+      logger.error(`[buildIdentity] DB query failed: ${err.message}`);
     }
   }
 
@@ -202,9 +200,7 @@ const buildIdentity = async (
                 identity = null;
               }
             } else {
-              logger.warn(
-                `[GraphQL] ⚠️  No token found in request headers`
-              );
+              logger.warn(`[GraphQL] ⚠️  No token found in request headers`);
             }
 
             request.user = identity;
