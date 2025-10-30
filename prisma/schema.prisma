@@ -190,8 +190,8 @@ model Pairing {
 
   period       PairingPeriod @relation(fields: [periodId], references: [id])
   organization Organization? @relation(fields: [organizationId], references: [id])
-  userA        User          @relation("UserPairingA", fields: [userAId], references: [id])
-  userB        User          @relation("UserPairingB", fields: [userBId], references: [id])
+  userA        User          @relation("UserPairingA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB        User          @relation("UserPairingB", fields: [userBId], references: [id], onDelete: Cascade)
   messages     Message[]
   reports      Report[]
 
