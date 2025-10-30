@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     config.frontendBaseUrl,
     config.frontendProdUrl,
   ].filter((origin): origin is string => typeof origin === "string");
-  const fallbackCorsOrigins = ["http://localhost:5173", "https://pukan.tech"];
+  const fallbackCorsOrigins = ["http://localhost:5173", "https://pukan.tech/"];
   const allowedCorsOrigins = [
     ...corsOrigins,
     ...fallbackCorsOrigins.filter(
