@@ -36,15 +36,12 @@
     "docker:up": "docker compose up",
     "docker:up-rebuild": "docker compose down; docker compose up --renew-anon-volumes --build --force-recreate be",
     "docker:down": "docker compose down",
-    "restart": "touch ./tmp/restart.txt",
     "prisma:generate": "prisma generate",
     "prisma:migrations:generate": "prisma migrate dev --create-only --name",
     "prisma:migrations:run": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "docs:serve": "npx @compodoc/compodoc -p tsconfig.json -s",
     "nest:upgrade": "npx npm-check-updates '/@nestjs.*/' -u && npm install && npm test && npm run docker:up-rebuild",
-    "adr:new": "adr new $npm_config_title",
-    "auth:generate": "npx @better-auth/cli generate --config ./src/shared/auth/utils/cli-auth-client.ts",
     "db:reset": "prisma migrate reset --force"
   },
   "dependencies": {
