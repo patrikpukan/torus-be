@@ -49,10 +49,22 @@ const buildIdentity = async (
   prisma: PrismaService
 ): Promise<Identity | null> => {
   if (!token || !secret) {
+    logger.error(
+      `buildIdentity failed: token present=${!!token}, secret present=${!!secret}`
+    );
     return null;
   }
 
-  const claims = verifySupabaseJwt(token, secret);
+  let claims;
+  try {
+    claims = verifySupabaseJwt(token, secret);
+    logger.log(`[buildIdentity] ✅ JWT verified. User sub: ${claims.sub}`);
+  } catch (error) {
+    const err = error as Error;
+    logger.error(`[buildIdentity] ❌ JWT verification failed: ${err.message}`);
+    throw error;
+  }
+
   const supabaseUserId = claims.sub;
   let resolvedUserId = supabaseUserId;
   let appRole: string | undefined;
@@ -71,22 +83,40 @@ const buildIdentity = async (
         resolvedUserId = dbUser.id;
         appRole = dbUser.role ?? undefined;
         organizationId = dbUser.organizationId ?? undefined;
+        logger.log(
+          `[buildIdentity] Found user in DB: id=${dbUser.id}, role=${appRole}, org=${organizationId}`
+        );
       } else if (typeof claims.email === "string" && claims.email) {
+        logger.log(
+          `[buildIdentity] User not found by supabaseUserId, trying email fallback: ${claims.email}`
+        );
         const fallbackUser = await prisma.user.findFirst({
           where: { email: claims.email },
-          select: { id: true, role: true, supabaseUserId: true, organizationId: true },
+          select: {
+            id: true,
+            role: true,
+            supabaseUserId: true,
+            organizationId: true,
+          },
         });
 
         if (fallbackUser) {
           resolvedUserId = fallbackUser.id;
           appRole = fallbackUser.role ?? undefined;
           organizationId = fallbackUser.organizationId ?? undefined;
+          logger.log(
+            `[buildIdentity] Found user via email fallback: id=${fallbackUser.id}, role=${appRole}`
+          );
+        } else {
+          logger.warn(
+            `[buildIdentity] User not found in database. Supabase ID: ${supabaseUserId}, Email: ${claims.email}`
+          );
         }
       }
     } catch (error) {
       const err = error as Error;
-      logger.warn(
-        `Failed to resolve application user for Supabase identity: ${err.message}`
+      logger.error(
+        `[buildIdentity] DB query failed: ${err.message}`
       );
     }
   }
@@ -114,7 +144,10 @@ const buildIdentity = async (
       driver: ApolloDriver,
       imports: [ConfigModule, PrismaModule],
       inject: [Config, PrismaService],
-      useFactory: (config: Config, prisma: PrismaService): ApolloDriverConfig => {
+      useFactory: (
+        config: Config,
+        prisma: PrismaService
+      ): ApolloDriverConfig => {
         return {
           autoSchemaFile: join(process.cwd(), "src/schema.gql"),
           sortSchema: true,
@@ -128,26 +161,50 @@ const buildIdentity = async (
             const request = req as GraphQLContextShape["req"];
             let identity: Identity | null = null;
 
+            // Debug: Log all headers
+            logger.log(
+              `[GraphQL] Incoming request - Authorization header present: ${!!request.headers?.authorization || !!request.headers?.Authorization}`
+            );
+
             const headerToken = extractBearerToken(
               request.headers?.authorization ?? request.headers?.Authorization
             );
             const token = headerToken ?? null;
 
             if (token) {
+              logger.log(
+                `[GraphQL] Token extracted successfully: ${token.substring(0, 20)}...`
+              );
+            } else {
+              logger.warn(
+                `[GraphQL] ⚠️  No token extracted from headers. Authorization header: ${request.headers?.authorization ?? request.headers?.Authorization}`
+              );
+            }
+
+            if (token) {
               try {
+                logger.log(
+                  `[GraphQL] Attempting JWT verification (secret present: ${!!config.supabaseJwtSecret})`
+                );
                 identity = await buildIdentity(
                   token,
                   config.supabaseJwtSecret,
                   prisma
                 );
+                logger.log(
+                  `[GraphQL] ✅ JWT verification successful for user: ${identity?.id}`
+                );
               } catch (error) {
                 const err = error as Error;
-                logger.warn(
-                  `Failed to verify Supabase JWT: ${err.message}`,
-                  err.stack
+                logger.error(
+                  `[GraphQL] ❌ JWT verification FAILED: ${err.message}`
                 );
                 identity = null;
               }
+            } else {
+              logger.warn(
+                `[GraphQL] ⚠️  No token found in request headers`
+              );
             }
 
             request.user = identity;
