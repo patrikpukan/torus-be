@@ -79,13 +79,6 @@ export const seedDatabase = async (
   const adminEmail = "admin@torus.local";
   const orgAdminEmail = "caffeinatedduck@example.com";
 
-  await db.orgAdmin.create({
-    data: {
-      id: randomUUID(),
-      email: adminEmail.toLowerCase(),
-    },
-  });
-
   const adminUser = await createUser(prisma, {
     email: adminEmail,
     password: "admin",
@@ -94,13 +87,6 @@ export const seedDatabase = async (
     role: "org_admin",
     profileStatus: "active",
     organizationId: defaultOrg.id,
-  });
-
-  await db.orgAdmin.create({
-    data: {
-      id: randomUUID(),
-      email: orgAdminEmail.toLowerCase(),
-    },
   });
 
   const mentorUser = await createUser(prisma, {

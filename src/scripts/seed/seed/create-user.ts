@@ -18,7 +18,6 @@ export async function createUser(
 ): Promise<User> {
   const {
     email,
-    password,
     firstName,
     lastName,
     role,
@@ -29,7 +28,6 @@ export async function createUser(
   const db = prisma as any;
 
   // Create or update the user directly via Prisma.
-  const bcrypt = require("bcryptjs");
   const { randomUUID } = require("crypto");
   const now = new Date();
 
@@ -59,30 +57,6 @@ export async function createUser(
       updatedAt: now,
     },
   });
-
-  // Ensure there is an email/password account linked
-  const existingAccount = await db.account.findFirst({
-    where: { userId: user.id, providerId: "email" },
-  });
-  const hashedPassword = await bcrypt.hash(password, 10);
-  if (existingAccount) {
-    await db.account.update({
-      where: { id: existingAccount.id },
-      data: { password: hashedPassword, updatedAt: now },
-    });
-  } else {
-    await db.account.create({
-      data: {
-        id: randomUUID(),
-        accountId: `${email}-email`,
-        providerId: "email",
-        userId: user.id,
-        password: hashedPassword,
-        createdAt: now,
-        updatedAt: now,
-      },
-    });
-  }
 
   return user as User;
 }
