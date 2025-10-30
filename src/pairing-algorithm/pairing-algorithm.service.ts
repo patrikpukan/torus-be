@@ -764,6 +764,7 @@ export class PairingAlgorithmService {
       where: {
         organizationId,
         isActive: true,
+        role: 'user', // Only pair regular users, not admins
         OR: [
           { suspendedUntil: null },
           { suspendedUntil: { lt: new Date() } },
