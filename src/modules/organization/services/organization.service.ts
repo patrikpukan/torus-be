@@ -217,4 +217,163 @@ export class OrganizationService {
 
     return sizeMap[sizeStr] ?? null;
   }
+
+  /**
+   * Lists all organizations
+   */
+  async listOrganizations(): Promise<Organization[]> {
+    return this.organizationRepository.listOrganizations();
+  }
+
+  /**
+   * Gets a specific organization by ID
+   */
+  async getOrganizationById(id: string): Promise<Organization | null> {
+    return this.organizationRepository.getOrganizationById(id);
+  }
+
+  /**
+   * Gets the organization for a specific user
+   */
+  async getOrganizationByUserId(userId: string): Promise<Organization | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { organization: true },
+    });
+
+    if (!user || !user.organization) {
+      return null;
+    }
+
+    return {
+      id: user.organization.id,
+      name: user.organization.name,
+      code: user.organization.code,
+      size: user.organization.size,
+      address: user.organization.address,
+      imageUrl: user.organization.imageUrl,
+      createdAt: user.organization.createdAt,
+      updatedAt: user.organization.updatedAt,
+    };
+  }
+
+  /**
+   * Updates an organization
+   */
+  async updateOrganization(
+    id: string,
+    data: {
+      name?: string;
+      size?: number | null;
+      address?: string | null;
+      imageUrl?: string | null;
+    }
+  ): Promise<Organization> {
+    return this.organizationRepository.updateOrganization(id, data);
+  }
+
+  /**
+   * Invites a user to an organization
+   * Creates user in Supabase Auth and our database (via trigger)
+   */
+  async inviteUserToOrganization(
+    email: string,
+    organizationId: string
+  ): Promise<{ success: boolean; message: string; userId?: string }> {
+    // Check if email already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return {
+        success: false,
+        message: "A user with this email already exists.",
+      };
+    }
+
+    // Verify organization exists
+    const organization =
+      await this.organizationRepository.getOrganizationById(organizationId);
+    if (!organization) {
+      return {
+        success: false,
+        message: "Organization not found.",
+      };
+    }
+
+    // Invite user via Supabase
+    if (!this.supabaseAdminService.isEnabled()) {
+      return {
+        success: false,
+        message: "Authentication system is not configured.",
+      };
+    }
+
+    try {
+      const tempUsername = email.split("@")[0];
+
+      const supabaseResult = await this.supabaseAdminService.inviteUserByEmail(
+        email,
+        {
+          data: {
+            username: tempUsername,
+            organization_id: organizationId,
+            organization_name: organization.name,
+            role: UserRoleEnum.user,
+          },
+        }
+      );
+
+      if (supabaseResult.error) {
+        this.logger.error(
+          `Failed to invite user: ${supabaseResult.error.message}`,
+          supabaseResult.error.stack
+        );
+        return {
+          success: false,
+          message: `Failed to invite user: ${supabaseResult.error.message}`,
+        };
+      }
+
+      const supabaseUserId = supabaseResult.data?.user?.id;
+
+      if (!supabaseUserId) {
+        return {
+          success: false,
+          message: "Failed to create authentication user.",
+        };
+      }
+
+      // Wait for trigger to create user
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Update user with correct organization
+      await this.prisma.user.update({
+        where: { id: supabaseUserId },
+        data: {
+          organizationId: organizationId,
+          username: tempUsername,
+          role: UserRoleEnum.user,
+        },
+      });
+
+      this.logger.log(
+        `User invited successfully: ${email} to organization ${organization.name}`
+      );
+
+      return {
+        success: true,
+        message: `Invitation sent to ${email}. They will receive an email to set up their account.`,
+        userId: supabaseUserId,
+      };
+    } catch (error) {
+      const err = error as Error;
+      this.logger.error(`Failed to invite user: ${err.message}`, err.stack);
+      return {
+        success: false,
+        message: `Failed to invite user: ${err.message}`,
+      };
+    }
+  }
 }

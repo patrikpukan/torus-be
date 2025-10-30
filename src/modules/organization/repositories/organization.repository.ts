@@ -86,4 +86,24 @@ export class OrganizationRepository {
 
     return orgs.map(mapPrismaOrganizationToDomain);
   }
+
+  async updateOrganization(
+    id: string,
+    data: {
+      name?: string;
+      size?: number | null;
+      address?: string | null;
+      imageUrl?: string | null;
+    },
+    tx?: Prisma.TransactionClient
+  ): Promise<Organization> {
+    const client = this.getClient(tx);
+
+    const org = await client.organization.update({
+      where: { id },
+      data,
+    });
+
+    return mapPrismaOrganizationToDomain(org);
+  }
 }
