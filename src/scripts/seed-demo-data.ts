@@ -27,7 +27,6 @@ type UserProfile = {
 
 const supabaseUrl = process.env.SUPABASE_URL || "";
 const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || "";
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
   auth: {
@@ -81,8 +80,8 @@ async function uploadAvatarToSupabase(
     const fileBuffer = fs.readFileSync(avatarPath);
     const fileExtension = path.extname(avatarFileName).slice(1) || "jpg";
 
-    // Initialize Supabase client with service role key for admin operations
-    const supabaseStorage = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    // Initialize Supabase client with secret key for admin operations
+    const supabaseStorage = createClient(supabaseUrl, supabaseSecretKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -171,15 +170,68 @@ async function createDemoUser(
       });
 
     if (authError) {
-      console.error(
-        `❌ Failed to create Supabase user ${profile.email}:`,
-        authError
-      );
+      // Check if user already exists in Supabase Auth
+      if (authError.message?.includes("already exists")) {
+        console.log(`⚠️  Supabase user already exists: ${profile.email}`);
+        
+        // Try to get the existing user
+        const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        if (!listError && users) {
+          const existingAuthUser = users.find(u => u.email === profile.email);
+          if (existingAuthUser) {
+            // Check if database user exists
+            const dbUser = await prisma.user.findUnique({
+              where: { id: existingAuthUser.id },
+            });
+            if (!dbUser) {
+              // Database user doesn't exist, create it with the existing Auth user ID
+              await prisma.user.create({
+                data: {
+                  id: existingAuthUser.id,
+                  supabaseUserId: existingAuthUser.id,
+                  email: profile.email,
+                  emailVerified: true,
+                  firstName: profile.firstName,
+                  lastName: profile.lastName,
+                  role: profile.role,
+                  organizationId: orgId,
+                  about: profile.about,
+                  hobbies: profile.hobbies,
+                  preferredActivity: profile.preferredActivity,
+                  interests: profile.interests,
+                  image: avatarUrl || undefined,
+                  isActive: true,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                },
+              });
+              console.log(
+                `✅ Created database user: ${profile.firstName} ${profile.lastName} (${profile.role})`
+              );
+            }
+          }
+        }
+      } else {
+        console.error(
+          `❌ Failed to create Supabase user ${profile.email}:`,
+          authError
+        );
+      }
       return;
     }
 
     if (!authData.user) {
       console.error(`❌ No Supabase user returned for ${profile.email}`);
+      return;
+    }
+
+    // Check if user already exists in database
+    const existingDbUser = await prisma.user.findUnique({
+      where: { id: authData.user.id },
+    });
+
+    if (existingDbUser) {
+      console.log(`⚠️  User already exists in database: ${profile.email}`);
       return;
     }
 
@@ -210,7 +262,7 @@ async function createDemoUser(
     );
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
-    console.error(`❌ Error creating demo user (${userKey}):`, err);
+    console.error(`❌ Error creating demo user (${userKey}): ${err}`);
   }
 }
 
@@ -429,11 +481,11 @@ async function main(): Promise<void> {
   console.log("🚀 Starting test data seeding for Torus...\n");
 
   // Check required environment variables
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
+  if (!supabaseUrl || !supabaseSecretKey) {
     throw new Error(
       "Missing required environment variables:\n" +
         "  - SUPABASE_URL\n" +
-        "  - SUPABASE_SERVICE_ROLE_KEY\n\n" +
+        "  - SUPABASE_SECRET_KEY\n\n" +
         "Please set these in your .env file."
     );
   }
