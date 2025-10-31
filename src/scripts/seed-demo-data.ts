@@ -50,6 +50,43 @@ function generateRandomCode(length: number = 6): string {
 }
 
 /**
+ * Organization configurations
+ */
+interface OrgConfig {
+  name: string;
+  code: string;
+  address: string;
+}
+
+const ORGANIZATIONS: OrgConfig[] = [
+  {
+    name: "Torus Technologies Inc",
+    code: "TORUS",
+    address: "1250 Innovation Way, Tech District, San Francisco, CA 94105",
+  },
+  {
+    name: "StartupHub Ventures",
+    code: "SHUB",
+    address: "456 Market Street, Innovation Quarter, San Francisco, CA 94102",
+  },
+  {
+    name: "Digital Minds Collective",
+    code: "DMIN",
+    address: "789 Mission Street, Creative Hub, San Francisco, CA 94103",
+  },
+  {
+    name: "Future Labs Network",
+    code: "FLAB",
+    address: "321 Valencia Street, Tech Hub, San Francisco, CA 94103",
+  },
+  {
+    name: "Innovate Together Co",
+    code: "ITCO",
+    address: "654 Howard Street, Business District, San Francisco, CA 94105",
+  },
+];
+
+/**
  * Uploads a profile picture avatar to Supabase Storage
  * @param avatarFileName - Name of the avatar file in uploads/profile-pictures directory
  * @param userId - ID of the user who owns the avatar
@@ -124,12 +161,13 @@ async function uploadAvatarToSupabase(
  * @param prisma - Prisma client instance
  * @param userKey - Key to look up user profile from USER_PROFILES
  * @param orgId - Organization ID to assign the user to
- * @throws Logs errors but does not throw exceptions
+ * @param emailOverride - Optional email to use instead of profile email
  */
 async function createDemoUser(
   prisma: PrismaClient,
   userKey: string,
-  orgId: string
+  orgId: string,
+  emailOverride?: string
 ): Promise<void> {
   try {
     const profile = USER_PROFILES[userKey as keyof typeof USER_PROFILES];
@@ -138,13 +176,16 @@ async function createDemoUser(
       return;
     }
 
+    // Use override email if provided, otherwise use profile email
+    const email = emailOverride || profile.email;
+
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
-      where: { email: profile.email },
+      where: { email },
     });
 
     if (existingUser) {
-      console.log(`⚠️  User already exists: ${profile.email}, skipping`);
+      console.log(`⚠️  User already exists: ${email}, skipping`);
       return;
     }
 
@@ -160,7 +201,7 @@ async function createDemoUser(
     // Create user in Supabase Auth
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
-        email: profile.email,
+        email,
         password: profile.password,
         email_confirm: true,
         user_metadata: {
@@ -172,12 +213,13 @@ async function createDemoUser(
     if (authError) {
       // Check if user already exists in Supabase Auth
       if (authError.message?.includes("already exists")) {
-        console.log(`⚠️  Supabase user already exists: ${profile.email}`);
-        
+        console.log(`⚠️  Supabase user already exists: ${email}`);
+
         // Try to get the existing user
-        const { data, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        const { data, error: listError } =
+          await supabaseAdmin.auth.admin.listUsers();
         if (!listError && data?.users) {
-          const existingAuthUser = data.users.find((u) => u.email === profile.email);
+          const existingAuthUser = data.users.find((u) => u.email === email);
           if (existingAuthUser) {
             // Check if database user exists
             const dbUser = await prisma.user.findUnique({
@@ -189,7 +231,7 @@ async function createDemoUser(
                 data: {
                   id: existingAuthUser.id,
                   supabaseUserId: existingAuthUser.id,
-                  email: profile.email,
+                  email,
                   emailVerified: true,
                   firstName: profile.firstName,
                   lastName: profile.lastName,
@@ -212,16 +254,13 @@ async function createDemoUser(
           }
         }
       } else {
-        console.error(
-          `❌ Failed to create Supabase user ${profile.email}:`,
-          authError
-        );
+        console.error(`❌ Failed to create Supabase user ${email}:`, authError);
       }
       return;
     }
 
     if (!authData.user) {
-      console.error(`❌ No Supabase user returned for ${profile.email}`);
+      console.error(`❌ No Supabase user returned for ${email}`);
       return;
     }
 
@@ -231,7 +270,7 @@ async function createDemoUser(
     });
 
     if (existingDbUser) {
-      console.log(`⚠️  User already exists in database: ${profile.email}`);
+      console.log(`⚠️  User already exists in database: ${email}`);
       return;
     }
 
@@ -240,7 +279,7 @@ async function createDemoUser(
       data: {
         id: authData.user.id, // Use Supabase auth user ID
         supabaseUserId: authData.user.id,
-        email: profile.email,
+        email,
         emailVerified: true,
         firstName: profile.firstName,
         lastName: profile.lastName,
@@ -258,7 +297,7 @@ async function createDemoUser(
     });
 
     console.log(
-      `✅ Created user: ${profile.firstName} ${profile.lastName} (${profile.role})`
+      `✅ Created user: ${profile.firstName} ${profile.lastName} (${profile.role}) - ${email}`
     );
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
@@ -268,42 +307,44 @@ async function createDemoUser(
 
 /**
  * Creates a demo organization or retrieves existing one if already present
- * The organization serves as the container for demo users
  * @param prisma - Prisma client instance
+ * @param orgConfig - Organization configuration
  * @returns Organization ID
- * @throws Error if organization creation fails
  */
-async function createDemoOrganization(prisma: PrismaClient): Promise<string> {
+async function createDemoOrganization(
+  prisma: PrismaClient,
+  orgConfig: OrgConfig
+): Promise<string> {
   try {
-    // Check if organization already exists
+    // Check if organization already exists by code
     const existingOrg = await prisma.organization.findFirst({
-      where: { code: "TORUS" },
+      where: { code: orgConfig.code },
     });
 
     if (existingOrg) {
       console.log(
-        `⚠️  Organization 'Torus Technologies Inc' already exists (ID: ${existingOrg.id})`
+        `⚠️  Organization '${orgConfig.name}' already exists (ID: ${existingOrg.id})`
       );
       return existingOrg.id;
     }
 
-    // Create new organization with fixed code
+    // Create new organization
     const org = await prisma.organization.create({
       data: {
-        name: "Torus Technologies Inc",
-        code: "TORUS",
-        address:
-          "1250 Innovation Way, Tech District, San Francisco, CA 94105",
+        name: orgConfig.name,
+        code: orgConfig.code,
+        address: orgConfig.address,
         size: 150, // Int field, representing number of employees
       },
     });
 
-    console.log(
-      `✅ Created organization: Torus Technologies Inc (ID: ${org.id})`
-    );
+    console.log(`✅ Created organization: ${orgConfig.name} (ID: ${org.id})`);
     return org.id;
   } catch (error) {
-    console.error("Error creating demo organization:", error);
+    console.error(
+      `Error creating demo organization '${orgConfig.name}':`,
+      error
+    );
     throw error;
   }
 }
@@ -494,30 +535,41 @@ async function main(): Promise<void> {
     await prisma.$connect();
     console.log("📦 Connected to database\n");
 
-    // Create or get demo organization
-    const orgId = await createDemoOrganization(prisma);
+    // Create 5 organizations
+    const organizationIds: string[] = [];
+    for (const orgConfig of ORGANIZATIONS) {
+      const orgId = await createDemoOrganization(prisma, orgConfig);
+      organizationIds.push(orgId);
+    }
     console.log();
 
-    // Create super admin
-    await createDemoUser(prisma, "super_admin", orgId);
+    // Create all users (11 per organization) = 55 total users
+    const userKeys = ["super_admin", "org_admin", ...Array.from({ length: 9 }, (_, i) => `user${i + 1}`)];
 
-    // Create org admin
-    await createDemoUser(prisma, "org_admin", orgId);
+    for (let orgIndex = 0; orgIndex < organizationIds.length; orgIndex++) {
+      const orgId = organizationIds[orgIndex];
+      const orgConfig = ORGANIZATIONS[orgIndex];
 
-    // Create regular users (user1 through user9)
-    for (let i = 1; i <= 9; i++) {
-      await createDemoUser(prisma, `user${i}`, orgId);
+      console.log(`\n📍 Creating users for ${orgConfig.name}...`);
+      for (const userKey of userKeys) {
+        // Generate org-specific email: e.g., super_admin_torus@torus.com
+        const emailPrefix = userKey.replace(/_/g, `_${orgConfig.code.toLowerCase()}_`);
+        const email = `${emailPrefix}@torus.com`;
+        await createDemoUser(prisma, userKey, orgId, email);
+      }
     }
 
     console.log();
 
-    // Get user count for summary
-    const userCount = await prisma.user.count({
-      where: { organizationId: orgId },
-    });
-
-    const org = await prisma.organization.findUnique({
-      where: { id: orgId },
+    // Get summary stats
+    const totalOrgCount = await prisma.organization.count();
+    const totalUserCount = await prisma.user.count();
+    const organizations = await prisma.organization.findMany({
+      include: {
+        _count: {
+          select: { users: true },
+        },
+      },
     });
 
     // Log summary
@@ -525,18 +577,20 @@ async function main(): Promise<void> {
     console.log("✅ Seeding completed successfully!");
     console.log("==========================================\n");
     console.log("📊 Summary:");
-    console.log(`   Organization: ${org?.name} (ID: ${org?.id})`);
-    console.log(`   Organization Code: ${org?.code}`);
-    console.log(`   Total Users Created: ${userCount}\n`);
-    console.log("🔐 Login Instructions:");
-    console.log("   Super Admin:");
-    console.log("   - Email: superadmin@torus.com");
+    console.log(`   Total Organizations: ${totalOrgCount}`);
+    console.log(`   Total Users Created: ${totalUserCount}\n`);
+    console.log("🏢 Organizations:");
+    for (const org of organizations) {
+      console.log(
+        `   - ${org.name} (${org.code}): ${org._count.users} users`
+      );
+    }
+    console.log("\n🔐 Sample Login Instructions:");
+    console.log("   Organization: Torus Technologies Inc (TORUS)");
+    console.log("   - Email: super_admin_torus@torus.com");
     console.log("   - Password: Password123!\n");
-    console.log("   Org Admin:");
-    console.log("   - Email: orgadmin@torus.com");
-    console.log("   - Password: Password123!\n");
-    console.log("   Regular Users:");
-    console.log("   - Email: james.wilson@torus.com (and others)");
+    console.log("   Organization: StartupHub Ventures (SHUB)");
+    console.log("   - Email: super_admin_shub@torus.com");
     console.log("   - Password: Password123!\n");
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
