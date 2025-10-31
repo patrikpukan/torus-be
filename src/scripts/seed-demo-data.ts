@@ -287,14 +287,11 @@ async function createDemoOrganization(prisma: PrismaClient): Promise<string> {
       return existingOrg.id;
     }
 
-    // Generate random code
-    const code = generateRandomCode(6);
-
-    // Create new organization
+    // Create new organization with fixed code
     const org = await prisma.organization.create({
       data: {
         name: "Torus Technologies Inc",
-        code,
+        code: "TORUS",
         address:
           "1250 Innovation Way, Tech District, San Francisco, CA 94105",
         size: 150, // Int field, representing number of employees
