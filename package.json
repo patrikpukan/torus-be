@@ -19,6 +19,7 @@
     "start:debug": "prisma generate && nest start --env-file .env --debug --watch",
     "start:prod": "node -r dotenv/config dist/src/main dotenv_config_path=.env",
     "seed": "prisma generate && ts-node src/scripts/seed/seed.script.ts",
+    "seed:demo": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-data.ts",
     "migrate": "prisma db push --skip-generate",
     "start:migrate:prod": "prisma db push --skip-generate && npm run start:prod",
     "db:bootstrap": "ts-node src/scripts/bootstrap-db.ts",
