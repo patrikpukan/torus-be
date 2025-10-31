@@ -8,6 +8,23 @@ import { randomUUID } from "crypto";
 // Load environment variables
 dotenv.config();
 
+/**
+ * TypeScript type for user profile configuration
+ */
+type UserProfile = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  role: "super_admin" | "org_admin" | "user";
+  about: string;
+  hobbies: string;
+  preferredActivity: string;
+  interests: string;
+  avatarFileName: string;
+};
+
 const supabaseUrl = process.env.SUPABASE_URL || "";
 const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || "";
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -19,6 +36,11 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
   },
 });
 
+/**
+ * Generates a random uppercase alphabetic code of specified length
+ * @param length - Length of code to generate (default: 6)
+ * @returns Random uppercase code
+ */
 function generateRandomCode(length: number = 6): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   let code = "";
@@ -28,6 +50,12 @@ function generateRandomCode(length: number = 6): string {
   return code;
 }
 
+/**
+ * Uploads a profile picture avatar to Supabase Storage
+ * @param avatarFileName - Name of the avatar file in uploads/profile-pictures directory
+ * @param userId - ID of the user who owns the avatar
+ * @returns Public URL of uploaded avatar or null if upload fails
+ */
 async function uploadAvatarToSupabase(
   avatarFileName: string,
   userId: string
@@ -91,6 +119,14 @@ async function uploadAvatarToSupabase(
   }
 }
 
+/**
+ * Creates a demo user in both Supabase Auth and the database
+ * Includes avatar upload and profile information
+ * @param prisma - Prisma client instance
+ * @param userKey - Key to look up user profile from USER_PROFILES
+ * @param orgId - Organization ID to assign the user to
+ * @throws Logs errors but does not throw exceptions
+ */
 async function createDemoUser(
   prisma: PrismaClient,
   userKey: string,
@@ -178,6 +214,13 @@ async function createDemoUser(
   }
 }
 
+/**
+ * Creates a demo organization or retrieves existing one if already present
+ * The organization serves as the container for demo users
+ * @param prisma - Prisma client instance
+ * @returns Organization ID
+ * @throws Error if organization creation fails
+ */
 async function createDemoOrganization(prisma: PrismaClient): Promise<string> {
   try {
     // Check if organization already exists
@@ -374,6 +417,14 @@ const USER_PROFILES = {
   },
 };
 
+/**
+ * Main orchestrator function for seeding demo data
+ * Creates organization, super_admin, org_admin, and 9 regular users
+ * Uploads avatar images to Supabase Storage and creates database records
+ * Requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables
+ * @returns void
+ * @throws Error if required environment variables are missing or database operations fail
+ */
 async function main(): Promise<void> {
   console.log("🚀 Starting test data seeding for Torus...\n");
 
