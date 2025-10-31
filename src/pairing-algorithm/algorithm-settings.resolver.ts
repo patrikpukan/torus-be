@@ -193,7 +193,7 @@ export class AlgorithmSettingsResolver {
   }
 
   private assertAdminAccess(user: ResolvedUser, organizationId: string): void {
-    const role = user.role ?? user.appRole;
+    const role = user.appRole ?? user.role;
 
     if (!role) {
       throw new ForbiddenException("Insufficient permissions");
