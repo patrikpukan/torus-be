@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
+import { randomUUID } from "crypto";
 
 // Load environment variables
 dotenv.config();
@@ -87,6 +88,93 @@ async function uploadAvatarToSupabase(
       `⚠️  Error uploading avatar ${avatarFileName}: ${err}`
     );
     return null;
+  }
+}
+
+async function createDemoUser(
+  prisma: PrismaClient,
+  userKey: string,
+  orgId: string
+): Promise<void> {
+  try {
+    const profile = USER_PROFILES[userKey as keyof typeof USER_PROFILES];
+    if (!profile) {
+      console.warn(`⚠️  Profile not found for key: ${userKey}`);
+      return;
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findFirst({
+      where: { email: profile.email },
+    });
+
+    if (existingUser) {
+      console.log(`⚠️  User already exists: ${profile.email}, skipping`);
+      return;
+    }
+
+    // Generate UUID for userId
+    const userId = randomUUID();
+
+    // Upload avatar
+    const avatarUrl = await uploadAvatarToSupabase(
+      profile.avatarFileName,
+      userId
+    );
+
+    // Create user in Supabase Auth
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: profile.email,
+        password: profile.password,
+        email_confirm: true,
+        user_metadata: {
+          role: profile.role,
+          organizationId: orgId,
+        },
+      });
+
+    if (authError) {
+      console.error(
+        `❌ Failed to create Supabase user ${profile.email}:`,
+        authError
+      );
+      return;
+    }
+
+    if (!authData.user) {
+      console.error(`❌ No Supabase user returned for ${profile.email}`);
+      return;
+    }
+
+    // Create user in database
+    const user = await prisma.user.create({
+      data: {
+        id: authData.user.id, // Use Supabase auth user ID
+        supabaseUserId: authData.user.id,
+        email: profile.email,
+        emailVerified: true,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        role: profile.role,
+        organizationId: orgId,
+        about: profile.about,
+        hobbies: profile.hobbies,
+        preferredActivity: profile.preferredActivity,
+        interests: profile.interests,
+        image: avatarUrl || undefined,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    console.log(
+      `✅ Created user: ${profile.firstName} ${profile.lastName} (${profile.role})`
+    );
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Error creating demo user (${userKey}):`, err);
   }
 }
 
