@@ -175,9 +175,9 @@ async function createDemoUser(
         console.log(`⚠️  Supabase user already exists: ${profile.email}`);
         
         // Try to get the existing user
-        const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-        if (!listError && users) {
-          const existingAuthUser = users.find(u => u.email === profile.email);
+        const { data, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        if (!listError && data?.users) {
+          const existingAuthUser = data.users.find((u) => u.email === profile.email);
           if (existingAuthUser) {
             // Check if database user exists
             const dbUser = await prisma.user.findUnique({
