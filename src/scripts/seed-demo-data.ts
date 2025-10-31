@@ -374,84 +374,83 @@ const USER_PROFILES = {
   },
 };
 
-async function seedDemoData() {
+async function main(): Promise<void> {
+  console.log("🚀 Starting test data seeding for Torus...\n");
+
+  // Check required environment variables
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error(
+      "Missing required environment variables:\n" +
+        "  - SUPABASE_URL\n" +
+        "  - SUPABASE_SERVICE_ROLE_KEY\n\n" +
+        "Please set these in your .env file."
+    );
+  }
+
   const prisma = new PrismaClient();
 
   try {
-    console.log("Starting demo data seed...");
+    // Connect to Prisma
+    await prisma.$connect();
+    console.log("📦 Connected to database\n");
 
-    // Create organization first
-    const organizationId = await createDemoOrganization(prisma);
+    // Create or get demo organization
+    const orgId = await createDemoOrganization(prisma);
+    console.log();
 
-    for (const [key, profile] of Object.entries(USER_PROFILES)) {
-      console.log(`Creating user: ${profile.email}`);
+    // Create super admin
+    await createDemoUser(prisma, "super_admin", orgId);
 
-      // Create user in Supabase
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        email: profile.email,
-        password: profile.password,
-        email_confirm: true,
-        user_metadata: {
-          first_name: profile.firstName,
-          last_name: profile.lastName,
-          username: profile.username,
-        },
-      });
+    // Create org admin
+    await createDemoUser(prisma, "org_admin", orgId);
 
-      if (error) {
-        console.error(`Failed to create Supabase user ${profile.email}:`, error);
-        continue;
-      }
-
-      if (!data.user) {
-        console.error(`No user returned for ${profile.email}`);
-        continue;
-      }
-
-      // Upload avatar and get URL
-      let avatarUrl: string | null = null;
-      if (profile.avatarFileName) {
-        avatarUrl = await uploadAvatarToSupabase(
-          profile.avatarFileName,
-          data.user.id
-        );
-      }
-
-      // Create user in database
-      const dbUser = await prisma.user.create({
-        data: {
-          id: data.user.id, // Use Supabase user ID
-          supabaseUserId: data.user.id,
-          email: profile.email,
-          emailVerified: true,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          role: profile.role,
-          organizationId,
-          about: profile.about,
-          hobbies: profile.hobbies,
-          preferredActivity: profile.preferredActivity,
-          interests: profile.interests,
-          isActive: true,
-          image: avatarUrl || undefined, // Set image URL if avatar uploaded successfully
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      });
-
-      console.log(`✓ Created user: ${profile.firstName} ${profile.lastName}`);
+    // Create regular users (user1 through user9)
+    for (let i = 1; i <= 9; i++) {
+      await createDemoUser(prisma, `user${i}`, orgId);
     }
 
-    console.log("✓ Demo data seed completed successfully!");
+    console.log();
+
+    // Get user count for summary
+    const userCount = await prisma.user.count({
+      where: { organizationId: orgId },
+    });
+
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+    });
+
+    // Log summary
+    console.log("==========================================");
+    console.log("✅ Seeding completed successfully!");
+    console.log("==========================================\n");
+    console.log("📊 Summary:");
+    console.log(`   Organization: ${org?.name} (ID: ${org?.id})`);
+    console.log(`   Organization Code: ${org?.code}`);
+    console.log(`   Total Users Created: ${userCount}\n`);
+    console.log("🔐 Login Instructions:");
+    console.log("   Super Admin:");
+    console.log("   - Email: superadmin@torus.com");
+    console.log("   - Password: Password123!\n");
+    console.log("   Org Admin:");
+    console.log("   - Email: orgadmin@torus.com");
+    console.log("   - Password: Password123!\n");
+    console.log("   Regular Users:");
+    console.log("   - Email: james.wilson@torus.com (and others)");
+    console.log("   - Password: Password123!\n");
   } catch (error) {
-    console.error("Error seeding demo data:", error);
+    const err = error instanceof Error ? error.message : String(error);
+    console.error("❌ Error during seeding:", err);
+    throw error;
   } finally {
     await prisma.$disconnect();
+    console.log("🔌 Database connection closed.");
   }
 }
 
 // Run the seed
-seedDemoData().catch((error) => {
+main().catch((error) => {
   console.error("Fatal error:", error);
   process.exit(1);
 });
+
