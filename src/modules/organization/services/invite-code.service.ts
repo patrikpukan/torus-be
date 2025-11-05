@@ -115,7 +115,7 @@ export class InviteCodeService {
       id: inviteCode.id,
       code: inviteCode.code,
       inviteUrl,
-      expiresAt: inviteCode.expiresAt,
+      expiresAt: inviteCode.expiresAt ?? undefined,
     };
   }
 
@@ -181,7 +181,7 @@ export class InviteCodeService {
       message: "Invite code is valid",
       organizationId: inviteCode.organization.id,
       organizationName: inviteCode.organization.name,
-      expiresAt: inviteCode.expiresAt,
+      expiresAt: inviteCode.expiresAt ?? undefined,
       remainingUses: inviteCode.maxUses
         ? inviteCode.maxUses - inviteCode.usedCount
         : undefined,
