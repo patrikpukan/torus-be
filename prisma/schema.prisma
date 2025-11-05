@@ -66,6 +66,7 @@ model Organization {
   pairings        Pairing[]
   bans            Ban[]
   algorithmConfig AlgorithmSetting?
+  inviteCodes     InviteCode[]
 
   @@map("organizations")
 }
@@ -103,6 +104,7 @@ model User {
   bansIssued        Ban[]              @relation("UserBanActions")
   blocksInitiated   UserBlock[]        @relation("UserBlocksBlocker")
   blocksReceived    UserBlock[]        @relation("UserBlocksBlocked")
+  inviteCodesCreated InviteCode[]
 
   @@unique([email])
   @@map("user")
@@ -240,4 +242,23 @@ model UserBlock {
 
   @@unique([blockerId, blockedId])
   @@map("user_blocks")
+}
+
+model InviteCode {
+  id             String    @id @default(uuid()) @db.Uuid
+  code           String    @unique
+  organizationId String    @map("organization_id") @db.Uuid
+  createdById    String    @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  expiresAt      DateTime? @map("expires_at")
+  usedCount      Int       @default(0) @map("used_count")
+  maxUses        Int?      @map("max_uses")
+  isActive       Boolean   @default(true) @map("is_active")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([createdById])
+  @@map("invite_codes")
 }

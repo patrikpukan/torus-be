@@ -87,6 +87,7 @@ export class UserResolver {
         password: data.password,
         firstName: data.firstName ?? null,
         lastName: data.lastName ?? null,
+        inviteCode: data.inviteCode ?? null,
       },
       data.profilePicture
     );

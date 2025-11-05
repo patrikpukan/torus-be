@@ -1,5 +1,6 @@
 import { Args, ID, Mutation, Query, Resolver } from "@nestjs/graphql";
 import { OrganizationService } from "../../services/organization.service";
+import { InviteCodeService } from "../../services/invite-code.service";
 import { RegisterOrganizationInputType } from "../types/register-organization-input.type";
 import { RegisterOrganizationResponseType } from "../types/register-organization-response.type";
 import { Logger, UseGuards } from "@nestjs/common";
@@ -10,12 +11,20 @@ import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-use
 import { UpdateOrganizationInputType } from "../types/update-organization-input.type";
 import { InviteUserInputType } from "../types/invite-user-input.type";
 import { InviteUserResponseType } from "../types/invite-user-response.type";
+import { InviteCodeType } from "../types/invite-code.type";
+import { CreateInviteCodeInputType } from "../types/create-invite-code-input.type";
+import { CreateInviteCodeResponseType } from "../types/create-invite-code-response.type";
+import { InviteCodeValidationResponseType } from "../types/invite-code-validation-response.type";
+import { OrgAdminGuard } from "src/shared/auth/guards/org-admin.guard";
 
 @Resolver()
 export class OrganizationResolver {
   private readonly logger = new Logger(OrganizationResolver.name);
 
-  constructor(private readonly organizationService: OrganizationService) {}
+  constructor(
+    private readonly organizationService: OrganizationService,
+    private readonly inviteCodeService: InviteCodeService
+  ) {}
 
   @UseGuards(AuthenticatedUserGuard)
   @Query(() => [OrganizationType])
@@ -90,5 +99,54 @@ export class OrganizationResolver {
       message:
         "Organization created successfully! An email has been sent to the administrator with instructions to set up their password.",
     };
+  }
+
+  @UseGuards(AuthenticatedUserGuard, OrgAdminGuard)
+  @Mutation(() => CreateInviteCodeResponseType)
+  async createInviteCode(
+    @User() identity: Identity,
+    @Args("input", { nullable: true }) input?: CreateInviteCodeInputType
+  ): Promise<CreateInviteCodeResponseType> {
+    if (!identity.organizationId) {
+      throw new Error("Organization ID is required");
+    }
+
+    const result = await this.inviteCodeService.createInviteCode(
+      identity.organizationId,
+      identity.id,
+      {
+        maxUses: input?.maxUses,
+        expiresInHours: input?.expiresInHours,
+      }
+    );
+
+    return {
+      success: true,
+      message: "Invite code created successfully",
+      code: result.code,
+      inviteUrl: result.inviteUrl,
+      expiresAt: result.expiresAt,
+    };
+  }
+
+  @Query(() => InviteCodeValidationResponseType)
+  async validateInviteCode(
+    @Args("code") code: string
+  ): Promise<InviteCodeValidationResponseType> {
+    return this.inviteCodeService.validateInviteCode(code);
+  }
+
+  @UseGuards(AuthenticatedUserGuard, OrgAdminGuard)
+  @Query(() => [InviteCodeType])
+  async getOrganizationInvites(
+    @User() identity: Identity
+  ): Promise<InviteCodeType[]> {
+    if (!identity.organizationId) {
+      throw new Error("Organization ID is required");
+    }
+
+    return this.inviteCodeService.getOrganizationInviteCodes(
+      identity.organizationId
+    ) as any;
   }
 }
