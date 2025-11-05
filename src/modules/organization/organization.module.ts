@@ -4,6 +4,7 @@ import { PrismaModule } from "../../core/prisma/prisma.module";
 import { OrganizationResolver } from "./graphql/resolvers/organization.resolver";
 import { OrganizationRepository } from "./repositories/organization.repository";
 import { OrganizationService } from "./services/organization.service";
+import { InviteCodeService } from "./services/invite-code.service";
 import { SupabaseAdminService } from "../../shared/auth/supabase-admin.service";
 
 @Module({
@@ -11,9 +12,10 @@ import { SupabaseAdminService } from "../../shared/auth/supabase-admin.service";
   providers: [
     OrganizationRepository,
     OrganizationService,
+    InviteCodeService,
     OrganizationResolver,
     SupabaseAdminService,
   ],
-  exports: [OrganizationService, OrganizationRepository],
+  exports: [OrganizationService, InviteCodeService, OrganizationRepository],
 })
 export class OrganizationModule {}

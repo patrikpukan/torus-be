@@ -15,6 +15,7 @@ import { PrismaService } from "src/core/prisma/prisma.service";
 import { withRls } from "src/db/withRls";
 import { getRlsClaims } from "src/shared/auth/utils/get-rls-claims";
 import { SupabaseAdminService } from "src/shared/auth/supabase-admin.service";
+import { InviteCodeService } from "src/modules/organization/services/invite-code.service";
 import { PairingStatusEnum } from "../graphql/types/pairing-history.type";
 
 // Define an interface for the file upload
@@ -32,7 +33,8 @@ export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly prisma: PrismaService,
-    private readonly supabaseAdminService: SupabaseAdminService
+    private readonly supabaseAdminService: SupabaseAdminService,
+    private readonly inviteCodeService: InviteCodeService
   ) {}
 
   async getUserById(identity: Identity, id: string): Promise<User | null> {
@@ -149,7 +151,8 @@ export class UserService {
       password: string;
       firstName?: string | null;
       lastName?: string | null;
-      organizationId?: string; // Add organization ID parameter
+      inviteCode?: string | null;
+      organizationId?: string;
     },
     profilePicture?: Promise<FileUpload>
   ): Promise<User> {
@@ -158,6 +161,30 @@ export class UserService {
     );
     if (existingUser) {
       throw new ConflictException("Email already exists");
+    }
+
+    // Validate invite code if provided
+    let organizationId = data.organizationId;
+    if (data.inviteCode) {
+      const validation = await this.inviteCodeService.validateInviteCode(
+        data.inviteCode
+      );
+      if (!validation.isValid) {
+        throw new BadRequestException(validation.message);
+      }
+      organizationId = validation.organizationId;
+      if (!organizationId) {
+        throw new BadRequestException(
+          "Invalid invite code: organization not found"
+        );
+      }
+    }
+
+    // Organization ID is now required (either from invite code or parameter)
+    if (!organizationId) {
+      throw new BadRequestException(
+        "Organization ID is required. Please use a valid invite code."
+      );
     }
 
     let supabaseAuthId: string | undefined;
@@ -171,7 +198,7 @@ export class UserService {
           user_metadata: {
             first_name: data.firstName ?? undefined,
             last_name: data.lastName ?? undefined,
-            organization_id: data.organizationId ?? undefined, // Pass org ID to Supabase
+            organization_id: organizationId,
           },
         });
 
@@ -202,12 +229,36 @@ export class UserService {
       throw new BadRequestException("Failed to create user");
     }
 
+    // Update user with profile info (note: organizationId should be set by trigger when Supabase user is created)
     await this.userRepository.updateUser(newUser.id, {
       role: UserRoleEnum.user,
       supabaseUserId: supabaseAuthId ?? newUser.supabaseUserId,
       firstName: data.firstName,
       lastName: data.lastName,
     });
+
+    // If organization wasn't set by trigger, update it via direct query
+    if (newUser.organizationId !== organizationId) {
+      await this.prisma.user.update({
+        where: { id: newUser.id },
+        data: { organizationId },
+      });
+      this.logger.log(
+        `Assigned user ${newUser.id} to organization ${organizationId}`
+      );
+    }
+
+    // Increment invite code usage if one was used
+    if (data.inviteCode) {
+      try {
+        await this.inviteCodeService.incrementInviteCodeUsage(data.inviteCode);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to increment invite code usage: ${(error as Error).message}`
+        );
+        // Don't fail the signup if invite code usage tracking fails
+      }
+    }
 
     if (profilePicture) {
       try {
