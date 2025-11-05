@@ -179,16 +179,6 @@ async function createDemoUser(
     // Use override email if provided, otherwise use profile email
     const email = emailOverride || profile.email;
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findFirst({
-      where: { email },
-    });
-
-    if (existingUser) {
-      console.log(`⚠️  User already exists: ${email}, skipping`);
-      return;
-    }
-
     // Generate UUID for userId
     const userId = randomUUID();
 
@@ -197,6 +187,34 @@ async function createDemoUser(
       profile.avatarFileName,
       userId
     );
+
+    // Check if user already exists in database by email
+    const existingDbUser = await prisma.user.findFirst({
+      where: { email },
+    });
+
+    if (existingDbUser) {
+      // Update existing user with all profile data
+      await prisma.user.update({
+        where: { id: existingDbUser.id },
+        data: {
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          about: profile.about,
+          hobbies: profile.hobbies,
+          preferredActivity: profile.preferredActivity,
+          interests: profile.interests,
+          profileImageUrl: avatarUrl || undefined,
+          role: profile.role,
+          organizationId: orgId,
+          updatedAt: new Date(),
+        },
+      });
+      console.log(
+        `✅ Updated user: ${profile.firstName} ${profile.lastName} (${profile.role}) - ${email}`
+      );
+      return;
+    }
 
     // Create user in Supabase Auth
     const { data: authData, error: authError } =
@@ -221,11 +239,11 @@ async function createDemoUser(
         if (!listError && data?.users) {
           const existingAuthUser = data.users.find((u) => u.email === email);
           if (existingAuthUser) {
-            // Check if database user exists
-            const dbUser = await prisma.user.findUnique({
+            // Check if database user exists by Supabase user ID
+            const dbUserByAuth = await prisma.user.findUnique({
               where: { id: existingAuthUser.id },
             });
-            if (!dbUser) {
+            if (!dbUserByAuth) {
               // Database user doesn't exist, create it with the existing Auth user ID
               await prisma.user.create({
                 data: {
@@ -241,7 +259,7 @@ async function createDemoUser(
                   hobbies: profile.hobbies,
                   preferredActivity: profile.preferredActivity,
                   interests: profile.interests,
-                  image: avatarUrl || undefined,
+                  profileImageUrl: avatarUrl || undefined,
                   isActive: true,
                   createdAt: new Date(),
                   updatedAt: new Date(),
@@ -249,6 +267,26 @@ async function createDemoUser(
               });
               console.log(
                 `✅ Created database user: ${profile.firstName} ${profile.lastName} (${profile.role})`
+              );
+            } else {
+              // Update existing database user
+              await prisma.user.update({
+                where: { id: existingAuthUser.id },
+                data: {
+                  firstName: profile.firstName,
+                  lastName: profile.lastName,
+                  about: profile.about,
+                  hobbies: profile.hobbies,
+                  preferredActivity: profile.preferredActivity,
+                  interests: profile.interests,
+                  profileImageUrl: avatarUrl || undefined,
+                  role: profile.role,
+                  organizationId: orgId,
+                  updatedAt: new Date(),
+                },
+              });
+              console.log(
+                `✅ Updated database user: ${profile.firstName} ${profile.lastName} (${profile.role})`
               );
             }
           }
@@ -264,18 +302,8 @@ async function createDemoUser(
       return;
     }
 
-    // Check if user already exists in database
-    const existingDbUser = await prisma.user.findUnique({
-      where: { id: authData.user.id },
-    });
-
-    if (existingDbUser) {
-      console.log(`⚠️  User already exists in database: ${email}`);
-      return;
-    }
-
-    // Create user in database
-    const user = await prisma.user.create({
+    // Create user in database with Supabase user ID
+    await prisma.user.create({
       data: {
         id: authData.user.id, // Use Supabase auth user ID
         supabaseUserId: authData.user.id,
@@ -289,7 +317,7 @@ async function createDemoUser(
         hobbies: profile.hobbies,
         preferredActivity: profile.preferredActivity,
         interests: profile.interests,
-        image: avatarUrl || undefined,
+        profileImageUrl: avatarUrl || undefined,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
