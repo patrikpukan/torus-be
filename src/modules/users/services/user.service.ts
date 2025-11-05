@@ -7,6 +7,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { CurrentUser, User, UserRoleEnum } from "../domain/user";
 import { UserRepository } from "../repositories/user.repository";
@@ -34,6 +36,7 @@ export class UserService {
     private readonly userRepository: UserRepository,
     private readonly prisma: PrismaService,
     private readonly supabaseAdminService: SupabaseAdminService,
+    @Inject(forwardRef(() => InviteCodeService))
     private readonly inviteCodeService: InviteCodeService
   ) {}
 

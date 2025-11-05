@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { ConfigModule } from "@applifting-io/nestjs-decorated-config";
 import { PrismaModule } from "../../core/prisma/prisma.module";
 import { UserResolver } from "./graphql/resolvers/user.resolver";
@@ -9,7 +9,7 @@ import { SupabaseAdminService } from "../../shared/auth/supabase-admin.service";
 import { OrganizationModule } from "../organization/organization.module";
 
 @Module({
-  imports: [ConfigModule, PrismaModule, OrganizationModule],
+  imports: [ConfigModule, PrismaModule, forwardRef(() => OrganizationModule)],
   providers: [
     UserRepository,
     UserService,
