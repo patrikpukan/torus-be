@@ -4,10 +4,10 @@ import { pipeline } from "stream/promises";
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
-  Inject,
   forwardRef,
 } from "@nestjs/common";
 import { CurrentUser, User, UserRoleEnum } from "../domain/user";
@@ -17,7 +17,7 @@ import { PrismaService } from "src/core/prisma/prisma.service";
 import { withRls } from "src/db/withRls";
 import { getRlsClaims } from "src/shared/auth/utils/get-rls-claims";
 import { SupabaseAdminService } from "src/shared/auth/supabase-admin.service";
-import { InviteCodeService } from "src/modules/organization/services/invite-code.service";
+import { InviteCodeService } from "../../organization/services/invite-code.service";
 import { PairingStatusEnum } from "../graphql/types/pairing-history.type";
 
 // Define an interface for the file upload
