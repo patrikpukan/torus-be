@@ -6,9 +6,10 @@ import { OrganizationRepository } from "./repositories/organization.repository";
 import { OrganizationService } from "./services/organization.service";
 import { InviteCodeService } from "./services/invite-code.service";
 import { SupabaseAdminService } from "../../shared/auth/supabase-admin.service";
+import { AuthModule } from "../../shared/auth/auth.module";
 
 @Module({
-  imports: [ConfigModule, PrismaModule],
+  imports: [ConfigModule, PrismaModule, AuthModule],
   providers: [
     OrganizationRepository,
     OrganizationService,
@@ -16,6 +17,6 @@ import { SupabaseAdminService } from "../../shared/auth/supabase-admin.service";
     OrganizationResolver,
     SupabaseAdminService,
   ],
-  exports: [OrganizationService, InviteCodeService, OrganizationRepository],
+  exports: [OrganizationService, OrganizationRepository, InviteCodeService],
 })
 export class OrganizationModule {}
