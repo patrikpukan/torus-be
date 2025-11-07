@@ -21,6 +21,22 @@ type AlgorithmSettingsResponse {
   warning: String
 }
 
+input CreateInviteCodeInputType {
+  """Optional: hours until code expires (default: 30 days if not set)"""
+  expiresInHours: Float
+
+  """Optional: max uses for this code"""
+  maxUses: Float
+}
+
+type CreateInviteCodeResponseType {
+  code: String!
+  expiresAt: DateTime
+  inviteUrl: String!
+  message: String!
+  success: Boolean!
+}
+
 type CurrentUser {
   about: String
   email: String!
@@ -30,7 +46,7 @@ type CurrentUser {
   interests: String
   isActive: Boolean!
   lastName: String
-  organization: Organization!
+  organization: SimpleOrganizationType!
   organizationId: ID!
   preferredActivity: String
   profileImageUrl: String
@@ -44,6 +60,29 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+type InviteCodeType {
+  code: String!
+  createdAt: DateTime!
+  createdBy: User
+  createdById: String!
+  expiresAt: DateTime
+  id: ID!
+  inviteUrl: String!
+  isActive: Boolean!
+  maxUses: Float
+  organizationId: String!
+  usedCount: Float!
+}
+
+type InviteCodeValidationResponseType {
+  expiresAt: DateTime
+  isValid: Boolean!
+  message: String!
+  organizationId: String
+  organizationName: String
+  remainingUses: Float
+}
+
 input InviteUserInputType {
   email: String!
   organizationId: String!
@@ -56,6 +95,7 @@ type InviteUserResponseType {
 }
 
 type Mutation {
+  createInviteCode(input: CreateInviteCodeInputType): CreateInviteCodeResponseType!
   deleteUser(id: ID!): User!
   executePairingAlgorithm(organizationId: String!): PairingExecutionResult!
   inviteUserToOrganization(input: InviteUserInputType!): InviteUserResponseType!
@@ -65,13 +105,6 @@ type Mutation {
   updateCurrentUserProfile(input: UpdateCurrentUserProfileInputType!): CurrentUser!
   updateOrganization(input: UpdateOrganizationInputType!): OrganizationType!
   updateUser(data: UpdateUserInputType!): User!
-}
-
-type Organization {
-  code: String!
-  id: ID!
-  imageUrl: String
-  name: String!
 }
 
 type OrganizationType {
@@ -121,6 +154,7 @@ enum ProfileStatusEnum {
 type Query {
   getAlgorithmSettings(organizationId: String!): AlgorithmSettings!
   getCurrentUser: CurrentUser
+  getOrganizationInvites: [InviteCodeType!]!
   getPairedUsers: [User!]!
   getPairingHistory: [PairingHistory!]!
   myOrganization: OrganizationType
@@ -128,6 +162,7 @@ type Query {
   organizations: [OrganizationType!]!
   userById(id: ID!): User
   users: [User!]!
+  validateInviteCode(code: String!): InviteCodeValidationResponseType!
 }
 
 input RegisterOrganizationInputType {
@@ -146,9 +181,19 @@ type RegisterOrganizationResponseType {
 input SignUpInputType {
   email: String!
   firstName: String
+
+  """Optional invite code for organization assignment"""
+  inviteCode: String
   lastName: String
   password: String!
   profilePicture: Upload
+}
+
+type SimpleOrganizationType {
+  code: String!
+  id: ID!
+  imageUrl: String
+  name: String!
 }
 
 input UpdateAlgorithmSettingsInput {

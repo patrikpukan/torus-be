@@ -1,6 +1,6 @@
 import { Field, ID, ObjectType } from "@nestjs/graphql";
 import { ProfileStatusEnum, UserRoleEnum } from "../../domain/user";
-import { OrganizationType } from "./organization.type";
+import { SimpleOrganizationType } from "./organization.type";
 
 @ObjectType("CurrentUser")
 export class CurrentUserType {
@@ -34,8 +34,8 @@ export class CurrentUserType {
   @Field(() => ID)
   organizationId!: string;
 
-  @Field(() => OrganizationType)
-  organization!: OrganizationType;
+  @Field(() => SimpleOrganizationType)
+  organization!: SimpleOrganizationType;
 
   @Field(() => UserRoleEnum)
   role!: UserRoleEnum;

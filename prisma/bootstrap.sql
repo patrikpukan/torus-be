@@ -6,17 +6,28 @@
 CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
 RETURNS TRIGGER AS $$
 DECLARE
-  default_org_id uuid;
+  org_id uuid;
+  first_name text;
+  last_name text;
 BEGIN
-  -- Get the first organization as default (you may want to customize this logic)
-  SELECT id INTO default_org_id FROM public.organizations LIMIT 1;
+  -- Try to get organization_id from user_metadata
+  org_id := (NEW.raw_user_meta_data->>'organization_id')::uuid;
   
-  -- If no organization exists, skip creating the user in public.user
+  -- If no organization_id in metadata, get the first organization as default
+  IF org_id IS NULL THEN
+    SELECT id INTO org_id FROM public.organizations LIMIT 1;
+  END IF;
+  
+  -- If still no organization exists, skip creating the user in public.user
   -- This allows auth to succeed, but user won't be in your app until they have an org
-  IF default_org_id IS NULL THEN
-    RAISE WARNING 'No organization found. User created in auth.users but not in public.user table.';
+  IF org_id IS NULL THEN
+    RAISE WARNING 'No organization found in metadata or database. User created in auth.users but not in public.user table.';
     RETURN NEW;
   END IF;
+
+  -- Extract first and last name from metadata
+  first_name := NEW.raw_user_meta_data->>'first_name';
+  last_name := NEW.raw_user_meta_data->>'last_name';
 
   -- Insert into public.user table with snake_case column names
   INSERT INTO public."user" (
@@ -24,6 +35,8 @@ BEGIN
     organization_id,
     email,
     "supabaseUserId",
+    "firstName",
+    "lastName",
     "emailVerified",
     "createdAt",
     "updatedAt",
@@ -32,9 +45,11 @@ BEGIN
     "profileStatus"
   ) VALUES (
     NEW.id,
-    default_org_id,
+    org_id,
     NEW.email,
     NEW.id,
+    first_name,
+    last_name,
     COALESCE(NEW.email_confirmed_at IS NOT NULL, false),
     COALESCE(NEW.created_at, NOW()),
     COALESCE(NEW.updated_at, NOW()),

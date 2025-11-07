@@ -23,6 +23,9 @@ export class SignUpInputType {
   @Field(() => String, { nullable: true })
   lastName?: string;
 
+  @Field(() => String, { nullable: true, description: "Optional invite code for organization assignment" })
+  inviteCode?: string;
+
   @Field(() => GraphQLUpload, { nullable: true })
   profilePicture?: Promise<FileUpload>;
 }
