@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { pipeline } from "stream/promises";
+import { randomUUID } from "crypto";
 import {
   BadRequestException,
   ConflictException,
@@ -226,21 +227,58 @@ export class UserService {
       );
     }
 
-    const newUser = await this.userRepository.getUserByEmail(data.email);
+    // Check if user exists in database (might have been created by trigger or earlier)
+    let newUser = await this.userRepository.getUserByEmail(data.email);
 
+    // If user doesn't exist in database, create them explicitly
     if (!newUser) {
-      throw new BadRequestException("Failed to create user");
+      try {
+        await this.prisma.user.create({
+          data: {
+            id: supabaseAuthId || randomUUID(),
+            email: data.email,
+            supabaseUserId: supabaseAuthId,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            organizationId: organizationId,
+            role: UserRoleEnum.user,
+            profileStatus: "pending",
+            isActive: true,
+            emailVerified: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+        
+        this.logger.log(
+          `Created user ${supabaseAuthId} in database for ${data.email}`
+        );
+
+        newUser = await this.userRepository.getUserByEmail(data.email);
+      } catch (error) {
+        this.logger.error(
+          `Failed to create user in database: ${(error as Error).message}`,
+          (error as Error).stack
+        );
+        throw new BadRequestException("Failed to create user in database");
+      }
     }
 
-    // Update user with profile info (note: organizationId should be set by trigger when Supabase user is created)
-    await this.userRepository.updateUser(newUser.id, {
-      role: UserRoleEnum.user,
-      supabaseUserId: supabaseAuthId ?? newUser.supabaseUserId,
-      firstName: data.firstName,
-      lastName: data.lastName,
-    });
+    if (!newUser) {
+      throw new BadRequestException("Failed to create or retrieve user");
+    }
 
-    // If organization wasn't set by trigger, update it via direct query
+    // Update user with profile info if not already set
+    if (!newUser.firstName || !newUser.lastName || !newUser.supabaseUserId) {
+      await this.userRepository.updateUser(newUser.id, {
+        role: UserRoleEnum.user,
+        supabaseUserId: supabaseAuthId ?? newUser.supabaseUserId,
+        firstName: data.firstName,
+        lastName: data.lastName,
+      });
+    }
+
+    // Ensure organization is correctly assigned
     if (newUser.organizationId !== organizationId) {
       await this.prisma.user.update({
         where: { id: newUser.id },

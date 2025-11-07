@@ -63,6 +63,7 @@ scalar DateTime
 type InviteCodeType {
   code: String!
   createdAt: DateTime!
+  createdBy: User
   createdById: String!
   expiresAt: DateTime
   id: ID!

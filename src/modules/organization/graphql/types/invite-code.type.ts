@@ -1,4 +1,5 @@
 import { Field, ID, ObjectType } from "@nestjs/graphql";
+import { UserType } from "../../../users/graphql/types/user.type";
 
 @ObjectType()
 export class InviteCodeType {
@@ -13,6 +14,9 @@ export class InviteCodeType {
 
   @Field()
   createdById: string;
+
+  @Field(() => UserType, { nullable: true })
+  createdBy?: UserType;
 
   @Field()
   createdAt: Date;
