@@ -22,10 +22,14 @@ type AlgorithmSettingsResponse {
 }
 
 input CreateInviteCodeInputType {
-  """Optional: hours until code expires (default: 30 days if not set)"""
+  """
+  Optional: hours until code expires (default: 30 days if not set)
+  """
   expiresInHours: Float
 
-  """Optional: max uses for this code"""
+  """
+  Optional: max uses for this code
+  """
   maxUses: Float
 }
 
@@ -94,15 +98,63 @@ type InviteUserResponseType {
   userId: String
 }
 
+"""
+Meeting confirmation status: pending, confirmed, rejected, or proposed
+"""
+enum MeetingConfirmationStatus {
+  confirmed
+  pending
+  proposed
+  rejected
+}
+
+type MeetingEvent {
+  cancellationReason: String
+  cancelledAt: DateTime
+  cancelledByUserId: ID
+  createdAt: DateTime!
+  createdByUserId: ID!
+  endDateTime: DateTime!
+  id: ID!
+  pairingId: ID
+  startDateTime: DateTime!
+  updatedAt: DateTime!
+  userAConfirmationStatus: MeetingConfirmationStatus!
+  userAId: ID!
+  userANote: String
+  userAProposedEndDateTime: DateTime
+  userAProposedStartDateTime: DateTime
+  userBConfirmationStatus: MeetingConfirmationStatus!
+  userBId: ID!
+  userBNote: String
+  userBProposedEndDateTime: DateTime
+  userBProposedStartDateTime: DateTime
+}
+
 type Mutation {
-  createInviteCode(input: CreateInviteCodeInputType): CreateInviteCodeResponseType!
+  createInviteCode(
+    input: CreateInviteCodeInputType
+  ): CreateInviteCodeResponseType!
   deleteUser(id: ID!): User!
   executePairingAlgorithm(organizationId: String!): PairingExecutionResult!
   inviteUserToOrganization(input: InviteUserInputType!): InviteUserResponseType!
-  registerOrganization(input: RegisterOrganizationInputType!): RegisterOrganizationResponseType!
+  proposeMeetingTime(input: UpdateMeetingEventConfirmationInput!): MeetingEvent!
+  registerOrganization(
+    input: RegisterOrganizationInputType!
+  ): RegisterOrganizationResponseType!
+  rejectMeeting(meetingId: ID!, note: String): MeetingEvent!
   signUp(data: SignUpInputType!): User!
-  updateAlgorithmSettings(input: UpdateAlgorithmSettingsInput!): AlgorithmSettingsResponse!
-  updateCurrentUserProfile(input: UpdateCurrentUserProfileInputType!): CurrentUser!
+  updateAlgorithmSettings(
+    input: UpdateAlgorithmSettingsInput!
+  ): AlgorithmSettingsResponse!
+  updateCalendarEvent(
+    input: UpdateCalendarEventInput!
+    scope: String! = "this"
+  ): CalendarEvent!
+  updateCurrentUserProfile(
+    input: UpdateCurrentUserProfileInputType!
+  ): CurrentUser!
+  updateMeetingToProposedTime(meetingId: ID!): MeetingEvent!
   updateOrganization(input: UpdateOrganizationInputType!): OrganizationType!
   updateUser(data: UpdateUserInputType!): User!
 }
@@ -135,7 +187,9 @@ type PairingHistory {
   userBId: ID!
 }
 
-"""Pairing status"""
+"""
+Pairing status
+"""
 enum PairingStatusEnum {
   cancelled
   matched
@@ -144,7 +198,9 @@ enum PairingStatusEnum {
   planned
 }
 
-"""Profile onboarding status"""
+"""
+Profile onboarding status
+"""
 enum ProfileStatusEnum {
   active
   pending
@@ -152,14 +208,32 @@ enum ProfileStatusEnum {
 }
 
 type Query {
+  allMeetingsForPairing(pairingId: ID!): [MeetingEvent!]!
+  calendarEventById(id: ID!): CalendarEvent
+  calendarEventsByDateRange(
+    endDate: DateTime!
+    startDate: DateTime!
+  ): [CalendarEvent!]!
+  expandedCalendarOccurrences(
+    endDate: DateTime!
+    startDate: DateTime!
+  ): [ExpandedCalendarEventOccurrence!]!
   getAlgorithmSettings(organizationId: String!): AlgorithmSettings!
   getCurrentUser: CurrentUser
   getOrganizationInvites: [InviteCodeType!]!
   getPairedUsers: [User!]!
   getPairingHistory: [PairingHistory!]!
+  latestMeetingForPairing(pairingId: ID!): MeetingEvent
+  meetingEventById(id: ID!): MeetingEvent
+  meetingEventsByDateRange(
+    endDate: DateTime!
+    startDate: DateTime!
+  ): [MeetingEvent!]!
   myOrganization: OrganizationType
   organizationById(id: ID!): OrganizationType
   organizations: [OrganizationType!]!
+  pendingMeetingConfirmations: [MeetingEvent!]!
+  upcomingMeetings: [MeetingEvent!]!
   userById(id: ID!): User
   users: [User!]!
   validateInviteCode(code: String!): InviteCodeValidationResponseType!
@@ -182,7 +256,9 @@ input SignUpInputType {
   email: String!
   firstName: String
 
-  """Optional invite code for organization assignment"""
+  """
+  Optional invite code for organization assignment
+  """
   inviteCode: String
   lastName: String
   password: String!
@@ -202,6 +278,15 @@ input UpdateAlgorithmSettingsInput {
   randomSeed: Int
 }
 
+input UpdateCalendarEventInput {
+  description: String
+  endDateTime: DateTime
+  id: ID!
+  startDateTime: DateTime
+  title: String
+  type: CalendarEventType
+}
+
 input UpdateCurrentUserProfileInputType {
   about: String
   avatarUrl: String
@@ -210,6 +295,15 @@ input UpdateCurrentUserProfileInputType {
   interests: String
   lastName: String
   preferredActivity: String
+}
+
+input UpdateMeetingEventConfirmationInput {
+  meetingId: ID!
+  note: String
+  proposedEndDateTime: DateTime
+  proposedStartDateTime: DateTime
+  status: MeetingConfirmationStatus!
+  userId: ID!
 }
 
 input UpdateOrganizationInputType {
@@ -233,7 +327,9 @@ input UpdateUserInputType {
   role: UserRoleEnum
 }
 
-"""The `Upload` scalar type represents a file upload."""
+"""
+The `Upload` scalar type represents a file upload.
+"""
 scalar Upload
 
 type User {
@@ -246,7 +342,9 @@ type User {
   role: UserRoleEnum!
 }
 
-"""User role"""
+"""
+User role
+"""
 enum UserRoleEnum {
   org_admin
   super_admin
