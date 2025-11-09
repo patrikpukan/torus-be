@@ -44,13 +44,24 @@ export class CalendarEventResolver {
   async expandedCalendarOccurrences(
     @User() identity: Identity,
     @Args("startDate") startDate: Date,
-    @Args("endDate") endDate: Date
+    @Args("endDate") endDate: Date,
+    @Args("userId", { type: () => ID, nullable: true }) userId?: string
   ): Promise<ExpandedCalendarEventOccurrenceType[]> {
-    return this.calendarEventService.getExpandedOccurrences(
+    // If userId is provided and differs from the requester, authorize and fetch for that user
+    if (userId && userId !== identity.id) {
+      return (await this.calendarEventService.getExpandedOccurrencesForUser(
+        identity,
+        userId,
+        startDate,
+        endDate
+      )) as any;
+    }
+    // Default: current user's occurrences
+    return (await this.calendarEventService.getExpandedOccurrences(
       identity,
       startDate,
       endDate
-    ) as any;
+    )) as any;
   }
 
   @UseGuards(AuthenticatedUserGuard)

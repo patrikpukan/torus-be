@@ -166,6 +166,85 @@ export class CalendarEventService {
   }
 
   /**
+   * Get expanded occurrences for a specific user's calendar, with authorization.
+   * Allowed when requesting own calendar or when requester is paired with the target user.
+   */
+  async getExpandedOccurrencesForUser(
+    identity: Identity,
+    targetUserId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<
+    Array<{
+      id: string;
+      occurrenceStart: Date;
+      occurrenceEnd: Date;
+      originalEvent: CalendarEvent;
+    }>
+  > {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      if (startDate >= endDate) {
+        throw new BadRequestException("startDate must be before endDate");
+      }
+
+      // If requesting someone else's calendar, ensure users are paired
+      if (identity.id !== targetUserId) {
+        const pairing = await tx.pairing.findFirst({
+          where: {
+            OR: [
+              { userAId: identity.id, userBId: targetUserId },
+              { userAId: targetUserId, userBId: identity.id },
+            ],
+          },
+        });
+
+        if (!pairing) {
+          throw new BadRequestException(
+            "Cannot view calendar for a user you are not paired with"
+          );
+        }
+      }
+
+      const events =
+        await this.calendarEventRepository.findByUserIdAndDateRange(
+          targetUserId,
+          startDate,
+          endDate,
+          tx
+        );
+
+      const occurrences: Array<{
+        id: string;
+        occurrenceStart: Date;
+        occurrenceEnd: Date;
+        originalEvent: CalendarEvent;
+      }> = [];
+
+      for (const event of events) {
+        if (!event.rrule) {
+          occurrences.push({
+            id: event.id,
+            occurrenceStart: event.startDateTime,
+            occurrenceEnd: event.endDateTime,
+            originalEvent: event,
+          });
+        } else {
+          const expandedOccurrences = this.expandRecurringEvent(
+            event,
+            startDate,
+            endDate
+          );
+          occurrences.push(...expandedOccurrences);
+        }
+      }
+
+      return occurrences.sort(
+        (a, b) => a.occurrenceStart.getTime() - b.occurrenceStart.getTime()
+      );
+    });
+  }
+
+  /**
    * Expand a recurring event (RRULE) into individual occurrences
    */
   private expandRecurringEvent(
