@@ -12,6 +12,7 @@ import {
   forwardRef,
 } from "@nestjs/common";
 import { CurrentUser, User, UserRoleEnum } from "../domain/user";
+import { computeDerivedPairingStatus } from "../../calendar/domain/pairing-status.machine";
 import { UserRepository } from "../repositories/user.repository";
 import { Identity } from "src/shared/auth/domain/identity";
 import { PrismaService } from "src/core/prisma/prisma.service";
@@ -160,9 +161,7 @@ export class UserService {
     },
     profilePicture?: Promise<FileUpload>
   ): Promise<User> {
-    const existingUser = await this.userRepository.getUserByEmail(
-      data.email
-    );
+    const existingUser = await this.userRepository.getUserByEmail(data.email);
     if (existingUser) {
       throw new ConflictException("Email already exists");
     }
@@ -249,7 +248,7 @@ export class UserService {
             updatedAt: new Date(),
           },
         });
-        
+
         this.logger.log(
           `Created user ${supabaseAuthId} in database for ${data.email}`
         );
@@ -379,9 +378,7 @@ export class UserService {
    * Get pairing history for current user with detailed pairing information.
    * Returns all pairings (both as userA and userB) sorted by creation date (newest first).
    */
-  async getPairingHistory(
-    identity: Identity
-  ): Promise<
+  async getPairingHistory(identity: Identity): Promise<
     Array<{
       id: string;
       userAId: string;
@@ -390,6 +387,7 @@ export class UserService {
       createdAt: Date;
       userA: User;
       userB: User;
+      derivedStatus: PairingStatusEnum;
     }>
   > {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
@@ -407,15 +405,44 @@ export class UserService {
         },
       });
 
-      return pairings.map((pairing) => ({
-        id: pairing.id,
-        userAId: pairing.userAId,
-        userBId: pairing.userBId,
-        status: pairing.status as PairingStatusEnum,
-        createdAt: pairing.createdAt,
-        userA: pairing.userA as User,
-        userB: pairing.userB as User,
-      }));
+      const results: Array<{
+        id: string;
+        userAId: string;
+        userBId: string;
+        status: PairingStatusEnum;
+        createdAt: Date;
+        userA: User;
+        userB: User;
+        derivedStatus: PairingStatusEnum;
+      }> = [];
+
+      for (const pairing of pairings) {
+        const latestMeeting = await tx.meetingEvent.findFirst({
+          where: {
+            pairingId: pairing.id,
+            cancelledAt: null,
+          },
+          orderBy: { createdAt: "desc" },
+        });
+
+        const derived = computeDerivedPairingStatus({
+          pairingStatus: pairing.status,
+          latestMeeting: latestMeeting as any,
+        }) as PairingStatusEnum;
+
+        results.push({
+          id: pairing.id,
+          userAId: pairing.userAId,
+          userBId: pairing.userBId,
+          status: pairing.status as PairingStatusEnum,
+          createdAt: pairing.createdAt,
+          userA: pairing.userA as User,
+          userB: pairing.userB as User,
+          derivedStatus: derived,
+        });
+      }
+
+      return results;
     });
   }
 }

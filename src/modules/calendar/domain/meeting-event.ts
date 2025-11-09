@@ -35,6 +35,7 @@ export type CreateMeetingEventInput = {
   createdByUserId: string;
   startDateTime: Date;
   endDateTime: Date;
+  note?: string; // optional creator note stored as userANote/userBNote
 };
 
 export type UpdateMeetingEventConfirmationInput = {

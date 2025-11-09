@@ -20,6 +20,9 @@ export class CreateMeetingEventInputType {
 
   @Field()
   endDateTime!: Date;
+
+  @Field(() => String, { nullable: true })
+  note?: string | null;
 }
 
 @InputType("UpdateMeetingEventConfirmationInput")

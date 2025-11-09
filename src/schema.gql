@@ -79,6 +79,7 @@ type CreateInviteCodeResponseType {
 input CreateMeetingEventInput {
   createdByUserId: ID!
   endDateTime: DateTime!
+  note: String
   pairingId: ID
   startDateTime: DateTime!
   userAId: ID!
@@ -228,6 +229,7 @@ type PairingExecutionResult {
 
 type PairingHistory {
   createdAt: DateTime!
+  derivedStatus: PairingStatusEnum!
   id: ID!
   status: PairingStatusEnum!
   userA: User!
@@ -250,7 +252,9 @@ enum PairingStatusEnum {
   matched
   met
   not_met
+  not_planned
   planned
+  unspecified
 }
 
 type PairingStatusOverviewType {
