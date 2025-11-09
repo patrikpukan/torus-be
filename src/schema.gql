@@ -135,6 +135,14 @@ type PairingHistory {
   userBId: ID!
 }
 
+type PairingStatusByUserType {
+  count: Int!
+  status: String!
+  userEmail: String!
+  userId: ID!
+  userName: String
+}
+
 """Pairing status"""
 enum PairingStatusEnum {
   cancelled
@@ -142,6 +150,11 @@ enum PairingStatusEnum {
   met
   not_met
   planned
+}
+
+type PairingStatusOverviewType {
+  count: Int!
+  status: String!
 }
 
 """Profile onboarding status"""
@@ -160,6 +173,7 @@ type Query {
   myOrganization: OrganizationType
   organizationById(id: ID!): OrganizationType
   organizations: [OrganizationType!]!
+  statistics(filter: StatisticsFilterInputType): StatisticsResponseType!
   userById(id: ID!): User
   users: [User!]!
   validateInviteCode(code: String!): InviteCodeValidationResponseType!
@@ -194,6 +208,22 @@ type SimpleOrganizationType {
   id: ID!
   imageUrl: String
   name: String!
+}
+
+input StatisticsFilterInputType {
+  endDate: String
+  month: Int
+  organizationId: String
+  startDate: String
+  year: Int
+}
+
+type StatisticsResponseType {
+  inactiveUsersCount: Int!
+  newUsersCount: Int!
+  pairingsByStatus: [PairingStatusOverviewType!]!
+  pairingsByStatusAndUser: [PairingStatusByUserType!]!
+  reportsCount: Int!
 }
 
 input UpdateAlgorithmSettingsInput {
