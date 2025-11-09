@@ -53,4 +53,8 @@ export class DeleteCalendarEventInputType {
 
   @Field(() => String, { defaultValue: "this" })
   scope!: "this" | "following" | "all";
+
+  // Optional: specific occurrence start date to target a single occurrence
+  @Field(() => Date, { nullable: true })
+  occurrenceStart?: Date | null;
 }

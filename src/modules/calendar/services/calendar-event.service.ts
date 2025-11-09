@@ -238,8 +238,11 @@ export class CalendarEventService {
       const dates = rruleSet.between(startDate, endDate, true);
 
       for (const date of dates) {
+        // Generate a unique ID for each occurrence using event ID and occurrence start time
+        // This ensures each recurring event instance gets a unique identifier
+        const occurrenceId = `${event.id}_${date.toISOString().replace(/[^\w]/g, "")}`;
         occurrences.push({
-          id: event.id,
+          id: occurrenceId,
           occurrenceStart: date,
           occurrenceEnd: new Date(date.getTime() + eventDuration),
           originalEvent: event,
@@ -258,7 +261,8 @@ export class CalendarEventService {
     identity: Identity,
     id: string,
     input: UpdateCalendarEventInput,
-    scope: "this" | "following" | "all" = "this"
+    scope: "this" | "following" | "all" = "this",
+    occurrenceStart?: Date
   ): Promise<CalendarEvent | CalendarEvent[]> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const event = await this.calendarEventRepository.findById(id, tx);
@@ -302,9 +306,21 @@ export class CalendarEventService {
       // Handle recurring event updates with scope
       switch (scope) {
         case "this":
-          return this.updateThisOccurrence(event, id, input, tx);
+          return this.updateThisOccurrence(
+            event,
+            id,
+            input,
+            tx,
+            occurrenceStart
+          );
         case "following":
-          return this.updateFollowingOccurrences(event, id, input, tx);
+          return this.updateFollowingOccurrences(
+            event,
+            id,
+            input,
+            tx,
+            occurrenceStart
+          );
         case "all":
           return this.updateAllOccurrences(event, id, input, tx);
         default:
@@ -320,10 +336,21 @@ export class CalendarEventService {
     event: CalendarEvent,
     id: string,
     input: UpdateCalendarEventInput,
-    tx: Prisma.TransactionClient
+    tx: Prisma.TransactionClient,
+    occurrenceStart?: Date
   ): Promise<CalendarEvent> {
     // Create a new event with the updated details and same rruleRecurringId
-    return this.calendarEventRepository.create(
+    // Use input.startDateTime/input.endDateTime if provided (editing the occurrence),
+    // otherwise fall back to the occurrenceStart passed or the original event start
+    const newStart = input.startDateTime
+      ? input.startDateTime
+      : occurrenceStart
+        ? occurrenceStart
+        : event.startDateTime;
+    const newEnd = input.endDateTime ? input.endDateTime : event.endDateTime;
+
+    // Create the single exception event
+    const created = await this.calendarEventRepository.create(
       {
         user: { connect: { id: event.userId } },
         type: (input.type || event.type) as any,
@@ -332,13 +359,32 @@ export class CalendarEventService {
           input.description !== undefined
             ? input.description
             : event.description,
-        startDateTime: event.startDateTime,
-        endDateTime: event.endDateTime,
+        startDateTime: newStart,
+        endDateTime: newEnd,
         rrule: null, // This is now a single occurrence
         rruleRecurringId: event.rruleRecurringId, // Keep same series ID for reference
       } as any,
       tx
     );
+
+    // Also add an exception date to the original series so the original occurrence is hidden
+    const exceptionDates = event.exceptionDates
+      ? JSON.parse(event.exceptionDates)
+      : [];
+    const dateToAdd = occurrenceStart
+      ? occurrenceStart.toISOString()
+      : event.startDateTime.toISOString();
+    exceptionDates.push(dateToAdd);
+
+    await this.calendarEventRepository.update(
+      event.id,
+      {
+        exceptionDates: JSON.stringify(exceptionDates),
+      },
+      tx
+    );
+
+    return created;
   }
 
   /**
@@ -348,17 +394,18 @@ export class CalendarEventService {
     event: CalendarEvent,
     id: string,
     input: UpdateCalendarEventInput,
-    tx: Prisma.TransactionClient
+    tx: Prisma.TransactionClient,
+    occurrenceStart?: Date
   ): Promise<CalendarEvent[]> {
     if (!event.rrule) {
       throw new BadRequestException(
         "Cannot update following occurrences for non-recurring event"
       );
     }
-
-    // Modify original event's RRULE to end before this occurrence
-    const originalUntilDate = new Date(event.startDateTime);
-    originalUntilDate.setDate(originalUntilDate.getDate() - 1);
+    // Modify original event's RRULE to end before this occurrence (use occurrenceStart if provided)
+    const splitDate = occurrenceStart || event.startDateTime;
+    // Use one second before the splitDate to avoid day rounding/UTC issues
+    const originalUntilDate = new Date(splitDate.getTime() - 1000);
 
     const updatedOriginal = await this.calendarEventRepository.update(
       id,
@@ -368,7 +415,10 @@ export class CalendarEventService {
       tx
     );
 
-    // Create new recurring event for updated portion
+    // Create new recurring event for updated portion starting at either input.startDateTime or the split date
+    const newStart = input.startDateTime ? input.startDateTime : splitDate;
+    const newEnd = input.endDateTime ? input.endDateTime : event.endDateTime;
+
     const newEvent = await this.calendarEventRepository.create(
       {
         user: { connect: { id: event.userId } },
@@ -378,8 +428,8 @@ export class CalendarEventService {
           input.description !== undefined
             ? input.description
             : event.description,
-        startDateTime: input.startDateTime || event.startDateTime,
-        endDateTime: input.endDateTime || event.endDateTime,
+        startDateTime: newStart,
+        endDateTime: newEnd,
         rrule: this.removeUntilFromRrule(event.rrule),
         rruleRecurringId: event.rruleRecurringId,
       } as any,
@@ -391,6 +441,8 @@ export class CalendarEventService {
 
   /**
    * Update all occurrences by updating original recurring event
+   * Only updates title, description, and type - NOT startDateTime/endDateTime
+   * (changing the base event's start time would break the recurrence pattern)
    */
   private async updateAllOccurrences(
     event: CalendarEvent,
@@ -412,8 +464,8 @@ export class CalendarEventService {
         ...(input.description !== undefined && {
           description: input.description,
         }),
-        ...(input.startDateTime && { startDateTime: input.startDateTime }),
-        ...(input.endDateTime && { endDateTime: input.endDateTime }),
+        // Note: We intentionally do NOT update startDateTime/endDateTime for recurring events
+        // Changing the base event's start time would break the RRULE expansion
       },
       tx
     );
@@ -422,7 +474,8 @@ export class CalendarEventService {
   async deleteCalendarEvent(
     identity: Identity,
     id: string,
-    scope: "this" | "following" | "all" = "this"
+    scope: "this" | "following" | "all" = "this",
+    occurrenceStart?: Date
   ): Promise<void> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const event = await this.calendarEventRepository.findById(id, tx);
@@ -446,10 +499,10 @@ export class CalendarEventService {
       // Handle recurring event deletion with scope
       switch (scope) {
         case "this":
-          await this.deleteThisOccurrence(event, id, tx);
+          await this.deleteThisOccurrence(event, id, tx, occurrenceStart);
           break;
         case "following":
-          await this.deleteFollowingOccurrences(event, id, tx);
+          await this.deleteFollowingOccurrences(event, id, tx, occurrenceStart);
           break;
         case "all":
           await this.deleteAllOccurrences(event, tx);
@@ -466,12 +519,16 @@ export class CalendarEventService {
   private async deleteThisOccurrence(
     event: CalendarEvent,
     id: string,
-    tx: Prisma.TransactionClient
+    tx: Prisma.TransactionClient,
+    occurrenceStart?: Date
   ): Promise<void> {
     const exceptionDates = event.exceptionDates
       ? JSON.parse(event.exceptionDates)
       : [];
-    exceptionDates.push(event.startDateTime.toISOString());
+    const dateToAdd = occurrenceStart
+      ? occurrenceStart.toISOString()
+      : event.startDateTime.toISOString();
+    exceptionDates.push(dateToAdd);
 
     await this.calendarEventRepository.update(
       id,
@@ -488,10 +545,12 @@ export class CalendarEventService {
   private async deleteFollowingOccurrences(
     event: CalendarEvent,
     id: string,
-    tx: Prisma.TransactionClient
+    tx: Prisma.TransactionClient,
+    occurrenceStart?: Date
   ): Promise<void> {
-    const untilDate = new Date(event.startDateTime);
-    untilDate.setDate(untilDate.getDate() - 1);
+    const baseDate = occurrenceStart || event.startDateTime;
+    // Use one second before the base date to avoid day rounding/UTC issues
+    const untilDate = new Date(baseDate.getTime() - 1000);
 
     await this.calendarEventRepository.update(
       id,
@@ -526,8 +585,10 @@ export class CalendarEventService {
   private addUntilToRrule(rrule: string, untilDate: Date): string {
     // Remove existing UNTIL if present
     let modifiedRrule = rrule.replace(/;UNTIL=[^;]+/, "");
-    // Add new UNTIL
-    return `${modifiedRrule};UNTIL=${untilDate.toISOString().split("T")[0].replace(/-/g, "")}`;
+    // Format UNTIL as full UTC timestamp in YYYYMMDDTHHMMSSZ
+    const iso =
+      untilDate.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    return `${modifiedRrule};UNTIL=${iso}`;
   }
 
   /**

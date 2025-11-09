@@ -66,19 +66,25 @@ export class CalendarEventResolver {
   }
 
   @UseGuards(AuthenticatedUserGuard)
-  @Mutation(() => CalendarEventType)
+  @Mutation(() => [CalendarEventType])
   async updateCalendarEvent(
     @User() identity: Identity,
     @Args("input") input: UpdateCalendarEventInputType,
     @Args("scope", { type: () => String, defaultValue: "this" })
-    scope: "this" | "following" | "all"
-  ): Promise<CalendarEventType | CalendarEventType[]> {
-    return this.calendarEventService.updateCalendarEvent(
+    scope: "this" | "following" | "all",
+    @Args("occurrenceStart", { type: () => Date, nullable: true })
+    occurrenceStart?: Date
+  ): Promise<CalendarEventType[]> {
+    const result = await this.calendarEventService.updateCalendarEvent(
       identity,
       input.id,
       input as any,
-      scope
-    ) as any;
+      scope,
+      occurrenceStart
+    );
+    // Ensure we always return an array for consistency
+    const events = Array.isArray(result) ? result : [result];
+    return events as any;
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -90,7 +96,8 @@ export class CalendarEventResolver {
     await this.calendarEventService.deleteCalendarEvent(
       identity,
       input.id,
-      input.scope
+      input.scope,
+      input.occurrenceStart || undefined
     );
     return true;
   }
