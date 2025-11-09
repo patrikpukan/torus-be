@@ -6,6 +6,8 @@ export enum PairingStatusEnum {
   matched = "matched",
   met = "met",
   not_met = "not_met",
+  not_planned = "not_planned",
+  unspecified = "unspecified",
   cancelled = "cancelled",
 }
 
@@ -27,6 +29,9 @@ export class PairingHistoryType {
 
   @Field(() => PairingStatusEnum)
   status!: PairingStatusEnum;
+
+  @Field(() => PairingStatusEnum)
+  derivedStatus!: PairingStatusEnum;
 
   @Field()
   createdAt!: Date;
