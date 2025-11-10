@@ -71,24 +71,29 @@ export class MeetingEventService {
         throw new BadRequestException("One or both users do not exist");
       }
 
+      const creatorIsA = input.createdByUserId === input.userAId;
+
       return this.meetingEventRepository.create(
         {
-          pairing: input.pairingId
-            ? { connect: { id: input.pairingId } }
-            : undefined,
+          pairingId: input.pairingId ?? undefined,
           userAId: input.userAId,
           userBId: input.userBId,
           createdByUserId: input.createdByUserId,
           startDateTime: input.startDateTime,
           endDateTime: input.endDateTime,
           userAConfirmationStatus:
-            input.createdByUserId === input.userAId
+            creatorIsA
               ? MeetingConfirmationStatus.confirmed
               : MeetingConfirmationStatus.pending,
           userBConfirmationStatus:
-            input.createdByUserId === input.userBId
+            !creatorIsA
               ? MeetingConfirmationStatus.confirmed
               : MeetingConfirmationStatus.pending,
+          ...(input.note
+            ? creatorIsA
+              ? { userANote: input.note }
+              : { userBNote: input.note }
+            : {}),
         } as any,
         tx
       );
@@ -380,6 +385,19 @@ export class MeetingEventService {
 
       if (meeting.cancelledAt) {
         throw new BadRequestException("Meeting is already cancelled");
+      }
+
+      // Only allow cancelling when both sides already confirmed (scheduled meeting)
+      const aConfirmed =
+        String(meeting.userAConfirmationStatus) ===
+        String(MeetingConfirmationStatus.confirmed);
+      const bConfirmed =
+        String(meeting.userBConfirmationStatus) ===
+        String(MeetingConfirmationStatus.confirmed);
+      if (!(aConfirmed && bConfirmed)) {
+        throw new BadRequestException(
+          "Only scheduled meetings (both confirmed) can be cancelled"
+        );
       }
 
       // Verify user is a participant or is cancelling on behalf of themselves
