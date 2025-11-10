@@ -2,7 +2,10 @@ import { ForbiddenException, UseGuards } from "@nestjs/common";
 import { Args, Mutation, Resolver } from "@nestjs/graphql";
 import { GraphQLError } from "graphql";
 import { PairingPeriodStatus, UserRole } from "@prisma/client";
-import { PairingAlgorithmService } from "./pairing-algorithm.service";
+import {
+  PairingAlgorithmService,
+  InsufficientUsersException,
+} from "./pairing-algorithm.service";
 import { PairingExecutionResult } from "./types/pairing-execution-result.type";
 import { AuthenticatedUserGuard } from "../shared/auth/guards/authenticated-user.guard";
 import { User } from "../shared/auth/decorators/user.decorator";
@@ -40,8 +43,8 @@ export class PairingAlgorithmResolver {
    * @returns Execution result with statistics
    */
   async executePairingAlgorithm(
-  @Args("organizationId", { type: () => String }) organizationId: string,
-  @User() user: CurrentUserContext | null
+    @Args("organizationId", { type: () => String }) organizationId: string,
+    @User() user: CurrentUserContext | null
   ): Promise<PairingExecutionResult> {
     try {
       const resolvedUser = await this.resolveUser(user);
@@ -92,6 +95,16 @@ export class PairingAlgorithmResolver {
     } catch (error) {
       if (error instanceof ForbiddenException) {
         throw error;
+      }
+
+      if (error instanceof InsufficientUsersException) {
+        // Return a structured, non-throwing result so the frontend can show a toast
+        return {
+          success: false,
+          pairingsCreated: 0,
+          message: error.message,
+          unpairedUsers: error.userCount,
+        };
       }
 
       const err = error as Error;

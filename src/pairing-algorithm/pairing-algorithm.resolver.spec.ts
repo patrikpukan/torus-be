@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PairingAlgorithmResolver } from './pairing-algorithm.resolver';
-import { PairingAlgorithmService } from './pairing-algorithm.service';
+import { InsufficientUsersException, PairingAlgorithmService } from './pairing-algorithm.service';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
 import { PairingPeriodStatus } from '@prisma/client';
@@ -93,6 +93,20 @@ describe('PairingAlgorithmResolver', () => {
     );
   });
 
+  it('should return structured result when insufficient users', async () => {
+    pairingService.executePairing.mockRejectedValueOnce(
+      new InsufficientUsersException('org-1', 1),
+    );
+
+    const result = await resolver.executePairingAlgorithm('org-1', mockUser());
+
+    expect(result).toMatchObject({
+      success: false,
+      pairingsCreated: 0,
+    });
+    expect(result.message).toContain('Not enough users');
+    expect(result.unpairedUsers).toBe(1);
+  });
   it('should return correct pairing statistics', async () => {
     (prisma.pairing.count as jest.Mock).mockResolvedValueOnce(4).mockResolvedValueOnce(8);
     (prisma.pairingPeriod.findFirst as jest.Mock).mockResolvedValue({
