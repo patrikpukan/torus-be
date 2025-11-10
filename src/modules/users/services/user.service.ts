@@ -5,13 +5,19 @@ import { randomUUID } from "crypto";
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
   forwardRef,
 } from "@nestjs/common";
-import { CurrentUser, User, UserRoleEnum } from "../domain/user";
+import {
+  CurrentUser,
+  ProfileStatusEnum,
+  User,
+  UserRoleEnum,
+} from "../domain/user";
 import { computeDerivedPairingStatus } from "../../calendar/domain/pairing-status.machine";
 import { UserRepository } from "../repositories/user.repository";
 import { Identity } from "src/shared/auth/domain/identity";
@@ -21,6 +27,8 @@ import { getRlsClaims } from "src/shared/auth/utils/get-rls-claims";
 import { SupabaseAdminService } from "src/shared/auth/supabase-admin.service";
 import { InviteCodeService } from "../../organization/services/invite-code.service";
 import { PairingStatusEnum } from "../graphql/types/pairing-history.type";
+import { UserBanRepository } from "../repositories/user-ban.repository";
+import { AuthorizationService } from "src/shared/auth/services/authorization.service";
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -36,28 +44,97 @@ export class UserService {
 
   constructor(
     private readonly userRepository: UserRepository,
+    private readonly userBanRepository: UserBanRepository,
     private readonly prisma: PrismaService,
     private readonly supabaseAdminService: SupabaseAdminService,
+    private readonly authorizationService: AuthorizationService,
     @Inject(forwardRef(() => InviteCodeService))
     private readonly inviteCodeService: InviteCodeService
   ) {}
 
   async getUserById(identity: Identity, id: string): Promise<User | null> {
-    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
-      this.userRepository.getUserById(id, tx)
-    );
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const user = await this.userRepository.getUserById(id, tx);
+
+      if (!user) {
+        return null;
+      }
+
+      const canView = await this.authorizationService.canViewUser(
+        identity,
+        user.id,
+        user.organizationId
+      );
+      this.authorizationService.throwIfNoPermission(canView);
+
+      const activeBan = await this.userBanRepository.findActiveBanByUserId(
+        user.id,
+        tx
+      );
+
+      return {
+        ...user,
+        activeBan,
+      };
+    });
   }
 
   async getCurrentUser(identity: Identity): Promise<CurrentUser | null> {
-    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
-      this.userRepository.getUserWithOrganizationById(identity.id, tx)
-    );
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const user =
+        await this.userRepository.getUserWithOrganizationById(
+          identity.id,
+          tx
+        );
+
+      if (!user) {
+        return null;
+      }
+
+      const activeBan = await this.userBanRepository.findActiveBanByUserId(
+        user.id,
+        tx
+      );
+
+      return {
+        ...user,
+        activeBan,
+      };
+    });
   }
 
   async listUsers(identity: Identity): Promise<User[]> {
-    return withRls(this.prisma, getRlsClaims(identity), (tx) =>
-      this.userRepository.listUsers(tx)
-    );
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const role = identity.appRole as UserRoleEnum | undefined;
+      const isSuperAdmin = role === UserRoleEnum.super_admin;
+      const isOrgAdmin = role === UserRoleEnum.org_admin;
+
+      if (!isSuperAdmin && !isOrgAdmin) {
+        throw new ForbiddenException(
+          "Only organization administrators can view users"
+        );
+      }
+
+      const organizationId = isSuperAdmin ? undefined : identity.organizationId;
+
+      if (!isSuperAdmin && !organizationId) {
+        throw new ForbiddenException("Organization context is missing");
+      }
+
+      const users = await this.userRepository.listUsers(
+        tx,
+        organizationId ? { organizationId } : undefined
+      );
+      const bans = await this.userBanRepository.findActiveBansByUserIds(
+        users.map((user) => user.id),
+        tx
+      );
+
+      return users.map((user) => ({
+        ...user,
+        activeBan: bans.get(user.id) ?? null,
+      }));
+    });
   }
 
   // Creation of users is handled via signUp (BetterAuth) flow.
@@ -443,6 +520,60 @@ export class UserService {
       }
 
       return results;
+    });
+  }
+
+  async banUser(
+    identity: Identity,
+    input: {
+      userId: string;
+      reason: string;
+      expiresAt?: Date | null;
+    }
+  ): Promise<User> {
+    const trimmedReason = input.reason?.trim();
+
+    if (!trimmedReason) {
+      throw new BadRequestException("Ban reason is required");
+    }
+
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const user = await this.userRepository.getUserById(input.userId, tx);
+
+      if (!user) {
+        throw new NotFoundException("User not found");
+      }
+
+      const canManage = await this.authorizationService.canUpdateUser(
+        identity,
+        user.id,
+        user.organizationId
+      );
+      this.authorizationService.throwIfNoPermission(canManage);
+
+      const ban = await this.userBanRepository.createBan(
+        {
+          userId: user.id,
+          organizationId: user.organizationId,
+          reason: trimmedReason,
+          expiresAt: input.expiresAt ?? null,
+          bannedById: identity.id,
+        },
+        tx
+      );
+
+      const updatedUser = await this.userRepository.updateUser(
+        user.id,
+        {
+          profileStatus: ProfileStatusEnum.suspended,
+        },
+        tx
+      );
+
+      return {
+        ...updatedUser,
+        activeBan: ban,
+      };
     });
   }
 }

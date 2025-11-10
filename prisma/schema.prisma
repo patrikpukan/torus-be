@@ -283,7 +283,7 @@ model Ban {
   id             String    @id @default(uuid()) @db.Uuid
   organizationId String?   @map("organization_id") @db.Uuid
   userId         String?   @map("user_id") @db.Uuid
-  reason         String?   @db.Text
+  reason         String    @db.Text
   bannedById     String?   @map("banned_by") @db.Uuid
   createdAt      DateTime  @default(now()) @map("created_at")
   expiresAt      DateTime? @map("expires_at")
