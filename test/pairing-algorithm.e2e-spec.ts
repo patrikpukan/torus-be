@@ -502,9 +502,9 @@ describe("Pairing Algorithm E2E", () => {
       });
 
       expect(response.status).toBe(200);
-      expect(response.body.errors).toBeDefined();
-      expect(response.body.errors[0].message).toBe("Failed to execute pairing algorithm");
-      expect(response.body.errors[0].extensions?.details).toContain("Not enough users");
+      expect(response.body.errors).toBeUndefined();
+      expect(response.body.data.executePairingAlgorithm.success).toBe(false);
+      expect(response.body.data.executePairingAlgorithm.message).toContain("Not enough users");
     });
   });
 
