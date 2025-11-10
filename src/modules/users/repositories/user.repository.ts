@@ -91,9 +91,19 @@ export class UserRepository {
     return user ? mapPrismaUserToDomainUser(user) : null;
   }
 
-  async listUsers(tx?: Prisma.TransactionClient): Promise<User[]> {
+  async listUsers(
+    tx?: Prisma.TransactionClient,
+    filters?: {
+      organizationId?: string;
+    }
+  ): Promise<User[]> {
     const client = this.getClient(tx);
     const users = await client.user.findMany({
+      where: filters?.organizationId
+        ? {
+            organizationId: filters.organizationId,
+          }
+        : undefined,
       orderBy: { createdAt: "desc" },
     });
 

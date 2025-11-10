@@ -10,6 +10,8 @@ export enum ProfileStatusEnum {
   suspended = "suspended",
 }
 
+import { UserBan } from "./user-ban";
+
 export type User = {
   id: string;
   organizationId: string;
@@ -28,6 +30,7 @@ export type User = {
   profileStatus: ProfileStatusEnum;
   createdAt: Date;
   updatedAt: Date;
+  activeBan?: UserBan | null;
 };
 
 export type UserOrganization = {
