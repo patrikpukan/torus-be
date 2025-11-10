@@ -2,7 +2,7 @@ import { join } from "path";
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
 import { ConfigModule } from "@applifting-io/nestjs-decorated-config";
 import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
-import { Logger, Module } from "@nestjs/common";
+import { ForbiddenException, Logger, Module } from "@nestjs/common";
 import { GraphQLModule } from "@nestjs/graphql";
 import type { Request, Response } from "express";
 import { verifySupabaseJwt } from "../../auth/verifySupabaseJwt";
@@ -43,6 +43,27 @@ const extractBearerToken = (
   return lowerCased.startsWith("bearer ") ? trimmed.slice(7).trim() : trimmed;
 };
 
+const assertUserNotBanned = async (
+  userId: string | null,
+  prisma: PrismaService
+): Promise<void> => {
+  if (!userId) {
+    return;
+  }
+
+  const activeBan = await prisma.ban.findFirst({
+    where: {
+      userId,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    },
+    select: { id: true },
+  });
+
+  if (activeBan) {
+    throw new ForbiddenException("User account is banned");
+  }
+};
+
 const buildIdentity = async (
   token: string,
   secret: string | undefined,
@@ -57,6 +78,7 @@ const buildIdentity = async (
   let resolvedUserId = supabaseUserId;
   let appRole: string | undefined;
   let organizationId: string | undefined;
+  let banCheckUserId: string | null = null;
 
   if (prisma) {
     try {
@@ -71,6 +93,7 @@ const buildIdentity = async (
         resolvedUserId = dbUser.id;
         appRole = dbUser.role ?? undefined;
         organizationId = dbUser.organizationId ?? undefined;
+        banCheckUserId = dbUser.id;
       } else if (typeof claims.email === "string" && claims.email) {
         const fallbackUser = await prisma.user.findFirst({
           where: { email: claims.email },
@@ -81,6 +104,7 @@ const buildIdentity = async (
           resolvedUserId = fallbackUser.id;
           appRole = fallbackUser.role ?? undefined;
           organizationId = fallbackUser.organizationId ?? undefined;
+          banCheckUserId = fallbackUser.id;
         }
       }
     } catch (error) {
@@ -89,6 +113,19 @@ const buildIdentity = async (
         `Failed to resolve application user for Supabase identity: ${err.message}`
       );
     }
+  }
+
+  try {
+    await assertUserNotBanned(banCheckUserId, prisma);
+  } catch (error) {
+    if (error instanceof ForbiddenException) {
+      throw error;
+    }
+
+    const err = error as Error;
+    logger.warn(
+      `Failed to evaluate ban status for user ${banCheckUserId ?? "unknown"}: ${err.message}`
+    );
   }
 
   return {
@@ -141,6 +178,10 @@ const buildIdentity = async (
                   prisma
                 );
               } catch (error) {
+                if (error instanceof ForbiddenException) {
+                  throw error;
+                }
+
                 const err = error as Error;
                 logger.warn(
                   `Failed to verify Supabase JWT: ${err.message}`,

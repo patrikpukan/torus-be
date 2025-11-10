@@ -1,6 +1,7 @@
-import { Field, ID, ObjectType } from "@nestjs/graphql";
+import { Field, GraphQLISODateTime, ID, ObjectType } from "@nestjs/graphql";
 import { ProfileStatusEnum, UserRoleEnum } from "../../domain/user";
 import { SimpleOrganizationType } from "./organization.type";
+import { UserBanType } from "./user-ban.type";
 
 @ObjectType("CurrentUser")
 export class CurrentUserType {
@@ -48,4 +49,10 @@ export class CurrentUserType {
 
   @Field()
   isActive!: boolean;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  suspendedUntil?: Date | null;
+
+  @Field(() => UserBanType, { nullable: true })
+  activeBan?: UserBanType | null;
 }

@@ -7,11 +7,19 @@ import { UserService } from "./services/user.service";
 import { AuthenticatedUserGuard } from "../../shared/auth/guards/authenticated-user.guard";
 import { SupabaseAdminService } from "../../shared/auth/supabase-admin.service";
 import { OrganizationModule } from "../organization/organization.module";
+import { UserBanRepository } from "./repositories/user-ban.repository";
+import { AuthModule } from "../../shared/auth/auth.module";
 
 @Module({
-  imports: [ConfigModule, PrismaModule, forwardRef(() => OrganizationModule)],
+  imports: [
+    ConfigModule,
+    PrismaModule,
+    AuthModule,
+    forwardRef(() => OrganizationModule),
+  ],
   providers: [
     UserRepository,
+    UserBanRepository,
     UserService,
     UserResolver,
     AuthenticatedUserGuard,

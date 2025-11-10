@@ -21,6 +21,12 @@ type AlgorithmSettingsResponse {
   warning: String
 }
 
+input BanUserInput {
+  expiresAt: DateTime
+  reason: String!
+  userId: ID!
+}
+
 type CalendarEvent {
   createdAt: DateTime!
   deletedAt: DateTime
@@ -91,6 +97,7 @@ input CreateMeetingEventInput {
 
 type CurrentUser {
   about: String
+  activeBan: UserBan
   email: String!
   firstName: String
   hobbies: String
@@ -105,6 +112,7 @@ type CurrentUser {
   profileStatus: ProfileStatusEnum!
   role: UserRoleEnum!
   supabaseUserId: String
+  suspendedUntil: DateTime
 }
 
 """
@@ -192,6 +200,7 @@ type MeetingEvent {
 }
 
 type Mutation {
+  banUser(input: BanUserInput!): User!
   cancelMeeting(input: CancelMeetingEventInput!): MeetingEvent!
   confirmMeeting(meetingId: ID!, note: String): MeetingEvent!
   createCalendarEvent(input: CreateCalendarEventInput!): CalendarEvent!
@@ -413,13 +422,32 @@ input UpdateUserInputType {
 scalar Upload
 
 type User {
+  about: String
+  activeBan: UserBan
+  createdAt: DateTime!
   email: String!
   firstName: String
+  hobbies: String
   id: ID!
+  interests: String
+  isActive: Boolean!
   lastName: String
+  organizationId: ID!
+  preferredActivity: String
   profileImageUrl: String
   profileStatus: ProfileStatusEnum!
   role: UserRoleEnum!
+  supabaseUserId: String
+  suspendedUntil: DateTime
+  updatedAt: DateTime!
+}
+
+type UserBan {
+  createdAt: DateTime!
+  expiresAt: DateTime
+  id: ID!
+  reason: String!
+  userId: ID!
 }
 
 """User role"""

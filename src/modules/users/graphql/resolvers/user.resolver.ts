@@ -10,6 +10,9 @@ import { UserType } from "../types/user.type";
 import { CurrentUserType } from "../types/current-user.type";
 import { UpdateCurrentUserProfileInputType } from "../types/update-current-user-profile-input.type";
 import { PairingHistoryType } from "../types/pairing-history.type";
+import { RequireRole } from "src/shared/auth/decorators/require-role.decorator";
+import { UserRole } from "src/shared/auth/services/authorization.service";
+import { BanUserInputType } from "../types/ban-user-input.type";
 
 @Resolver(() => UserType)
 export class UserResolver {
@@ -24,7 +27,7 @@ export class UserResolver {
     return this.userService.getUserById(identity, id);
   }
 
-  @UseGuards(AuthenticatedUserGuard)
+  @RequireRole(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @Query(() => [UserType])
   async users(@User() identity: Identity): Promise<UserType[]> {
     return this.userService.listUsers(identity);
@@ -59,6 +62,15 @@ export class UserResolver {
     @Args("id", { type: () => ID }) id: string
   ): Promise<UserType> {
     return this.userService.deleteUserById(identity, id);
+  }
+
+  @RequireRole(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
+  @Mutation(() => UserType)
+  async banUser(
+    @User() identity: Identity,
+    @Args("input") input: BanUserInputType
+  ): Promise<UserType> {
+    return this.userService.banUser(identity, input);
   }
 
   @UseGuards(AuthenticatedUserGuard)
