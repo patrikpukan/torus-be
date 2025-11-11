@@ -763,12 +763,15 @@ export class PairingAlgorithmService {
     // Get the period being created
     const period = await this.prisma.pairingPeriod.findUnique({
       where: { id: periodId },
-      select: { startDate: true },
+      select: { startDate: true, endDate: true },
     });
 
     if (!period || !period.startDate) {
       throw new Error(`Period ${periodId} not found or has no start date`);
     }
+
+    // If no end date, use start date + 21 days (typical pairing period)
+    const periodEndDate = period.endDate || new Date(period.startDate.getTime() + 21 * 24 * 60 * 60 * 1000);
 
     // Fetch users with calendar events included
     const users = await this.prisma.user.findMany({
@@ -793,9 +796,10 @@ export class PairingAlgorithmService {
             type: CalendarEventType.unavailability,
             title: 'Activity Paused',
             deletedAt: null,
-            // Check if pause event overlaps with period start
-            startDateTime: { lte: period.startDate as Date },
-            endDateTime: { gte: period.startDate as Date },
+            // Check if pause event overlaps with the entire pairing period
+            // Pause overlaps if: pauseStart <= periodEnd AND pauseEnd >= periodStart
+            startDateTime: { lte: periodEndDate },
+            endDateTime: { gte: period.startDate },
           },
         },
       },
