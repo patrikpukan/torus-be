@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { PairingPeriodStatus, PairingStatus, User } from '@prisma/client';
+import { PairingPeriodStatus, PairingStatus, User, CalendarEventType } from '@prisma/client';
 import { randomInt } from 'crypto';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
@@ -760,11 +760,25 @@ export class PairingAlgorithmService {
     organizationId: string,
     periodId: string,
   ): Promise<User[]> {
-    return this.prisma.user.findMany({
+    // Get the period being created
+    const period = await this.prisma.pairingPeriod.findUnique({
+      where: { id: periodId },
+      select: { startDate: true, endDate: true },
+    });
+
+    if (!period || !period.startDate) {
+      throw new Error(`Period ${periodId} not found or has no start date`);
+    }
+
+    // If no end date, use start date + 21 days (typical pairing period)
+    const periodEndDate = period.endDate || new Date(period.startDate.getTime() + 21 * 24 * 60 * 60 * 1000);
+
+    // Fetch users with calendar events included
+    const users = await this.prisma.user.findMany({
       where: {
         organizationId,
         isActive: true,
-        role: 'user', // Only pair regular users, not admins
+        role: 'user',
         OR: [
           { suspendedUntil: null },
           { suspendedUntil: { lt: new Date() } },
@@ -776,7 +790,34 @@ export class PairingAlgorithmService {
           none: { periodId },
         },
       },
+      include: {
+        calendarEvents: {
+          where: {
+            type: CalendarEventType.unavailability,
+            title: 'Activity Paused',
+            deletedAt: null,
+            // Check if pause event overlaps with the entire pairing period
+            // Pause overlaps if: pauseStart <= periodEnd AND pauseEnd >= periodStart
+            startDateTime: { lte: periodEndDate },
+            endDateTime: { gte: period.startDate },
+          },
+        },
+      },
     });
+
+    // Filter out users with overlapping pause events
+    const eligibleUsers = users.filter((user) => user.calendarEvents.length === 0);
+
+    // Log exclusions for debugging
+    const excludedCount = users.length - eligibleUsers.length;
+    if (excludedCount > 0) {
+      this.logger.log(
+        `Calendar filtering: ${excludedCount} users excluded due to activity pause (org=${organizationId}, period=${periodId}, periodStart=${period.startDate}, total=${users.length}, eligible=${eligibleUsers.length})`,
+        PairingAlgorithmService.name,
+      );
+    }
+
+    return eligibleUsers;
   }
 
   private async getNewUsers(organizationId: string): Promise<string[]> {
@@ -932,5 +973,58 @@ export class PairingAlgorithmService {
       (historyA.get(userB) ?? 0) > 0 || (historyB.get(userA) ?? 0) > 0;
 
     return !recentlyPaired;
+  }
+
+  /**
+   * Gets the start date of the next pairing period for an organization.
+   * Returns the end date of the current active period if one exists,
+   * otherwise returns the current date.
+   *
+   * @param organizationId - UUID of the organization
+   * @returns Promise<Date> - Start date of next period
+   */
+  async getNextPeriodStart(organizationId: string): Promise<Date> {
+    const activePeriod = await this.prisma.pairingPeriod.findFirst({
+      where: {
+        organizationId,
+        status: PairingPeriodStatus.active,
+      },
+      select: { endDate: true },
+    });
+
+    if (activePeriod?.endDate) {
+      return activePeriod.endDate;
+    }
+
+    return new Date();
+  }
+
+  /**
+   * Calculates the end date for a period that spans multiple pairing periods.
+   * Useful for pause activities that need to span across multiple periods.
+   *
+   * @param organizationId - UUID of the organization
+   * @param startDate - Start date of the period
+   * @param periodsCount - Number of pairing periods to span
+   * @returns Promise<Date> - Calculated end date
+   */
+  async calculatePeriodEnd(
+    organizationId: string,
+    startDate: Date,
+    periodsCount: number,
+  ): Promise<Date> {
+    const algorithmSettings = await this.prisma.algorithmSetting.findUnique({
+      where: { organizationId },
+    });
+
+    const periodLengthDays =
+      algorithmSettings?.periodLengthDays ?? this.config.defaultPeriodDays;
+
+    const totalDays = periodLengthDays * periodsCount;
+    const endDate = new Date(
+      startDate.getTime() + totalDays * MILLISECONDS_PER_DAY,
+    );
+
+    return endDate;
   }
 }

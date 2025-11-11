@@ -206,9 +206,11 @@ type Mutation {
   deleteUser(id: ID!): User!
   executePairingAlgorithm(organizationId: String!): PairingExecutionResult!
   inviteUserToOrganization(input: InviteUserInputType!): InviteUserResponseType!
+  pauseActivity(input: PauseActivityInput!): CalendarEvent!
   proposeMeetingTime(input: UpdateMeetingEventConfirmationInput!): MeetingEvent!
   registerOrganization(input: RegisterOrganizationInputType!): RegisterOrganizationResponseType!
   rejectMeeting(meetingId: ID!, note: String): MeetingEvent!
+  resumeActivity: Boolean!
   signUp(data: SignUpInputType!): User!
   updateAlgorithmSettings(input: UpdateAlgorithmSettingsInput!): AlgorithmSettingsResponse!
   updateCalendarEvent(input: UpdateCalendarEventInput!, occurrenceStart: DateTime, scope: String! = "this"): [CalendarEvent!]!
@@ -269,6 +271,20 @@ enum PairingStatusEnum {
 type PairingStatusOverviewType {
   count: Int!
   status: String!
+}
+
+input PauseActivityInput {
+  durationType: PauseDurationType!
+  periodsCount: Float
+  untilDate: DateTime
+}
+
+"""Type of activity pause duration"""
+enum PauseDurationType {
+  INDEFINITE
+  N_PERIODS
+  ONE_PERIOD
+  UNTIL_DATE
 }
 
 """Profile onboarding status"""
