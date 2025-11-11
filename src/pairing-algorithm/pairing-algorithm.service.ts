@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { PairingPeriodStatus, PairingStatus, User } from '@prisma/client';
+import { PairingPeriodStatus, PairingStatus, User, CalendarEventType } from '@prisma/client';
 import { randomInt } from 'crypto';
 import { PrismaService } from '../core/prisma/prisma.service';
 import { AppLoggerService } from '../shared/logger/logger.service';
@@ -760,11 +760,22 @@ export class PairingAlgorithmService {
     organizationId: string,
     periodId: string,
   ): Promise<User[]> {
-    return this.prisma.user.findMany({
+    // Get the period being created
+    const period = await this.prisma.pairingPeriod.findUnique({
+      where: { id: periodId },
+      select: { startDate: true },
+    });
+
+    if (!period || !period.startDate) {
+      throw new Error(`Period ${periodId} not found or has no start date`);
+    }
+
+    // Fetch users with calendar events included
+    const users = await this.prisma.user.findMany({
       where: {
         organizationId,
         isActive: true,
-        role: 'user', // Only pair regular users, not admins
+        role: 'user',
         OR: [
           { suspendedUntil: null },
           { suspendedUntil: { lt: new Date() } },
@@ -776,7 +787,33 @@ export class PairingAlgorithmService {
           none: { periodId },
         },
       },
+      include: {
+        calendarEvents: {
+          where: {
+            type: CalendarEventType.unavailability,
+            title: 'Activity Paused',
+            deletedAt: null,
+            // Check if pause event overlaps with period start
+            startDateTime: { lte: period.startDate as Date },
+            endDateTime: { gte: period.startDate as Date },
+          },
+        },
+      },
     });
+
+    // Filter out users with overlapping pause events
+    const eligibleUsers = users.filter((user) => user.calendarEvents.length === 0);
+
+    // Log exclusions for debugging
+    const excludedCount = users.length - eligibleUsers.length;
+    if (excludedCount > 0) {
+      this.logger.log(
+        `Calendar filtering: ${excludedCount} users excluded due to activity pause (org=${organizationId}, period=${periodId}, periodStart=${period.startDate}, total=${users.length}, eligible=${eligibleUsers.length})`,
+        PairingAlgorithmService.name,
+      );
+    }
+
+    return eligibleUsers;
   }
 
   private async getNewUsers(organizationId: string): Promise<string[]> {
