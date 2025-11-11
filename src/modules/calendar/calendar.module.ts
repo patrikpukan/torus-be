@@ -6,9 +6,10 @@ import { CalendarEventService } from "./services/calendar-event.service";
 import { MeetingEventService } from "./services/meeting-event.service";
 import { CalendarEventResolver } from "./graphql/resolvers/calendar-event.resolver";
 import { MeetingEventResolver } from "./graphql/resolvers/meeting-event.resolver";
+import { PairingAlgorithmModule } from "../../pairing-algorithm/pairing-algorithm.module";
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, PairingAlgorithmModule],
   providers: [
     CalendarEventRepository,
     MeetingEventRepository,
