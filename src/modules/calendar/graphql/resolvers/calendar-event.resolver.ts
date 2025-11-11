@@ -11,6 +11,7 @@ import {
   DeleteCalendarEventInputType,
 } from "../types/calendar-event-input.type";
 import { ExpandedCalendarEventOccurrenceType } from "../types/expanded-occurrence.type";
+import { PauseActivityInput } from "../../dto/pause-activity.input";
 
 @Resolver(() => CalendarEventType)
 export class CalendarEventResolver {
@@ -111,5 +112,22 @@ export class CalendarEventResolver {
       input.occurrenceStart || undefined
     );
     return true;
+  }
+
+  @UseGuards(AuthenticatedUserGuard)
+  @Mutation(() => CalendarEventType)
+  async pauseActivity(
+    @User() identity: Identity,
+    @Args("input") input: PauseActivityInput
+  ): Promise<CalendarEventType> {
+    return this.calendarEventService.pauseActivity(identity, input) as any;
+  }
+
+  @UseGuards(AuthenticatedUserGuard)
+  @Mutation(() => Boolean)
+  async resumeActivity(
+    @User() identity: Identity
+  ): Promise<boolean> {
+    return this.calendarEventService.resumeActivity(identity);
   }
 }
