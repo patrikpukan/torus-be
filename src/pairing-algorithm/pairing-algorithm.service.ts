@@ -933,4 +933,57 @@ export class PairingAlgorithmService {
 
     return !recentlyPaired;
   }
+
+  /**
+   * Gets the start date of the next pairing period for an organization.
+   * Returns the end date of the current active period if one exists,
+   * otherwise returns the current date.
+   *
+   * @param organizationId - UUID of the organization
+   * @returns Promise<Date> - Start date of next period
+   */
+  async getNextPeriodStart(organizationId: string): Promise<Date> {
+    const activePeriod = await this.prisma.pairingPeriod.findFirst({
+      where: {
+        organizationId,
+        status: PairingPeriodStatus.active,
+      },
+      select: { endDate: true },
+    });
+
+    if (activePeriod?.endDate) {
+      return activePeriod.endDate;
+    }
+
+    return new Date();
+  }
+
+  /**
+   * Calculates the end date for a period that spans multiple pairing periods.
+   * Useful for pause activities that need to span across multiple periods.
+   *
+   * @param organizationId - UUID of the organization
+   * @param startDate - Start date of the period
+   * @param periodsCount - Number of pairing periods to span
+   * @returns Promise<Date> - Calculated end date
+   */
+  async calculatePeriodEnd(
+    organizationId: string,
+    startDate: Date,
+    periodsCount: number,
+  ): Promise<Date> {
+    const algorithmSettings = await this.prisma.algorithmSetting.findUnique({
+      where: { organizationId },
+    });
+
+    const periodLengthDays =
+      algorithmSettings?.periodLengthDays ?? this.config.defaultPeriodDays;
+
+    const totalDays = periodLengthDays * periodsCount;
+    const endDate = new Date(
+      startDate.getTime() + totalDays * MILLISECONDS_PER_DAY,
+    );
+
+    return endDate;
+  }
 }
