@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, CalendarEventType } from "@prisma/client";
 import { RRuleSet, rrulestr } from "rrule";
 import { PrismaService } from "src/core/prisma/prisma.service";
 import { withRls } from "src/db/withRls";
@@ -13,10 +13,11 @@ import { Identity } from "src/shared/auth/domain/identity";
 import { CalendarEventRepository } from "../repositories/calendar-event.repository";
 import {
   CalendarEvent,
-  CalendarEventType,
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
 } from "../domain/calendar-event";
+import { PauseActivityInput, PauseDurationType } from "../dto/pause-activity.input";
+import { PairingAlgorithmService } from "../../../pairing-algorithm/pairing-algorithm.service";
 
 @Injectable()
 export class CalendarEventService {
@@ -24,7 +25,8 @@ export class CalendarEventService {
 
   constructor(
     private readonly calendarEventRepository: CalendarEventRepository,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    private readonly pairingAlgorithmService: PairingAlgorithmService
   ) {}
 
   async createCalendarEvent(
@@ -682,5 +684,136 @@ export class CalendarEventService {
    */
   private generateRecurringId(): string {
     return `recurring-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Pauses user activity by creating an unavailability event.
+   * Duration can be for a specific number of periods, until a date, or indefinite.
+   *
+   * @param identity - Current user identity
+   * @param input - Pause activity input with duration type and parameters
+   * @returns Created calendar event representing the pause
+   */
+  async pauseActivity(
+    identity: Identity,
+    input: PauseActivityInput,
+  ): Promise<CalendarEvent> {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const userId = identity.id;
+
+      // Get user's organization
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { organizationId: true },
+      });
+
+      if (!user?.organizationId) {
+        throw new Error('User organization not found');
+      }
+
+      // Calculate start time (next period start)
+      const startTime = await this.pairingAlgorithmService.getNextPeriodStart(
+        user.organizationId,
+      );
+
+      // Calculate end time based on duration type
+      let endTime: Date;
+      let description: string;
+
+      switch (input.durationType) {
+        case PauseDurationType.ONE_PERIOD:
+          endTime = await this.pairingAlgorithmService.calculatePeriodEnd(
+            user.organizationId,
+            startTime,
+            1,
+          );
+          description = 'Paused for 1 period';
+          break;
+
+        case PauseDurationType.N_PERIODS:
+          if (!input.periodsCount || input.periodsCount < 1) {
+            throw new Error('periodsCount must be at least 1');
+          }
+          endTime = await this.pairingAlgorithmService.calculatePeriodEnd(
+            user.organizationId,
+            startTime,
+            input.periodsCount,
+          );
+          description = `Paused for ${input.periodsCount} periods`;
+          break;
+
+        case PauseDurationType.UNTIL_DATE:
+          if (!input.untilDate) {
+            throw new Error('untilDate is required for UNTIL_DATE duration type');
+          }
+          endTime = new Date(input.untilDate);
+          description = `Paused until ${endTime.toLocaleDateString('en-US')}`;
+          break;
+
+        case PauseDurationType.INDEFINITE:
+          endTime = new Date();
+          endTime.setFullYear(endTime.getFullYear() + 100);
+          description = 'Paused indefinitely';
+          break;
+
+        default:
+          throw new Error('Invalid duration type');
+      }
+
+      // Create calendar event
+      const event = await this.calendarEventRepository.create(
+        {
+          user: { connect: { id: userId } },
+          type: CalendarEventType.unavailability,
+          title: 'Activity Paused',
+          description,
+          startDateTime: startTime,
+          endDateTime: endTime,
+        } as any,
+        tx
+      );
+
+      return event;
+    });
+  }
+
+  /**
+   * Resumes user activity by removing all active pause events.
+   * Soft deletes all "Activity Paused" unavailability events.
+   *
+   * @param identity - Current user identity
+   * @returns boolean indicating if operation was successful
+   */
+  async resumeActivity(identity: Identity): Promise<boolean> {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const userId = identity.id;
+      const now = new Date();
+
+      // Find all future pause events
+      const farFuture = new Date();
+      farFuture.setFullYear(farFuture.getFullYear() + 100);
+
+      const pauseEvents = await this.calendarEventRepository.findByUserIdAndDateRange(
+        userId,
+        now,
+        farFuture,
+        tx,
+      );
+
+      // Filter for pause events (title = 'Activity Paused')
+      const activePauseEvents = pauseEvents.filter(
+        (event) =>
+          event.type === CalendarEventType.unavailability &&
+          event.title === 'Activity Paused' &&
+          !event.deletedAt,
+      );
+
+      // Soft delete each pause event
+      for (const event of activePauseEvents) {
+        await this.calendarEventRepository.softDelete(event.id, tx);
+      }
+
+      return true;
+    });
   }
 }
