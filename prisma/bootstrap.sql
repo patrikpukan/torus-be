@@ -9,6 +9,7 @@ DECLARE
   org_id uuid;
   first_name text;
   last_name text;
+  avatar_picture text;
 BEGIN
   -- Try to get organization_id from user_metadata
   org_id := (NEW.raw_user_meta_data->>'organization_id')::uuid;
@@ -26,8 +27,41 @@ BEGIN
   END IF;
 
   -- Extract first and last name from metadata
-  first_name := NEW.raw_user_meta_data->>'first_name';
-  last_name := NEW.raw_user_meta_data->>'last_name';
+  -- Google OAuth provides: given_name, family_name, or full_name
+  -- Try multiple locations for first name:
+  -- 1. raw_user_meta_data.given_name (Google OAuth)
+  -- 2. raw_user_meta_data.first_name (fallback)
+  -- 3. Extract from raw_user_meta_data.full_name if available
+  first_name := COALESCE(
+    NEW.raw_user_meta_data->>'given_name',
+    NEW.raw_user_meta_data->>'first_name',
+    CASE 
+      WHEN NEW.raw_user_meta_data->>'full_name' IS NOT NULL 
+      THEN split_part(NEW.raw_user_meta_data->>'full_name', ' ', 1)
+      ELSE NULL
+    END
+  );
+  
+  -- Try multiple locations for last name:
+  -- 1. raw_user_meta_data.family_name (Google OAuth)
+  -- 2. raw_user_meta_data.last_name (fallback)
+  -- 3. Extract from raw_user_meta_data.full_name if available
+  last_name := COALESCE(
+    NEW.raw_user_meta_data->>'family_name',
+    NEW.raw_user_meta_data->>'last_name',
+    CASE 
+      WHEN NEW.raw_user_meta_data->>'full_name' IS NOT NULL 
+        AND position(' ' in NEW.raw_user_meta_data->>'full_name') > 0
+      THEN substring(
+        NEW.raw_user_meta_data->>'full_name',
+        position(' ' in NEW.raw_user_meta_data->>'full_name') + 1
+      )
+      ELSE NULL
+    END
+  );
+  
+  -- Extract picture from Google OAuth metadata
+  avatar_picture := NEW.raw_user_meta_data->>'picture';
 
   -- Insert into public.user table with snake_case column names
   INSERT INTO public."user" (
@@ -37,6 +71,7 @@ BEGIN
     "supabaseUserId",
     first_name,
     last_name,
+    avatar_url,
     "emailVerified",
     "createdAt",
     "updatedAt",
@@ -50,6 +85,7 @@ BEGIN
     NEW.id,
     first_name,
     last_name,
+    avatar_picture,
     COALESCE(NEW.email_confirmed_at IS NOT NULL, false),
     COALESCE(NEW.created_at, NOW()),
     COALESCE(NEW.updated_at, NOW()),
