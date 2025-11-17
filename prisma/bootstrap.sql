@@ -9,6 +9,7 @@ DECLARE
   org_id uuid;
   first_name text;
   last_name text;
+  avatar_picture text;
 BEGIN
   -- Try to get organization_id from user_metadata
   org_id := (NEW.raw_user_meta_data->>'organization_id')::uuid;
@@ -28,6 +29,9 @@ BEGIN
   -- Extract first and last name from metadata
   first_name := NEW.raw_user_meta_data->>'first_name';
   last_name := NEW.raw_user_meta_data->>'last_name';
+  
+  -- Extract picture from Google OAuth metadata
+  avatar_picture := NEW.raw_user_meta_data->>'picture';
 
   -- Insert into public.user table with snake_case column names
   INSERT INTO public."user" (
@@ -37,6 +41,7 @@ BEGIN
     "supabaseUserId",
     first_name,
     last_name,
+    avatar_url,
     "emailVerified",
     "createdAt",
     "updatedAt",
@@ -50,6 +55,7 @@ BEGIN
     NEW.id,
     first_name,
     last_name,
+    avatar_picture,
     COALESCE(NEW.email_confirmed_at IS NOT NULL, false),
     COALESCE(NEW.created_at, NOW()),
     COALESCE(NEW.updated_at, NOW()),
