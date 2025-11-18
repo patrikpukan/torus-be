@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
 import { AlgorithmSettingsResolver } from './algorithm-settings.resolver';
-import { PrismaService } from '../core/prisma/prisma.service';
-import { AppLoggerService } from '../shared/logger/logger.service';
+import { PrismaService } from '../../core/prisma/prisma.service';
+import { AppLoggerService } from '../../shared/logger/logger.service';
 import { PairingAlgorithmConfig } from './pairing-algorithm.config';
 
 const fixedDate = new Date('2025-01-01T00:00:00.000Z');

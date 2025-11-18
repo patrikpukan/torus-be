@@ -7,11 +7,11 @@ import {
   InsufficientUsersException,
 } from "./pairing-algorithm.service";
 import { PairingExecutionResult } from "./types/pairing-execution-result.type";
-import { AuthenticatedUserGuard } from "../shared/auth/guards/authenticated-user.guard";
-import { User } from "../shared/auth/decorators/user.decorator";
-import type { Identity } from "../shared/auth/domain/identity";
-import { PrismaService } from "../core/prisma/prisma.service";
-import { AppLoggerService } from "../shared/logger/logger.service";
+import { AuthenticatedUserGuard } from "../../shared/auth/guards/authenticated-user.guard";
+import { User } from "../../shared/auth/decorators/user.decorator";
+import type { Identity } from "../../shared/auth/domain/identity";
+import { PrismaService } from "../../core/prisma/prisma.service";
+import { AppLoggerService } from "../../shared/logger/logger.service";
 
 type CurrentUserContext = Pick<Identity, "id" | "role" | "appRole"> & {
   organizationId?: string;

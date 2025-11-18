@@ -17,7 +17,7 @@ import {
   UpdateCalendarEventInput,
 } from "../domain/calendar-event";
 import { PauseActivityInput, PauseDurationType } from "../dto/pause-activity.input";
-import { PairingAlgorithmService } from "../../../pairing-algorithm/pairing-algorithm.service";
+import { PairingAlgorithmService } from "../../pairing-algorithm/pairing-algorithm.service";
 
 @Injectable()
 export class CalendarEventService {
