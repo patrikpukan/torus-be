@@ -1,9 +1,9 @@
 export type UserBan = {
   id: string;
   userId: string;
-  organizationId?: string | null;
+  organizationId: string;
   reason: string;
-  bannedById?: string | null;
+  bannedById: string;
   createdAt: Date;
   expiresAt?: Date | null;
 };
