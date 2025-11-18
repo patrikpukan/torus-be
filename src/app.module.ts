@@ -10,6 +10,7 @@ import { Config } from "./shared/config/config.service";
 import { GraphqlSetupModule } from "./shared/graphql/graphql-setup.module";
 import { LoggerModule } from "./shared/logger/logger.module";
 import { PairingAlgorithmModule } from "./pairing-algorithm/pairing-algorithm.module";
+import { PairingPeriodModule } from "./modules/pairing-period/pairing-period.module";
 import { AuthModule } from "./shared/auth/auth.module";
 
 const imports = [
@@ -26,6 +27,7 @@ const imports = [
   CalendarModule,
   GraphqlSetupModule,
   PairingAlgorithmModule,
+  PairingPeriodModule,
 ];
 
 @Module({

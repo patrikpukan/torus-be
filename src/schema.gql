@@ -258,6 +258,20 @@ type PairingHistory {
   userBId: ID!
 }
 
+type PairingPeriod {
+  endDate: DateTime
+  id: ID!
+  organizationId: ID!
+  startDate: DateTime!
+  status: PairingPeriodStatusEnum!
+}
+
+enum PairingPeriodStatusEnum {
+  active
+  closed
+  upcoming
+}
+
 type PairingStatusByUserType {
   count: Int!
   status: String!
@@ -306,6 +320,7 @@ enum ProfileStatusEnum {
 }
 
 type Query {
+  activePairingPeriod: PairingPeriod
   allMeetingsForPairing(pairingId: ID!): [MeetingEvent!]!
   anonUsers: [User!]!
   calendarEventById(id: ID!): CalendarEvent
