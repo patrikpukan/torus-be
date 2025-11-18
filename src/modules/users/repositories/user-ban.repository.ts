@@ -1,29 +1,29 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "src/core/prisma/prisma.service";
-import { UserBan } from "../domain/user-ban";
+import { UserBanType } from "../graphql/types/user-ban.type";
 
 type PrismaClientOrTx = Prisma.TransactionClient | PrismaService;
 
 type PrismaBanEntity = Prisma.BanGetPayload<Prisma.BanDefaultArgs>;
 
-const mapEntityToDomain = (ban: PrismaBanEntity): UserBan => {
+const mapEntityToDomain = (ban: PrismaBanEntity): UserBanType => {
   if (!ban.userId) {
     throw new Error(`Ban ${ban.id} is missing user reference`);
   }
 
-  if (!ban.reason) {
-    throw new Error(`Ban ${ban.id} is missing reason`);
+  if (!ban.reason || !ban.organizationId || !ban.bannedById) {
+    throw new Error(`Fields are missing.`);
   }
 
   return {
     id: ban.id,
     userId: ban.userId,
-    organizationId: ban.organizationId ?? null,
+    organizationId: ban.organizationId,
     reason: ban.reason,
-    bannedById: ban.bannedById ?? null,
+    bannedById: ban.bannedById,
     createdAt: ban.createdAt,
-    expiresAt: ban.expiresAt ?? null,
+    expiresAt: ban.expiresAt,
   };
 };
 
@@ -57,15 +57,15 @@ export class UserBanRepository {
       bannedById?: string | null;
     },
     tx?: Prisma.TransactionClient
-  ): Promise<UserBan> {
+  ): Promise<UserBanType> {
     const client = this.getClient(tx);
     const created = await client.ban.create({
       data: {
         userId: data.userId,
-        organizationId: data.organizationId ?? null,
+        organizationId: data.organizationId,
         reason: data.reason,
-        expiresAt: data.expiresAt ?? null,
-        bannedById: data.bannedById ?? null,
+        expiresAt: data.expiresAt,
+        bannedById: data.bannedById,
       },
     });
 
@@ -75,7 +75,7 @@ export class UserBanRepository {
   async findActiveBanByUserId(
     userId: string,
     tx?: Prisma.TransactionClient
-  ): Promise<UserBan | null> {
+  ): Promise<UserBanType | null> {
     const client = this.getClient(tx);
     const ban = await client.ban.findFirst({
       where: this.buildActiveBanWhere([userId]),
@@ -88,7 +88,7 @@ export class UserBanRepository {
   async findActiveBansByUserIds(
     userIds: string[],
     tx?: Prisma.TransactionClient
-  ): Promise<Map<string, UserBan>> {
+  ): Promise<Map<string, UserBanType>> {
     const client = this.getClient(tx);
 
     if (!userIds.length) {
@@ -100,7 +100,7 @@ export class UserBanRepository {
       orderBy: { createdAt: "desc" },
     });
 
-    const map = new Map<string, UserBan>();
+    const map = new Map<string, UserBanType>();
 
     for (const ban of bans) {
       if (ban.userId && !map.has(ban.userId)) {
