@@ -12,7 +12,7 @@ import {
 import { AppModule } from "../src/app.module";
 import { PrismaService } from "../src/core/prisma/prisma.service";
 import { Config } from "../src/shared/config/config.service";
-import { PairingAlgorithmService, InsufficientUsersException } from "../src/pairing-algorithm/pairing-algorithm.service";
+import { PairingAlgorithmService, InsufficientUsersException } from "../src/modules/pairing-algorithm/pairing-algorithm.service";
 
 describe("Pairing Algorithm E2E", () => {
   let app: INestApplication;

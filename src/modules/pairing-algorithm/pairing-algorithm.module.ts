@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { PrismaModule } from '../core/prisma/prisma.module';
-import { LoggerModule } from '../shared/logger/logger.module';
+import { PrismaModule } from '../../core/prisma/prisma.module';
+import { LoggerModule } from '../../shared/logger/logger.module';
 import { PairingAlgorithmService } from './pairing-algorithm.service';
 import { PairingAlgorithmResolver } from './pairing-algorithm.resolver';
 import { AlgorithmSettingsResolver } from './algorithm-settings.resolver';

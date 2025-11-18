@@ -4,11 +4,11 @@ import { Args, Mutation, Query, Resolver } from "@nestjs/graphql";
 import { UserRole } from "@prisma/client";
 import { AlgorithmSettingsResponse, AlgorithmSettingsType } from "./types/algorithm-settings.type";
 import { UpdateAlgorithmSettingsInput } from "./types/update-algorithm-settings.input";
-import { User } from "../shared/auth/decorators/user.decorator";
-import { AuthenticatedUserGuard } from "../shared/auth/guards/authenticated-user.guard";
-import type { Identity } from "../shared/auth/domain/identity";
-import { PrismaService } from "../core/prisma/prisma.service";
-import { AppLoggerService } from "../shared/logger/logger.service";
+import { User } from "../../shared/auth/decorators/user.decorator";
+import { AuthenticatedUserGuard } from "../../shared/auth/guards/authenticated-user.guard";
+import type { Identity } from "../../shared/auth/domain/identity";
+import { PrismaService } from "../../core/prisma/prisma.service";
+import { AppLoggerService } from "../../shared/logger/logger.service";
 import { PairingAlgorithmConfig } from "./pairing-algorithm.config";
 
 type UserContext = Pick<Identity, "id" | "role" | "appRole"> & {

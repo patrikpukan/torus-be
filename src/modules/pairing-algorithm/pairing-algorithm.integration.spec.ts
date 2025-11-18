@@ -3,7 +3,7 @@ import { PairingStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PairingAlgorithmModule } from './pairing-algorithm.module';
 import { PairingAlgorithmService } from './pairing-algorithm.service';
-import { PrismaService } from '../core/prisma/prisma.service';
+import { PrismaService } from '../../core/prisma/prisma.service';
 
 const createTimestamp = () => new Date();
 

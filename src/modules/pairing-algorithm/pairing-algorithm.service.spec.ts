@@ -5,8 +5,8 @@ import {
   PairingAlgorithmService,
   PairingConstraintException,
 } from './pairing-algorithm.service';
-import { PrismaService } from '../core/prisma/prisma.service';
-import { AppLoggerService } from '../shared/logger/logger.service';
+import { PrismaService } from '../../core/prisma/prisma.service';
+import { AppLoggerService } from '../../shared/logger/logger.service';
 import { PairingAlgorithmConfig } from './pairing-algorithm.config';
 
 describe('PairingAlgorithmService helpers', () => {
