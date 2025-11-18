@@ -3,10 +3,11 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "src/core/prisma/prisma.service";
 import {
   ProfileStatusEnum,
-  User,
   UserOrganization,
   UserRoleEnum,
 } from "../domain/user";
+import { UserType } from "../graphql/types/user.type";
+import { AnonUserType } from "../graphql/types/anon-user.type";
 
 type PrismaUserEntity = Prisma.UserGetPayload<Prisma.UserDefaultArgs> & {
   supabaseUserId?: string | null;
@@ -18,7 +19,7 @@ type PrismaUserWithOrganizationEntity = Prisma.UserGetPayload<{
   supabaseUserId?: string | null;
 };
 
-const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
+const mapPrismaUserToDomainUser = (user: PrismaUserEntity): UserType => {
   const profileStatus =
     (user as unknown as { profileStatus?: ProfileStatusEnum })?.profileStatus ??
     ProfileStatusEnum.pending;
@@ -34,7 +35,7 @@ const mapPrismaUserToDomainUser = (user: PrismaUserEntity): User => {
 
 const mapPrismaUserWithOrganizationToDomain = (
   user: PrismaUserWithOrganizationEntity
-): User & { organization: UserOrganization } => {
+): UserType & { organization: UserOrganization } => {
   const mappedUser = mapPrismaUserToDomainUser(user);
 
   return {
@@ -61,7 +62,7 @@ export class UserRepository {
   async getUserById(
     id: string,
     tx?: Prisma.TransactionClient
-  ): Promise<User | null> {
+  ): Promise<UserType | null> {
     const client = this.getClient(tx);
     const user = await client.user.findUnique({ where: { id } });
 
@@ -71,7 +72,7 @@ export class UserRepository {
   async getUserWithOrganizationById(
     id: string,
     tx?: Prisma.TransactionClient
-  ): Promise<(User & { organization: UserOrganization }) | null> {
+  ): Promise<(UserType & { organization: UserOrganization }) | null> {
     const client = this.getClient(tx);
     const user = await client.user.findUnique({
       where: { id },
@@ -84,7 +85,7 @@ export class UserRepository {
   async getUserByEmail(
     email: string,
     tx?: Prisma.TransactionClient
-  ): Promise<User | null> {
+  ): Promise<UserType | null> {
     const client = this.getClient(tx);
     const user = await client.user.findUnique({ where: { email } });
 
@@ -96,7 +97,7 @@ export class UserRepository {
     filters?: {
       organizationId?: string;
     }
-  ): Promise<User[]> {
+  ): Promise<UserType[]> {
     const client = this.getClient(tx);
     const users = await client.user.findMany({
       where: filters?.organizationId
@@ -110,10 +111,29 @@ export class UserRepository {
     return users.map(mapPrismaUserToDomainUser);
   }
 
+  async listAnonUsers(
+    tx?: Prisma.TransactionClient,
+    filters?: {
+      organizationId?: string;
+    }
+  ): Promise<AnonUserType[]> {
+    const client = this.getClient(tx);
+    const users = await client.user.findMany({
+      where: filters?.organizationId
+        ? {
+          organizationId: filters.organizationId,
+        }
+        : undefined,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return users.map(mapPrismaUserToDomainUser);
+  }
+
   async deleteUserById(
     id: string,
     tx?: Prisma.TransactionClient
-  ): Promise<User> {
+  ): Promise<UserType> {
     const client = this.getClient(tx);
     const user = await client.user.delete({ where: { id } });
     return mapPrismaUserToDomainUser(user);
@@ -137,7 +157,7 @@ export class UserRepository {
       suspendedUntil?: Date | null;
     },
     tx?: Prisma.TransactionClient
-  ): Promise<User> {
+  ): Promise<UserType> {
     const client = this.getClient(tx);
 
     const user = await client.user.update({

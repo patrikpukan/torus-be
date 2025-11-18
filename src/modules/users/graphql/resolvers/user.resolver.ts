@@ -13,6 +13,7 @@ import { PairingHistoryType } from "../types/pairing-history.type";
 import { RequireRole } from "src/shared/auth/decorators/require-role.decorator";
 import { UserRole } from "src/shared/auth/services/authorization.service";
 import { BanUserInputType } from "../types/ban-user-input.type";
+import { AnonUserType } from "../types/anon-user.type";
 
 @Resolver(() => UserType)
 export class UserResolver {
@@ -31,6 +32,12 @@ export class UserResolver {
   @Query(() => [UserType])
   async users(@User() identity: Identity): Promise<UserType[]> {
     return this.userService.listUsers(identity);
+  }
+
+  @RequireRole(UserRole.USER)
+  @Query(() => [UserType])
+  async anonUsers(@User() identity: Identity): Promise<AnonUserType[]> {
+    return this.userService.listAnonUsers(identity);
   }
 
   @UseGuards(AuthenticatedUserGuard)

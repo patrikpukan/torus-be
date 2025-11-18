@@ -8,8 +8,14 @@ export class UserBanType {
   @Field(() => ID)
   userId!: string;
 
+  @Field(() => ID)
+  organizationId!: string;
+
   @Field()
   reason!: string;
+
+  @Field(() => ID)
+  bannedById!: string;
 
   @Field(() => GraphQLISODateTime)
   createdAt!: Date;
