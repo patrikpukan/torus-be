@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PairingPeriodStatus, PairingStatus, User, CalendarEventType } from '@prisma/client';
 import { randomInt } from 'crypto';
-import { PrismaService } from '../core/prisma/prisma.service';
-import { AppLoggerService } from '../shared/logger/logger.service';
+import { PrismaService } from '../../core/prisma/prisma.service';
+import { AppLoggerService } from '../../shared/logger/logger.service';
 import { PairingAlgorithmConfig } from './pairing-algorithm.config';
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;

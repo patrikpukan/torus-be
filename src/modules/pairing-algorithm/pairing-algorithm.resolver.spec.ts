@@ -3,8 +3,8 @@ import { ForbiddenException } from '@nestjs/common';
 import { GraphQLError } from 'graphql';
 import { PairingAlgorithmResolver } from './pairing-algorithm.resolver';
 import { InsufficientUsersException, PairingAlgorithmService } from './pairing-algorithm.service';
-import { PrismaService } from '../core/prisma/prisma.service';
-import { AppLoggerService } from '../shared/logger/logger.service';
+import { PrismaService } from '../../core/prisma/prisma.service';
+import { AppLoggerService } from '../../shared/logger/logger.service';
 import { PairingPeriodStatus } from '@prisma/client';
 
 describe('PairingAlgorithmResolver', () => {
