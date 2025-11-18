@@ -51,10 +51,10 @@ export class UserBanRepository {
   async createBan(
     data: {
       userId: string;
-      organizationId?: string | null;
+      organizationId: string;
       reason: string;
       expiresAt?: Date | null;
-      bannedById?: string | null;
+      bannedById: string;
     },
     tx?: Prisma.TransactionClient
   ): Promise<UserBanType> {
