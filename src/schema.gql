@@ -307,6 +307,7 @@ enum ProfileStatusEnum {
 
 type Query {
   allMeetingsForPairing(pairingId: ID!): [MeetingEvent!]!
+  anonUsers: [User!]!
   calendarEventById(id: ID!): CalendarEvent
   calendarEventsByDateRange(endDate: DateTime!, startDate: DateTime!): [CalendarEvent!]!
   expandedCalendarOccurrences(endDate: DateTime!, startDate: DateTime!, userId: ID): [ExpandedCalendarEventOccurrence!]!
@@ -459,9 +460,11 @@ type User {
 }
 
 type UserBan {
+  bannedById: ID!
   createdAt: DateTime!
   expiresAt: DateTime
   id: ID!
+  organizationId: ID!
   reason: String!
   userId: ID!
 }

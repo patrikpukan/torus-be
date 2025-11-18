@@ -15,7 +15,6 @@ import {
 import {
   CurrentUser,
   ProfileStatusEnum,
-  User,
   UserRoleEnum,
 } from "../domain/user";
 import { computeDerivedPairingStatus } from "../../calendar/domain/pairing-status.machine";
@@ -29,6 +28,8 @@ import { InviteCodeService } from "../../organization/services/invite-code.servi
 import { PairingStatusEnum } from "../graphql/types/pairing-history.type";
 import { UserBanRepository } from "../repositories/user-ban.repository";
 import { AuthorizationService } from "src/shared/auth/services/authorization.service";
+import { AnonUserType } from "../graphql/types/anon-user.type";
+import { UserType } from "../graphql/types/user.type";
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -52,7 +53,7 @@ export class UserService {
     private readonly inviteCodeService: InviteCodeService
   ) {}
 
-  async getUserById(identity: Identity, id: string): Promise<User | null> {
+  async getUserById(identity: Identity, id: string): Promise<UserType | null> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const user = await this.userRepository.getUserById(id, tx);
 
@@ -103,7 +104,7 @@ export class UserService {
     });
   }
 
-  async listUsers(identity: Identity): Promise<User[]> {
+  async listUsers(identity: Identity): Promise<UserType[]> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const role = identity.appRole as UserRoleEnum | undefined;
       const isSuperAdmin = role === UserRoleEnum.super_admin;
@@ -137,9 +138,21 @@ export class UserService {
     });
   }
 
+  async listAnonUsers(identity: Identity): Promise<AnonUserType[]> {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const organizationId = identity.organizationId;
+
+      return await this.userRepository.listAnonUsers(
+        tx,
+        {organizationId}
+      );
+
+    });
+  }
+
   // Creation of users is handled via signUp (BetterAuth) flow.
 
-  async deleteUserById(identity: Identity, id: string): Promise<User> {
+  async deleteUserById(identity: Identity, id: string): Promise<UserType> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const user = await this.userRepository.getUserById(id, tx);
 
@@ -167,7 +180,7 @@ export class UserService {
       isActive?: boolean;
       suspendedUntil?: Date | null;
     }
-  ): Promise<User> {
+  ): Promise<UserType> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const user = await this.userRepository.getUserById(id, tx);
 
@@ -237,7 +250,7 @@ export class UserService {
       organizationId?: string;
     },
     profilePicture?: Promise<FileUpload>
-  ): Promise<User> {
+  ): Promise<UserType> {
     const existingUser = await this.userRepository.getUserByEmail(data.email);
     if (existingUser) {
       throw new ConflictException("Email already exists");
@@ -411,14 +424,14 @@ export class UserService {
       }
     }
 
-    return this.userRepository.getUserById(newUser.id) as Promise<User>;
+    return this.userRepository.getUserById(newUser.id) as Promise<UserType>;
   }
 
   /**
    * Get all users that the current user has been paired with historically.
    * Returns distinct users from all pairings (both as userA and userB).
    */
-  async getPairedUsers(identity: Identity): Promise<User[]> {
+  async getPairedUsers(identity: Identity): Promise<UserType[]> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       // Get all pairings where current user is involved
       const pairings = await tx.pairing.findMany({
@@ -433,7 +446,7 @@ export class UserService {
 
       // Extract paired users (remove duplicates)
       const pairedUserIds = new Set<string>();
-      const pairedUsers: User[] = [];
+      const pairedUsers: UserType[] = [];
 
       for (const pairing of pairings) {
         const pairedUserId =
@@ -443,7 +456,7 @@ export class UserService {
 
         if (!pairedUserIds.has(pairedUserId)) {
           pairedUserIds.add(pairedUserId);
-          pairedUsers.push(pairedUser as User);
+          pairedUsers.push(pairedUser as UserType);
         }
       }
 
@@ -462,8 +475,8 @@ export class UserService {
       userBId: string;
       status: PairingStatusEnum;
       createdAt: Date;
-      userA: User;
-      userB: User;
+      userA: UserType;
+      userB: UserType;
       derivedStatus: PairingStatusEnum;
     }>
   > {
@@ -488,8 +501,8 @@ export class UserService {
         userBId: string;
         status: PairingStatusEnum;
         createdAt: Date;
-        userA: User;
-        userB: User;
+        userA: UserType;
+        userB: UserType;
         derivedStatus: PairingStatusEnum;
       }> = [];
 
@@ -513,8 +526,8 @@ export class UserService {
           userBId: pairing.userBId,
           status: pairing.status as PairingStatusEnum,
           createdAt: pairing.createdAt,
-          userA: pairing.userA as User,
-          userB: pairing.userB as User,
+          userA: pairing.userA as UserType,
+          userB: pairing.userB as UserType,
           derivedStatus: derived,
         });
       }
@@ -530,7 +543,7 @@ export class UserService {
       reason: string;
       expiresAt?: Date | null;
     }
-  ): Promise<User> {
+  ): Promise<UserType> {
     const trimmedReason = input.reason?.trim();
 
     if (!trimmedReason) {
@@ -541,7 +554,7 @@ export class UserService {
       const user = await this.userRepository.getUserById(input.userId, tx);
 
       if (!user) {
-        throw new NotFoundException("User not found");
+        throw new NotFoundException("UserType not found");
       }
 
       const canManage = await this.authorizationService.canUpdateUser(
