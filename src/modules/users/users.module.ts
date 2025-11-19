@@ -9,6 +9,7 @@ import { SupabaseAdminService } from "../../shared/auth/supabase-admin.service";
 import { OrganizationModule } from "../organization/organization.module";
 import { UserBanRepository } from "./repositories/user-ban.repository";
 import { AuthModule } from "../../shared/auth/auth.module";
+import { EmailService } from "../../shared/email/email.service";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AuthModule } from "../../shared/auth/auth.module";
     UserResolver,
     AuthenticatedUserGuard,
     SupabaseAdminService,
+    EmailService,
   ],
 })
 export class UsersModule {}

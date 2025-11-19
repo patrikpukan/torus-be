@@ -80,6 +80,15 @@ export class UserResolver {
     return this.userService.banUser(identity, input);
   }
 
+  @RequireRole(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
+  @Mutation(() => UserType)
+  async unbanUser(
+    @User() identity: Identity,
+    @Args("userId", { type: () => ID }) userId: string
+  ): Promise<UserType> {
+    return this.userService.unbanUser(identity, userId);
+  }
+
   @UseGuards(AuthenticatedUserGuard)
   @Mutation(() => UserType)
   async updateUser(

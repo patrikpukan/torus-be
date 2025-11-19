@@ -30,6 +30,10 @@ import { UserBanRepository } from "../repositories/user-ban.repository";
 import { AuthorizationService } from "src/shared/auth/services/authorization.service";
 import { AnonUserType } from "../graphql/types/anon-user.type";
 import { UserType } from "../graphql/types/user.type";
+import { Config } from "src/shared/config/config.service";
+import { EmailService } from "src/shared/email/email.service";
+import { buildBanEmail } from "src/shared/email/templates/ban";
+import { buildUnbanEmail } from "src/shared/email/templates/unban";
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -49,6 +53,8 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly supabaseAdminService: SupabaseAdminService,
     private readonly authorizationService: AuthorizationService,
+    private readonly config: Config,
+    private readonly emailService: EmailService,
     @Inject(forwardRef(() => InviteCodeService))
     private readonly inviteCodeService: InviteCodeService
   ) {}
@@ -579,14 +585,112 @@ export class UserService {
         user.id,
         {
           profileStatus: ProfileStatusEnum.suspended,
+          isActive: false,
         },
         tx
       );
+
+      await this.sendBanEmail(updatedUser, trimmedReason, input.expiresAt);
 
       return {
         ...updatedUser,
         activeBan: ban,
       };
+    });
+  }
+
+  async unbanUser(identity: Identity, userId: string): Promise<UserType> {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const user = await this.userRepository.getUserById(userId, tx);
+
+      if (!user) {
+        throw new NotFoundException("UserType not found");
+      }
+
+      const canManage = await this.authorizationService.canUpdateUser(
+        identity,
+        user.id,
+        user.organizationId
+      );
+      this.authorizationService.throwIfNoPermission(canManage);
+
+      const activeBan = await this.userBanRepository.findActiveBanByUserId(
+        user.id,
+        tx
+      );
+
+      if (!activeBan) {
+        throw new BadRequestException("User is not currently banned");
+      }
+
+      await this.userBanRepository.resolveActiveBanForUser(user.id, tx);
+
+      const updatedUser = await this.userRepository.updateUser(
+        user.id,
+        {
+          profileStatus: ProfileStatusEnum.active,
+          isActive: true,
+        },
+        tx
+      );
+
+      await this.sendUnbanEmail(updatedUser);
+
+      return {
+        ...updatedUser,
+        activeBan: null,
+      };
+    });
+  }
+
+  private async sendBanEmail(
+    user: { email?: string | null; firstName?: string | null },
+    reason: string,
+    expiresAt?: Date | null
+  ): Promise<void> {
+    if (!user.email) {
+      return;
+    }
+
+    const normalizedExpiry =
+      expiresAt instanceof Date
+        ? expiresAt
+        : expiresAt
+          ? new Date(expiresAt)
+          : null;
+
+    const template = buildBanEmail({
+      reason,
+      expiresAt: normalizedExpiry,
+      siteUrl: this.config.frontendBaseUrl ?? this.config.baseUrl,
+      greeting: (`Hello ${user.firstName ?? ""}`).trim() || "Hello",
+    });
+
+    await this.emailService.sendMail({
+      to: user.email,
+      subject: template.subject,
+      text: template.text,
+      html: template.html,
+    });
+  }
+
+  private async sendUnbanEmail(
+    user: { email?: string | null; firstName?: string | null }
+  ): Promise<void> {
+    if (!user.email) {
+      return;
+    }
+
+    const template = buildUnbanEmail({
+      siteUrl: this.config.frontendBaseUrl ?? this.config.baseUrl,
+      greeting: (`Hello ${user.firstName ?? ""}`).trim() || "Hello",
+    });
+
+    await this.emailService.sendMail({
+      to: user.email,
+      subject: template.subject,
+      text: template.text,
+      html: template.html,
     });
   }
 }
