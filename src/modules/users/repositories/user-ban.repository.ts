@@ -110,4 +110,15 @@ export class UserBanRepository {
 
     return map;
   }
+
+  async resolveActiveBanForUser(
+    userId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<void> {
+    const client = this.getClient(tx);
+    await client.ban.updateMany({
+      where: this.buildActiveBanWhere([userId]),
+      data: { expiresAt: new Date() },
+    });
+  }
 }

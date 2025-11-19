@@ -212,6 +212,7 @@ type Mutation {
   rejectMeeting(meetingId: ID!, note: String): MeetingEvent!
   resumeActivity: Boolean!
   signUp(data: SignUpInputType!): User!
+  unbanUser(userId: ID!): User!
   updateAlgorithmSettings(input: UpdateAlgorithmSettingsInput!): AlgorithmSettingsResponse!
   updateCalendarEvent(input: UpdateCalendarEventInput!, occurrenceStart: DateTime, scope: String! = "this"): [CalendarEvent!]!
   updateCurrentUserProfile(input: UpdateCurrentUserProfileInputType!): CurrentUser!
