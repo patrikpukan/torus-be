@@ -216,6 +216,7 @@ type Mutation {
   registerOrganization(input: RegisterOrganizationInputType!): RegisterOrganizationResponseType!
   registerOrganization(input: RegisterOrganizationInputType!): RegisterOrganizationResponseType!
   rejectMeeting(meetingId: ID!, note: String): MeetingEvent!
+  reportUser(input: ReportUserInput!): UserReport!
   resumeActivity: Boolean!
   signUp(data: SignUpInputType!): User!
   unbanUser(userId: ID!): User!
@@ -360,6 +361,11 @@ type RegisterOrganizationResponseType {
   organization: OrganizationType!
 }
 
+input ReportUserInput {
+  reason: String!
+  reportedUserId: ID!
+}
+
 input SignUpInputType {
   email: String!
   firstName: String
@@ -483,6 +489,15 @@ type UserBan {
   organizationId: ID!
   reason: String!
   userId: ID!
+}
+
+type UserReport {
+  createdAt: DateTime!
+  id: ID!
+  pairingId: ID!
+  reason: String!
+  reportedUserId: ID!
+  reporterId: ID!
 }
 
 """User role"""

@@ -12,6 +12,7 @@ import {
   NotFoundException,
   forwardRef,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import {
   CurrentUser,
   ProfileStatusEnum,
@@ -34,6 +35,7 @@ import { Config } from "src/shared/config/config.service";
 import { EmailService } from "src/shared/email/email.service";
 import { buildBanEmail } from "src/shared/email/templates/ban";
 import { buildUnbanEmail } from "src/shared/email/templates/unban";
+import { UserReport } from "../domain/user-report";
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -73,6 +75,17 @@ export class UserService {
         user.organizationId
       );
       this.authorizationService.throwIfNoPermission(canView);
+
+      const role = identity.appRole as UserRoleEnum | undefined;
+      if (
+        role === UserRoleEnum.user &&
+        identity.id !== user.id &&
+        (await this.getBlockedUserIdsForUser(identity.id, tx)).has(user.id)
+      ) {
+        throw new ForbiddenException(
+          "You no longer have access to this profile."
+        );
+      }
 
       const activeBan = await this.userBanRepository.findActiveBanByUserId(
         user.id,
@@ -449,6 +462,10 @@ export class UserService {
           userB: true,
         },
       });
+      const blockedUserIds = await this.getBlockedUserIdsForUser(
+        identity.id,
+        tx
+      );
 
       // Extract paired users (remove duplicates)
       const pairedUserIds = new Set<string>();
@@ -460,7 +477,10 @@ export class UserService {
         const pairedUser =
           pairing.userAId === identity.id ? pairing.userB : pairing.userA;
 
-        if (!pairedUserIds.has(pairedUserId)) {
+        if (
+          !pairedUserIds.has(pairedUserId) &&
+          !blockedUserIds.has(pairedUserId)
+        ) {
           pairedUserIds.add(pairedUserId);
           pairedUsers.push(pairedUser as UserType);
         }
@@ -500,6 +520,10 @@ export class UserService {
           createdAt: "desc",
         },
       });
+      const reportedUserIds = await this.getReportedUserIdsForUser(
+        identity.id,
+        tx
+      );
 
       const results: Array<{
         id: string;
@@ -513,6 +537,13 @@ export class UserService {
       }> = [];
 
       for (const pairing of pairings) {
+        const contactUserId =
+          pairing.userAId === identity.id ? pairing.userBId : pairing.userAId;
+
+        if (reportedUserIds.has(contactUserId)) {
+          continue;
+        }
+
         const latestMeeting = await tx.meetingEvent.findFirst({
           where: {
             pairingId: pairing.id,
@@ -539,6 +570,82 @@ export class UserService {
       }
 
       return results;
+    });
+  }
+
+  async reportUser(
+    identity: Identity,
+    input: { reportedUserId: string; reason: string }
+  ): Promise<UserReport> {
+    const trimmedReason = input.reason?.trim();
+
+    if (!trimmedReason) {
+      throw new BadRequestException("Report reason is required");
+    }
+
+    if (identity.id === input.reportedUserId) {
+      throw new BadRequestException("You cannot report yourself");
+    }
+
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const reportedUser = await this.userRepository.getUserById(
+        input.reportedUserId,
+        tx
+      );
+
+      if (!reportedUser) {
+        throw new NotFoundException("UserType not found");
+      }
+
+      const canView = await this.authorizationService.canViewUser(
+        identity,
+        reportedUser.id,
+        reportedUser.organizationId
+      );
+      this.authorizationService.throwIfNoPermission(canView);
+
+      const existingReport = await tx.report.findFirst({
+        where: {
+          reporterId: identity.id,
+          reportedUserId: reportedUser.id,
+        },
+      });
+
+      if (existingReport) {
+        throw new ConflictException("You have already reported this user");
+      }
+
+      const pairing = await this.findMostRecentPairingBetweenUsers(
+        identity.id,
+        reportedUser.id,
+        tx
+      );
+
+      if (!pairing) {
+        throw new BadRequestException(
+          "You can only report users you have been paired with"
+        );
+      }
+
+      const report = await tx.report.create({
+        data: {
+          reporterId: identity.id,
+          reportedUserId: reportedUser.id,
+          pairingId: pairing.id,
+          reason: trimmedReason,
+        },
+      });
+
+      await this.ensureUserBlock(identity.id, reportedUser.id, tx);
+
+      return {
+        id: report.id,
+        reporterId: report.reporterId,
+        reportedUserId: report.reportedUserId,
+        pairingId: report.pairingId,
+        reason: report.reason ?? trimmedReason,
+        createdAt: report.createdAt,
+      };
     });
   }
 
@@ -640,6 +747,87 @@ export class UserService {
         ...updatedUser,
         activeBan: null,
       };
+    });
+  }
+
+  private async getReportedUserIdsForUser(
+    userId: string,
+    tx: Prisma.TransactionClient
+  ): Promise<Set<string>> {
+    const reports = await tx.report.findMany({
+      where: { reporterId: userId },
+      select: { reportedUserId: true },
+    });
+
+    return new Set(reports.map((report) => report.reportedUserId));
+  }
+
+  private async getBlockedUserIdsForUser(
+    userId: string,
+    tx: Prisma.TransactionClient
+  ): Promise<Set<string>> {
+    const blocks = await tx.userBlock.findMany({
+      where: {
+        OR: [{ blockerId: userId }, { blockedId: userId }],
+      },
+      select: {
+        blockerId: true,
+        blockedId: true,
+      },
+    });
+
+    const blockedUserIds = new Set<string>();
+    blocks.forEach((block) => {
+      if (block.blockerId === userId) {
+        blockedUserIds.add(block.blockedId);
+      }
+      if (block.blockedId === userId) {
+        blockedUserIds.add(block.blockerId);
+      }
+    });
+
+    return blockedUserIds;
+  }
+
+  private async ensureUserBlock(
+    blockerId: string,
+    blockedId: string,
+    tx: Prisma.TransactionClient
+  ): Promise<void> {
+    if (blockerId === blockedId) {
+      return;
+    }
+
+    await tx.userBlock.upsert({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId,
+        },
+      },
+      update: {},
+      create: {
+        blockerId,
+        blockedId,
+      },
+    });
+  }
+
+  private async findMostRecentPairingBetweenUsers(
+    userAId: string,
+    userBId: string,
+    tx: Prisma.TransactionClient
+  ) {
+    return tx.pairing.findFirst({
+      where: {
+        OR: [
+          { userAId, userBId },
+          { userAId: userBId, userBId: userAId },
+        ],
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
   }
 
