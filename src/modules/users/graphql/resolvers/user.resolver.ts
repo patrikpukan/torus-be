@@ -14,6 +14,8 @@ import { RequireRole } from "src/shared/auth/decorators/require-role.decorator";
 import { UserRole } from "src/shared/auth/services/authorization.service";
 import { BanUserInputType } from "../types/ban-user-input.type";
 import { AnonUserType } from "../types/anon-user.type";
+import { ReportUserInputType } from "../types/report-user-input.type";
+import { UserReportType } from "../types/user-report.type";
 
 @Resolver(() => UserType)
 export class UserResolver {
@@ -87,6 +89,18 @@ export class UserResolver {
     @Args("userId", { type: () => ID }) userId: string
   ): Promise<UserType> {
     return this.userService.unbanUser(identity, userId);
+  }
+
+  @UseGuards(AuthenticatedUserGuard)
+  @Mutation(() => UserReportType)
+  async reportUser(
+    @User() identity: Identity,
+    @Args("input") input: ReportUserInputType
+  ): Promise<UserReportType> {
+    return this.userService.reportUser(identity, {
+      reportedUserId: input.reportedUserId,
+      reason: input.reason,
+    });
   }
 
   @UseGuards(AuthenticatedUserGuard)
