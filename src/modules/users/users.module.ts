@@ -10,6 +10,8 @@ import { OrganizationModule } from "../organization/organization.module";
 import { UserBanRepository } from "./repositories/user-ban.repository";
 import { AuthModule } from "../../shared/auth/auth.module";
 import { EmailService } from "../../shared/email/email.service";
+import { ReportRepository } from "./repositories/report.repository";
+import { ReportResolver } from "./graphql/resolvers/report.resolver";
 
 @Module({
   imports: [
@@ -21,8 +23,10 @@ import { EmailService } from "../../shared/email/email.service";
   providers: [
     UserRepository,
     UserBanRepository,
+    ReportRepository,
     UserService,
     UserResolver,
+    ReportResolver,
     AuthenticatedUserGuard,
     SupabaseAdminService,
     EmailService,

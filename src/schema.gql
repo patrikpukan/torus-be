@@ -217,6 +217,7 @@ type Mutation {
   registerOrganization(input: RegisterOrganizationInputType!): RegisterOrganizationResponseType!
   rejectMeeting(meetingId: ID!, note: String): MeetingEvent!
   reportUser(input: ReportUserInput!): UserReport!
+  resolveReport(input: ResolveReportInput!): UserReport!
   resumeActivity: Boolean!
   signUp(data: SignUpInputType!): User!
   unbanUser(userId: ID!): User!
@@ -341,6 +342,8 @@ type Query {
   organizationById(id: ID!): OrganizationType
   organizations: [OrganizationType!]!
   pendingMeetingConfirmations: [MeetingEvent!]!
+  reportById(id: ID!): UserReport
+  reports: [UserReport!]!
   statistics(filter: StatisticsFilterInputType): StatisticsResponseType!
   upcomingMeetings: [MeetingEvent!]!
   userById(id: ID!): User
@@ -361,9 +364,19 @@ type RegisterOrganizationResponseType {
   organization: OrganizationType!
 }
 
+enum ReportStatusEnum {
+  pending
+  resolved
+}
+
 input ReportUserInput {
   reason: String!
   reportedUserId: ID!
+}
+
+input ResolveReportInput {
+  reportId: ID!
+  resolutionNote: String
 }
 
 input SignUpInputType {
@@ -496,8 +509,14 @@ type UserReport {
   id: ID!
   pairingId: ID!
   reason: String!
+  reportedUser: User!
   reportedUserId: ID!
+  reporter: User!
   reporterId: ID!
+  resolutionNote: String
+  resolvedAt: DateTime
+  resolvedBy: User
+  status: ReportStatusEnum!
 }
 
 """User role"""
