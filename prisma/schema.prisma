@@ -266,6 +266,7 @@ model Report {
   reason         String?  @db.Text
   createdAt      DateTime @default(now()) @map("created_at")
   resolvedById   String?  @map("resolved_by") @db.Uuid
+  resolvedAt     DateTime? @map("resolved_at")
   resolutionNote String?  @map("resolution_note")
 
   reporter     User    @relation("ReportsAuthored", fields: [reporterId], references: [id])

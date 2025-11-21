@@ -35,7 +35,8 @@ import { Config } from "src/shared/config/config.service";
 import { EmailService } from "src/shared/email/email.service";
 import { buildBanEmail } from "src/shared/email/templates/ban";
 import { buildUnbanEmail } from "src/shared/email/templates/unban";
-import { UserReport } from "../domain/user-report";
+import { ReportStatusEnum, UserReport } from "../domain/user-report";
+import { ReportRepository } from "../repositories/report.repository";
 
 // Define an interface for the file upload
 interface FileUpload {
@@ -52,6 +53,7 @@ export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly userBanRepository: UserBanRepository,
+    private readonly reportRepository: ReportRepository,
     private readonly prisma: PrismaService,
     private readonly supabaseAdminService: SupabaseAdminService,
     private readonly authorizationService: AuthorizationService,
@@ -161,11 +163,18 @@ export class UserService {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const organizationId = identity.organizationId;
 
-      return await this.userRepository.listAnonUsers(
-        tx,
-        {organizationId}
+      const users = await this.userRepository.listAnonUsers(tx, {
+        organizationId,
+      });
+      const blockedUserIds = await this.getBlockedUserIdsForUser(
+        identity.id,
+        tx
       );
 
+      return users.filter(
+        (user) =>
+          user.id !== identity.id && !blockedUserIds.has(user.id ?? "")
+      );
     });
   }
 
@@ -524,6 +533,10 @@ export class UserService {
         identity.id,
         tx
       );
+      const blockedUserIds = await this.getBlockedUserIdsForUser(
+        identity.id,
+        tx
+      );
 
       const results: Array<{
         id: string;
@@ -540,7 +553,10 @@ export class UserService {
         const contactUserId =
           pairing.userAId === identity.id ? pairing.userBId : pairing.userAId;
 
-        if (reportedUserIds.has(contactUserId)) {
+        if (
+          reportedUserIds.has(contactUserId) ||
+          blockedUserIds.has(contactUserId)
+        ) {
           continue;
         }
 
@@ -570,6 +586,128 @@ export class UserService {
       }
 
       return results;
+    });
+  }
+
+  async listReports(identity: Identity): Promise<UserReport[]> {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const role = identity.appRole as UserRoleEnum | undefined;
+      const isSuperAdmin = role === UserRoleEnum.super_admin;
+      const isOrgAdmin = role === UserRoleEnum.org_admin;
+
+      if (!isSuperAdmin && !isOrgAdmin) {
+        throw new ForbiddenException(
+          "Only organization administrators can view reports"
+        );
+      }
+
+      const organizationId = isSuperAdmin
+        ? undefined
+        : await this.getOrganizationIdForIdentity(identity, tx);
+
+      if (!isSuperAdmin && !organizationId) {
+        throw new ForbiddenException("Organization context is missing");
+      }
+
+      return this.reportRepository.listReports(
+        { organizationId: organizationId },
+        tx
+      );
+    });
+  }
+
+  async getReportById(
+    identity: Identity,
+    reportId: string
+  ): Promise<UserReport> {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const role = identity.appRole as UserRoleEnum | undefined;
+      const isSuperAdmin = role === UserRoleEnum.super_admin;
+      const isOrgAdmin = role === UserRoleEnum.org_admin;
+
+      if (!isSuperAdmin && !isOrgAdmin) {
+        throw new ForbiddenException(
+          "Only organization administrators can view reports"
+        );
+      }
+
+      const report = await this.reportRepository.findById(reportId, tx);
+
+      if (!report) {
+        throw new NotFoundException("Report not found");
+      }
+
+      if (isOrgAdmin) {
+        const organizationId = await this.getOrganizationIdForIdentity(
+          identity,
+          tx
+        );
+
+        if (!organizationId) {
+          throw new ForbiddenException("Organization context is missing");
+        }
+
+        if (report.reportedUser.organizationId !== organizationId) {
+          throw new ForbiddenException(
+            "You do not have permission to view this report"
+          );
+        }
+      }
+
+      return report;
+    });
+  }
+
+  async resolveReport(
+    identity: Identity,
+    input: { reportId: string; resolutionNote?: string | null }
+  ): Promise<UserReport> {
+    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+      const role = identity.appRole as UserRoleEnum | undefined;
+      const isSuperAdmin = role === UserRoleEnum.super_admin;
+      const isOrgAdmin = role === UserRoleEnum.org_admin;
+
+      if (!isSuperAdmin && !isOrgAdmin) {
+        throw new ForbiddenException(
+          "Only organization administrators can resolve reports"
+        );
+      }
+
+      const report = await this.reportRepository.findById(input.reportId, tx);
+
+      if (!report) {
+        throw new NotFoundException("Report not found");
+      }
+
+      if (isOrgAdmin) {
+        const organizationId = await this.getOrganizationIdForIdentity(
+          identity,
+          tx
+        );
+
+        if (!organizationId) {
+          throw new ForbiddenException("Organization context is missing");
+        }
+
+        if (report.reportedUser.organizationId !== organizationId) {
+          throw new ForbiddenException(
+            "You do not have permission to resolve this report"
+          );
+        }
+      }
+
+      if (report.status === ReportStatusEnum.resolved) {
+        return report;
+      }
+
+      return this.reportRepository.resolveReport(
+        report.id,
+        {
+          resolvedById: identity.id,
+          resolutionNote: input.resolutionNote ?? null,
+        },
+        tx
+      );
     });
   }
 
@@ -638,14 +776,13 @@ export class UserService {
 
       await this.ensureUserBlock(identity.id, reportedUser.id, tx);
 
-      return {
-        id: report.id,
-        reporterId: report.reporterId,
-        reportedUserId: report.reportedUserId,
-        pairingId: report.pairingId,
-        reason: report.reason ?? trimmedReason,
-        createdAt: report.createdAt,
-      };
+      const fullReport = await this.reportRepository.findById(report.id, tx);
+
+      if (!fullReport) {
+        throw new NotFoundException("Report not found after creation");
+      }
+
+      return fullReport;
     });
   }
 
@@ -760,6 +897,18 @@ export class UserService {
     });
 
     return new Set(reports.map((report) => report.reportedUserId));
+  }
+
+  private async getOrganizationIdForIdentity(
+    identity: Identity,
+    tx: Prisma.TransactionClient
+  ): Promise<string | null> {
+    if (identity.organizationId) {
+      return identity.organizationId;
+    }
+
+    const user = await this.userRepository.getUserById(identity.id, tx);
+    return user?.organizationId ?? null;
   }
 
   private async getBlockedUserIdsForUser(
