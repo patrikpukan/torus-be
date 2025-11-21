@@ -4,7 +4,6 @@ import { Module } from "@nestjs/common";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { UsersModule } from "./modules/users/users.module";
 import { OrganizationModule } from "./modules/organization/organization.module";
-import { StatisticsModule } from "./modules/statistics/statistics.module";
 import { CalendarModule } from "./modules/calendar/calendar.module";
 import { SeedModule } from "./scripts/seed/seed.module";
 import { Config } from "./shared/config/config.service";
@@ -25,7 +24,6 @@ const imports = [
   SeedModule,
   UsersModule,
   OrganizationModule,
-  StatisticsModule,
   CalendarModule,
   GraphqlSetupModule,
   PairingAlgorithmModule,
