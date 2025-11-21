@@ -266,6 +266,14 @@ enum PairingPeriodStatusEnum {
   upcoming
 }
 
+type PairingStatusByUserType {
+  count: Int!
+  status: String!
+  userEmail: String!
+  userId: ID!
+  userName: String
+}
+
 """Pairing status"""
 enum PairingStatusEnum {
   cancelled
@@ -275,6 +283,11 @@ enum PairingStatusEnum {
   not_planned
   planned
   unspecified
+}
+
+type PairingStatusOverviewType {
+  count: Int!
+  status: String!
 }
 
 input PauseActivityInput {
@@ -319,6 +332,7 @@ type Query {
   pendingMeetingConfirmations: [MeetingEvent!]!
   reportById(id: ID!): UserReport
   reports: [UserReport!]!
+  statistics(filter: StatisticsFilterInputType): StatisticsResponseType!
   upcomingMeetings: [MeetingEvent!]!
   userById(id: ID!): User
   users: [User!]!
@@ -369,6 +383,22 @@ type SimpleOrganizationType {
   id: ID!
   imageUrl: String
   name: String!
+}
+
+input StatisticsFilterInputType {
+  endDate: String
+  month: Int
+  organizationId: String
+  startDate: String
+  year: Int
+}
+
+type StatisticsResponseType {
+  inactiveUsersCount: Int!
+  newUsersCount: Int!
+  pairingsByStatus: [PairingStatusOverviewType!]!
+  pairingsByStatusAndUser: [PairingStatusByUserType!]!
+  reportsCount: Int!
 }
 
 input UpdateAlgorithmSettingsInput {
