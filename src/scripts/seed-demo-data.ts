@@ -617,7 +617,15 @@ async function uploadAvatarToSupabase(
     // Check if file exists
     if (!fs.existsSync(avatarPath)) {
       console.log(
-        `⚠️  Avatar not found: ${avatarFileName}, skipping upload`
+        `  ⚠️  Avatar not found: ${avatarFileName}, skipping upload`
+      );
+      return null;
+    }
+
+    // Check Supabase credentials
+    if (!supabaseUrl || !supabaseSecretKey) {
+      console.log(
+        `  ⚠️  Supabase credentials not configured, skipping avatar upload`
       );
       return null;
     }
@@ -625,6 +633,7 @@ async function uploadAvatarToSupabase(
     // Read file
     const fileBuffer = fs.readFileSync(avatarPath);
     const fileExtension = path.extname(avatarFileName).slice(1) || "jpg";
+    const fileSize = fileBuffer.length;
 
     // Initialize Supabase client with secret key for admin operations
     const supabaseStorage = createClient(supabaseUrl, supabaseSecretKey, {
@@ -635,30 +644,46 @@ async function uploadAvatarToSupabase(
     });
 
     // Upload to Supabase Storage
-    const remotePath = `avatars/${userId}.${fileExtension}`;
+    const remotePath = `${userId}.${fileExtension}`;
     const { data, error } = await supabaseStorage.storage
-      .from("avatars")
+      .from("profile-pictures")
       .upload(remotePath, fileBuffer, {
         contentType: `image/${fileExtension === "jpg" ? "jpeg" : fileExtension}`,
         upsert: true,
       });
 
     if (error) {
-      console.warn(`⚠️  Failed to upload avatar ${avatarFileName}:`, error.message);
+      console.warn(
+        `  ⚠️  Failed to upload avatar ${avatarFileName} (${fileSize} bytes): ${error.message}`
+      );
+      return null;
+    }
+
+    if (!data) {
+      console.warn(
+        `  ⚠️  No data returned from avatar upload: ${avatarFileName}`
+      );
       return null;
     }
 
     // Get public URL
     const { data: publicUrlData } = supabaseStorage.storage
-      .from("avatars")
+      .from("profile-pictures")
       .getPublicUrl(remotePath);
+
+    if (!publicUrlData?.publicUrl) {
+      console.warn(
+        `  ⚠️  Failed to get public URL for avatar: ${avatarFileName}`
+      );
+      return null;
+    }
 
     console.log(`  ✓ Uploaded avatar: ${avatarFileName}`);
     return publicUrlData.publicUrl;
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
     console.warn(
-      `⚠️  Error uploading avatar ${avatarFileName}: ${err}`
+      `  ⚠️  Error uploading avatar ${avatarFileName}: ${err}`
     );
     return null;
   }
@@ -694,24 +719,63 @@ async function createDemoUser(
     // Use override email if provided, otherwise use profile email
     const email = emailOverride || profile.email;
 
-    // Generate UUID for userId
-    const userId = randomUUID();
+    // First, get or create the Supabase Auth user to get their actual ID
+    // Check if user already exists in Supabase Auth
+    const { data: existingAuthData, error: listError } =
+      await supabaseAdmin.auth.admin.listUsers();
 
-    // Upload avatar
+    let authUserId: string | null = null;
+
+    if (!listError && existingAuthData?.users) {
+      const existingAuthUser = existingAuthData.users.find(
+        (u) => u.email === email
+      );
+      if (existingAuthUser) {
+        authUserId = existingAuthUser.id;
+      }
+    }
+
+    // If auth user doesn't exist, create it
+    if (!authUserId) {
+      const { data: authData, error: authError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email,
+          password: profile.password,
+          email_confirm: true,
+          user_metadata: {
+            role: profile.role,
+            organizationId: orgId,
+          },
+        });
+
+      if (authError) {
+        console.error(`❌ Failed to create Supabase user ${email}:`, authError);
+        return null;
+      }
+
+      if (authData?.user) {
+        authUserId = authData.user.id;
+      } else {
+        console.error(`❌ No Supabase user ID returned for ${email}`);
+        return null;
+      }
+    }
+
+    // Now upload avatar using the actual auth user ID
     const avatarUrl = await uploadAvatarToSupabase(
       profile.avatarFileName,
-      userId
+      authUserId
     );
 
-    // Check if user already exists in database by email
-    const existingDbUser = await prisma.user.findFirst({
-      where: { email },
+    // Check if user already exists in database by auth ID
+    const existingDbUser = await prisma.user.findUnique({
+      where: { id: authUserId },
     });
 
     if (existingDbUser) {
       // Update existing user with all profile data
       await prisma.user.update({
-        where: { id: existingDbUser.id },
+        where: { id: authUserId },
         data: {
           firstName: profile.firstName,
           lastName: profile.lastName,
@@ -719,7 +783,7 @@ async function createDemoUser(
           hobbies: profile.hobbies,
           preferredActivity: profile.preferredActivity,
           interests: profile.interests,
-          profileImageUrl: avatarUrl || undefined,
+          profileImageUrl: avatarUrl ?? null,
           role: profile.role,
           organizationId: orgId,
           updatedAt: new Date(),
@@ -780,7 +844,7 @@ async function createDemoUser(
                   hobbies: profile.hobbies,
                   preferredActivity: profile.preferredActivity,
                   interests: profile.interests,
-                  profileImageUrl: avatarUrl || undefined,
+                  profileImageUrl: avatarUrl ?? null,
                   isActive: true,
                   createdAt: new Date(),
                   updatedAt: new Date(),
@@ -807,7 +871,7 @@ async function createDemoUser(
                   hobbies: profile.hobbies,
                   preferredActivity: profile.preferredActivity,
                   interests: profile.interests,
-                  profileImageUrl: avatarUrl || undefined,
+                  profileImageUrl: avatarUrl ?? null,
                   role: profile.role,
                   organizationId: orgId,
                   updatedAt: new Date(),
@@ -837,6 +901,40 @@ async function createDemoUser(
       return null;
     }
 
+    // Check if database user already exists with this Supabase user ID
+    const existingDbUserByAuth = await prisma.user.findUnique({
+      where: { id: authData.user.id },
+    });
+
+    if (existingDbUserByAuth) {
+      // Database user already exists, just update it
+      const updatedUser = await prisma.user.update({
+        where: { id: authData.user.id },
+        data: {
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          about: profile.about,
+          hobbies: profile.hobbies,
+          preferredActivity: profile.preferredActivity,
+          interests: profile.interests,
+          profileImageUrl: avatarUrl ?? null,
+          role: profile.role,
+          organizationId: orgId,
+          updatedAt: new Date(),
+        },
+      });
+      console.log(
+        `✅ Updated user: ${profile.firstName} ${profile.lastName} (${profile.role}) - ${email}`
+      );
+      return {
+        id: updatedUser.id,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        role: updatedUser.role,
+        isActive: updatedUser.isActive,
+      };
+    }
+
     // Create user in database with Supabase user ID
     const createdUser = await prisma.user.create({
       data: {
@@ -852,7 +950,7 @@ async function createDemoUser(
         hobbies: profile.hobbies,
         preferredActivity: profile.preferredActivity,
         interests: profile.interests,
-        profileImageUrl: avatarUrl || undefined,
+        profileImageUrl: avatarUrl ?? null,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -949,7 +1047,7 @@ const USER_PROFILES = {
     hobbies: "Board games, Basketball, Podcasting, Travel",
     preferredActivity: "Group activities and sports",
     interests: "Sports, Gaming, Technology, Team building",
-    avatarFileName: "org_admin.jpg",
+    avatarFileName: "org_admin.jpeg",
   },
   user1: {
     email: "james.wilson@torus.com",
@@ -963,7 +1061,7 @@ const USER_PROFILES = {
     hobbies: "Cooking, Running, Guitar, Wine tasting",
     preferredActivity: "Dining out and coffee chats",
     interests: "Food & Dining, Music, Fitness, Technology",
-    avatarFileName: "user1.jpg",
+    avatarFileName: "user1.jpeg",
   },
   user2: {
     email: "david.nguyen@torus.com",
@@ -1005,7 +1103,7 @@ const USER_PROFILES = {
     hobbies: "Salsa dancing, Event planning, Photography, Travel",
     preferredActivity: "Social events and networking",
     interests: "Marketing, Events, Travel, Music",
-    avatarFileName: "user4.jpg",
+    avatarFileName: "user4.jpeg",
   },
   user5: {
     email: "christopher.lee@torus.com",
@@ -1033,7 +1131,7 @@ const USER_PROFILES = {
     hobbies: "Yoga, Trail running, Meal prep, Meditation",
     preferredActivity: "Fitness activities and wellness meetups",
     interests: "Health & Wellness, Fitness, Nutrition, Mindfulness",
-    avatarFileName: "user6.jpg",
+    avatarFileName: "user6.png",
   },
   user7: {
     email: "andrew.johnson@torus.com",
@@ -1061,7 +1159,7 @@ const USER_PROFILES = {
     hobbies: "Music production, Vinyl collecting, DJing, Concert attending",
     preferredActivity: "Music jams and concert outings",
     interests: "Music, Audio technology, Entertainment, Live events",
-    avatarFileName: "user8.jpg",
+    avatarFileName: "user8.jpeg",
   },
   user9: {
     email: "brandon.anderson@torus.com",
@@ -1211,6 +1309,44 @@ async function main(): Promise<void> {
     );
   }
 
+  // Diagnostic: Check Supabase Storage bucket access
+  try {
+    const supabaseStorage = createClient(supabaseUrl, supabaseSecretKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    const { data: buckets, error: bucketsError } =
+      await supabaseStorage.storage.listBuckets();
+    if (bucketsError) {
+      console.warn(
+        `⚠️  Warning: Could not list Supabase buckets: ${bucketsError.message}`
+      );
+      console.warn(
+        "   Avatar uploads will be skipped, but seeding will continue.\n"
+      );
+    } else if (buckets && !buckets.some((b) => b.name === "profile-pictures")) {
+      console.warn(
+        `⚠️  Warning: 'profile-pictures' bucket not found in Supabase Storage`
+      );
+      console.warn(
+        "   Available buckets:",
+        buckets.map((b) => b.name).join(", ")
+      );
+      console.warn(
+        "   Avatar uploads will be skipped, but seeding will continue.\n"
+      );
+    }
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Warning: Supabase storage check failed: ${err}`);
+    console.warn(
+      "   Avatar uploads will be skipped, but seeding will continue.\n"
+    );
+  }
+
   const prisma = new PrismaClient();
 
   try {
@@ -1258,11 +1394,12 @@ async function main(): Promise<void> {
 
       console.log("Creating users...");
       for (const userKey of userKeys) {
-        const emailPrefix = userKey.replace(
-          /_/g,
-          `_${orgConfig.code.toLowerCase()}_`
-        );
-        const email = `${emailPrefix}@torus.com`;
+        // Generate email from profile name and org code
+        const profile = USER_PROFILES[userKey as keyof typeof USER_PROFILES];
+        if (!profile) continue;
+
+        // Create email: FirstName.LastName_OrgCode format
+        const email = `${profile.firstName.toLowerCase()}.${profile.lastName.toLowerCase()}_${orgConfig.code.toLowerCase()}@torus.com`;
         const user = await createDemoUser(prisma, userKey, orgId, email);
         if (user) {
           users.push(user);
