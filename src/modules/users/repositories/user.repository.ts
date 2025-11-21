@@ -9,17 +9,19 @@ import {
 import { UserType } from "../graphql/types/user.type";
 import { AnonUserType } from "../graphql/types/anon-user.type";
 
-type PrismaUserEntity = Prisma.UserGetPayload<Prisma.UserDefaultArgs> & {
+export type PrismaUserEntity = Prisma.UserGetPayload<Prisma.UserDefaultArgs> & {
   supabaseUserId?: string | null;
 };
 
-type PrismaUserWithOrganizationEntity = Prisma.UserGetPayload<{
+export type PrismaUserWithOrganizationEntity = Prisma.UserGetPayload<{
   include: { organization: true };
 }> & {
   supabaseUserId?: string | null;
 };
 
-const mapPrismaUserToDomainUser = (user: PrismaUserEntity): UserType => {
+export const mapPrismaUserToDomainUser = (
+  user: PrismaUserEntity
+): UserType => {
   const profileStatus =
     (user as unknown as { profileStatus?: ProfileStatusEnum })?.profileStatus ??
     ProfileStatusEnum.pending;
@@ -33,7 +35,7 @@ const mapPrismaUserToDomainUser = (user: PrismaUserEntity): UserType => {
   };
 };
 
-const mapPrismaUserWithOrganizationToDomain = (
+export const mapPrismaUserWithOrganizationToDomain = (
   user: PrismaUserWithOrganizationEntity
 ): UserType & { organization: UserOrganization } => {
   const mappedUser = mapPrismaUserToDomainUser(user);
