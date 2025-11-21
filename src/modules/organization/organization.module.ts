@@ -5,6 +5,7 @@ import { OrganizationResolver } from "./graphql/resolvers/organization.resolver"
 import { OrganizationRepository } from "./repositories/organization.repository";
 import { OrganizationService } from "./services/organization.service";
 import { InviteCodeService } from "./services/invite-code.service";
+import { DepartmentService } from "./services/department.service";
 import { SupabaseAdminService } from "../../shared/auth/supabase-admin.service";
 import { AuthModule } from "../../shared/auth/auth.module";
 
@@ -14,9 +15,10 @@ import { AuthModule } from "../../shared/auth/auth.module";
     OrganizationRepository,
     OrganizationService,
     InviteCodeService,
+    DepartmentService,
     OrganizationResolver,
     SupabaseAdminService,
   ],
-  exports: [OrganizationService, OrganizationRepository, InviteCodeService],
+  exports: [OrganizationService, OrganizationRepository, InviteCodeService, DepartmentService],
 })
 export class OrganizationModule {}
