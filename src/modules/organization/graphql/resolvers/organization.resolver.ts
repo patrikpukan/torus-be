@@ -1,10 +1,12 @@
-import { Args, ID, Mutation, Query, Resolver } from "@nestjs/graphql";
+import { Args, ID, Mutation, Query, Resolver, ResolveField, Parent } from "@nestjs/graphql";
 import { OrganizationService } from "../../services/organization.service";
 import { InviteCodeService } from "../../services/invite-code.service";
+import { DepartmentService } from "../../services/department.service";
 import { RegisterOrganizationInputType } from "../types/register-organization-input.type";
 import { RegisterOrganizationResponseType } from "../types/register-organization-response.type";
 import { Logger, UseGuards } from "@nestjs/common";
 import { OrganizationType } from "../types/organization.type";
+import { DepartmentType } from "../types/department.type";
 import { User } from "src/shared/auth/decorators/user.decorator";
 import type { Identity } from "src/shared/auth/domain/identity";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
@@ -23,7 +25,8 @@ export class OrganizationResolver {
 
   constructor(
     private readonly organizationService: OrganizationService,
-    private readonly inviteCodeService: InviteCodeService
+    private readonly inviteCodeService: InviteCodeService,
+    private readonly departmentService: DepartmentService
   ) {}
 
   @UseGuards(AuthenticatedUserGuard)
@@ -148,5 +151,13 @@ export class OrganizationResolver {
     return this.inviteCodeService.getOrganizationInviteCodes(
       identity.organizationId
     ) as any;
+  }
+
+  @ResolveField(() => [DepartmentType], { nullable: true })
+  async departments(@Parent() organization: any): Promise<any[] | null> {
+    if (!organization.id) {
+      return null;
+    }
+    return this.departmentService.getDepartmentsByOrganization(organization.id);
   }
 }
