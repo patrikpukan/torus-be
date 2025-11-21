@@ -50,6 +50,9 @@ export class UserType {
   @Field(() => ID)
   organizationId!: string;
 
+  @Field(() => String, { nullable: true })
+  departmentId?: string | null;
+
   @Field(() => UserRoleEnum)
   role!: UserRoleEnum;
 
@@ -70,6 +73,9 @@ export class UserType {
 
   @Field(() => GraphQLISODateTime)
   updatedAt!: Date;
+
+  @Field(() => () => require("../../organization/graphql/types/department.type").DepartmentType, { nullable: true })
+  department?: any | null;
 
   @Field(() => UserBanType, { nullable: true })
   activeBan?: UserBanType | null;
