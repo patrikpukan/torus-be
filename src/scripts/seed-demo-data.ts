@@ -36,6 +36,525 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
 });
 
 /**
+ * Adds days to a date
+ * @param date - Base date
+ * @param days - Number of days to add (can be negative)
+ * @returns New date with days added
+ */
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+/**
+ * Formats a date as short format (e.g., "Jan 14")
+ * @param date - Date to format
+ * @returns Formatted date string
+ */
+function formatDateShort(date: Date): string {
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/**
+ * Creates pairing periods for an organization
+ * Generates 2 pairing periods of 3 weeks each:
+ * - Active period: started 1 week ago, ends 2 weeks from now
+ * - Upcoming period: starts 3 weeks from now, ends 6 weeks from now
+ * Idempotent: checks if periods already exist before creating
+ * @param prisma - Prisma client instance
+ * @param orgId - Organization ID
+ * @returns Object containing activePeriodId and upcomingPeriodId
+ */
+async function createPairingPeriodsForOrg(
+  prisma: PrismaClient,
+  orgId: string
+): Promise<{ activePeriodId: string; upcomingPeriodId: string }> {
+  try {
+    // Check if periods already exist
+    const existingActivePeriod = await prisma.pairingPeriod.findFirst({
+      where: {
+        organizationId: orgId,
+        status: "active",
+      },
+    });
+
+    const existingUpcomingPeriod = await prisma.pairingPeriod.findFirst({
+      where: {
+        organizationId: orgId,
+        status: "upcoming",
+      },
+    });
+
+    if (existingActivePeriod && existingUpcomingPeriod) {
+      console.log(`  ⚠️  Pairing periods already exist, skipping creation...`);
+      return {
+        activePeriodId: existingActivePeriod.id,
+        upcomingPeriodId: existingUpcomingPeriod.id,
+      };
+    }
+
+    const today = new Date();
+
+    // Create active period if it doesn't exist
+    let activePeriod = existingActivePeriod;
+    if (!activePeriod) {
+      const activeStartDate = addDays(today, -7);
+      const activeEndDate = addDays(today, 14);
+
+      activePeriod = await prisma.pairingPeriod.create({
+        data: {
+          organizationId: orgId,
+          startDate: activeStartDate,
+          endDate: activeEndDate,
+          status: "active",
+        },
+      });
+    }
+
+    // Create upcoming period if it doesn't exist
+    let upcomingPeriod = existingUpcomingPeriod;
+    if (!upcomingPeriod) {
+      const upcomingStartDate = addDays(today, 21);
+      const upcomingEndDate = addDays(today, 42);
+
+      upcomingPeriod = await prisma.pairingPeriod.create({
+        data: {
+          organizationId: orgId,
+          startDate: upcomingStartDate,
+          endDate: upcomingEndDate,
+          status: "upcoming",
+        },
+      });
+    }
+
+    if (!existingActivePeriod || !existingUpcomingPeriod) {
+      const activeStartDate = addDays(today, -7);
+      const activeEndDate = addDays(today, 14);
+      const upcomingStartDate = addDays(today, 21);
+      const upcomingEndDate = addDays(today, 42);
+
+      console.log(
+        `  ✓ Created pairing periods: Active (${formatDateShort(activeStartDate)} - ${formatDateShort(activeEndDate)}), Upcoming (${formatDateShort(upcomingStartDate)} - ${formatDateShort(upcomingEndDate)})`
+      );
+    }
+
+    return {
+      activePeriodId: activePeriod.id,
+      upcomingPeriodId: upcomingPeriod.id,
+    };
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Error creating pairing periods for org ${orgId}:`, err);
+    throw error;
+  }
+}
+
+/**
+ * Creates pairings for an active pairing period
+ * Simulates what the pairing algorithm would have created by:
+ * 1. Filtering eligible users (role: 'user', isActive: true)
+ * 2. Shuffling them randomly
+ * 3. Pairing sequentially: [0,1], [2,3], etc.
+ * 4. Assigning realistic statuses based on 3-week cycle distribution
+ * 5. Setting createdAt dates spread throughout the active period
+ * Idempotent: skips creation if pairings already exist for this period
+ * @param prisma - Prisma client instance
+ * @param orgId - Organization ID
+ * @param activePeriodId - ID of the active pairing period
+ * @param users - All users from the organization
+ * @returns Array of created Pairing records
+ */
+async function createPairingsForOrg(
+  prisma: PrismaClient,
+  orgId: string,
+  activePeriodId: string,
+  users: {
+    id: string;
+    role: string;
+    isActive: boolean;
+    firstName?: string | null;
+    lastName?: string | null;
+  }[]
+): Promise<
+  {
+    id: string;
+    userAId: string;
+    userBId: string;
+    status: string;
+    createdAt: Date;
+  }[]
+> {
+  try {
+    // Check if pairings already exist for this period
+    const existingPairings = await prisma.pairing.findMany({
+      where: { periodId: activePeriodId },
+    });
+
+    if (existingPairings.length > 0) {
+      console.log(
+        `  ⚠️  ${existingPairings.length} pairings already exist for this period, skipping creation...`
+      );
+      return existingPairings as {
+        id: string;
+        userAId: string;
+        userBId: string;
+        status: string;
+        createdAt: Date;
+      }[];
+    }
+
+    // Get period dates for calculating realistic createdAt values
+    const period = await prisma.pairingPeriod.findUnique({
+      where: { id: activePeriodId },
+      select: { startDate: true, endDate: true },
+    });
+
+    if (!period || !period.startDate) {
+      throw new Error(`Period ${activePeriodId} not found or missing dates`);
+    }
+
+    // Filter eligible users (matching algorithm logic)
+    const eligibleUsers = users.filter(
+      (user) => user.role === "user" && user.isActive === true
+    );
+
+    console.log(
+      `  Eligible users for pairing: ${eligibleUsers.length} of ${users.length}`
+    );
+
+    // Helper to create dates within period
+    function getDateInPeriod(daysFromStart: number): Date {
+      const date = new Date(period!.startDate!);
+      date.setDate(date.getDate() + daysFromStart);
+      return date;
+    }
+
+    // Shuffle eligible users (simple random shuffle - Fisher-Yates)
+    const shuffled = [...eligibleUsers];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    const pairings: {
+      id: string;
+      userAId: string;
+      userBId: string;
+      status: string;
+      createdAt: Date;
+    }[] = [];
+
+    // Pair users sequentially: [0,1], [2,3], [4,5], etc.
+    for (let i = 0; i < shuffled.length - 1; i += 2) {
+      const userA = shuffled[i];
+      const userB = shuffled[i + 1];
+
+      // Assign status and createdAt based on 3-week cycle distribution
+      // Week 1: Algorithm creates pairings (planned)
+      // Week 1-2: Users respond (planned → matched or declined)
+      // Week 2-3: Matched users meet (matched → met or not_met)
+      // Seed data shows mid-cycle realistic distribution
+      const rand = Math.random();
+      let status: "met" | "matched" | "planned" | "not_met";
+      let daysFromStart: number;
+
+      if (rand < 0.3) {
+        // 30% "met" - completed successfully (early in cycle, days 1-7)
+        status = "met";
+        daysFromStart = 1 + Math.floor(Math.random() * 6); // 1-7 days
+      } else if (rand < 0.7) {
+        // 40% "matched" - accepted, not yet met (mid-cycle, days 3-10)
+        status = "matched";
+        daysFromStart = 3 + Math.floor(Math.random() * 7); // 3-10 days
+      } else if (rand < 0.9) {
+        // 20% "planned" - newly created, not yet responded (recent, days 7-13)
+        status = "planned";
+        daysFromStart = 7 + Math.floor(Math.random() * 6); // 7-13 days
+      } else {
+        // 10% "not_met" - accepted but didn't happen (early, days 1-7)
+        status = "not_met";
+        daysFromStart = 1 + Math.floor(Math.random() * 6); // 1-7 days
+      }
+
+      const pairing = await prisma.pairing.create({
+        data: {
+          periodId: activePeriodId,
+          organizationId: orgId,
+          userAId: userA.id,
+          userBId: userB.id,
+          status,
+          createdAt: getDateInPeriod(daysFromStart),
+        },
+      });
+
+      pairings.push(pairing);
+    }
+
+    // Log results with status distribution
+    const statusCounts = pairings.reduce(
+      (acc, p) => {
+        acc[p.status] = (acc[p.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    const statusSummary = Object.entries(statusCounts)
+      .sort()
+      .map(([s, c]) => `${c} ${s}`)
+      .join(", ");
+
+    console.log(`  ✓ Created ${pairings.length} pairings (${statusSummary})`);
+
+    if (shuffled.length % 2 === 1) {
+      const unpaired = shuffled[shuffled.length - 1];
+      console.log(
+        `  ⚠️  1 user unpaired: ${unpaired.firstName} ${unpaired.lastName} (odd number of eligible users)`
+      );
+    }
+
+    return pairings;
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Error creating pairings for org ${orgId}:`, err);
+    throw error;
+  }
+}
+
+/**
+ * Creates realistic calendar events (availability/unavailability) for a user
+ * Simulates user scheduling preferences and busy periods:
+ * - 60% availability events (times user IS available for pairing)
+ * - 40% unavailability events (vacation, focus time, busy periods)
+ * Events are spread across past 2 weeks and next 2 weeks for realistic demo data
+ * Idempotent: skips creation if user already has calendar events
+ * @param prisma - Prisma client instance
+ * @param userId - User ID to create events for
+ * @returns Promise<void>
+ */
+async function createCalendarEventsForUser(
+  prisma: PrismaClient,
+  userId: string
+): Promise<void> {
+  try {
+    // Check if user already has calendar events
+    const existingEvents = await prisma.calendarEvent.findMany({
+      where: { userId },
+    });
+
+    if (existingEvents.length > 0) {
+      console.log(
+        `    ⚠️  User already has ${existingEvents.length} calendar events, skipping...`
+      );
+      return;
+    }
+    // Helper to get a random weekday, moving weekends to Monday
+    function getRandomWeekday(daysOffset: number): Date {
+      const date = addDays(new Date(), daysOffset);
+      const day = date.getDay();
+      if (day === 0) date.setDate(date.getDate() + 1); // Sunday -> Monday
+      if (day === 6) date.setDate(date.getDate() + 2); // Saturday -> Monday
+      return date;
+    }
+
+    // Helper to set a specific business hour
+    function setBusinessHour(date: Date, hour: number): Date {
+      const newDate = new Date(date);
+      newDate.setHours(hour, 0, 0, 0);
+      return newDate;
+    }
+
+    // Create 3-5 calendar events
+    const numEvents = 3 + Math.floor(Math.random() * 3);
+    let availabilityCount = 0;
+    let unavailabilityCount = 0;
+
+    for (let i = 0; i < numEvents; i++) {
+      const isAvailability = Math.random() < 0.6;
+
+      // Random date within -14 to +14 days
+      const daysOffset = Math.floor(Math.random() * 28) - 14;
+      const eventDate = getRandomWeekday(daysOffset);
+
+      if (isAvailability) {
+        // Availability: 2-4 hour block during work hours
+        const startHour = 9 + Math.floor(Math.random() * 5); // 9 AM - 1 PM
+        const duration = 2 + Math.floor(Math.random() * 3); // 2-4 hours
+        const titles = [
+          "Available for coffee",
+          "Open for meetings",
+          "Free for chats",
+        ];
+        const title = titles[Math.floor(Math.random() * titles.length)];
+
+        await prisma.calendarEvent.create({
+          data: {
+            userId,
+            type: "availability",
+            title,
+            description: "Available for 1:1 connections",
+            startDateTime: setBusinessHour(new Date(eventDate), startHour),
+            endDateTime: setBusinessHour(
+              new Date(eventDate),
+              startHour + duration
+            ),
+            rrule:
+              Math.random() < 0.3 ? "FREQ=WEEKLY;BYDAY=MO,WE,FR" : null,
+          },
+        });
+        availabilityCount++;
+      } else {
+        // Unavailability: various durations
+        const startHour = 8 + Math.floor(Math.random() * 8); // 8 AM - 4 PM
+        const duration = 1 + Math.floor(Math.random() * 8); // 1-8 hours
+        const titles = ["On vacation", "Out of office", "Focus time"];
+        const title = titles[Math.floor(Math.random() * titles.length)];
+
+        await prisma.calendarEvent.create({
+          data: {
+            userId,
+            type: "unavailability",
+            title,
+            description: "Not available for pairings",
+            startDateTime: setBusinessHour(new Date(eventDate), startHour),
+            endDateTime: setBusinessHour(
+              new Date(eventDate),
+              startHour + duration
+            ),
+            rrule: null,
+          },
+        });
+        unavailabilityCount++;
+      }
+    }
+
+    console.log(
+      `    ✓ Created ${numEvents} events (${availabilityCount} availability, ${unavailabilityCount} unavailability)`
+    );
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Error creating calendar events for user ${userId}:`, err);
+    // Don't throw - calendar events are optional for demo
+  }
+}
+
+/**
+ * Creates a meeting event for a completed or scheduled pairing
+ * Only creates events for pairings with status "met" or "matched"
+ * Simulates realistic meeting scheduling with:
+ * - Past meetings (met status): 3-7 days ago, fully confirmed
+ * - Upcoming meetings (matched status): 2-5 days from now, one user may be pending
+ * Idempotent: skips creation if meeting already exists for pairing
+ * @param prisma - Prisma client instance
+ * @param pairing - Pairing record to create meeting for
+ * @returns Promise<void>
+ */
+async function createMeetingEventForPairing(
+  prisma: PrismaClient,
+  pairing: {
+    id: string;
+    status: string;
+    userAId: string;
+    userBId: string;
+  }
+): Promise<void> {
+  try {
+    // Only create meetings for matched or met pairings
+    if (pairing.status !== "matched" && pairing.status !== "met") {
+      return;
+    }
+
+    // Check if meeting already exists for this pairing
+    const existingMeeting = await prisma.meetingEvent.findFirst({
+      where: { pairingId: pairing.id },
+    });
+
+    if (existingMeeting) {
+      console.log(`    ⚠️  Meeting already exists for pairing, skipping...`);
+      return;
+    }
+
+    const isPast = pairing.status === "met";
+
+    // Helper to get random weekday, moving weekends to Monday
+    function getRandomWeekday(daysOffset: number): Date {
+      const date = addDays(new Date(), daysOffset);
+      const day = date.getDay();
+      if (day === 0) date.setDate(date.getDate() + 1); // Sunday -> Monday
+      if (day === 6) date.setDate(date.getDate() + 2); // Saturday -> Monday
+      return date;
+    }
+
+    // Calculate meeting date based on pairing status
+    const daysOffset = isPast
+      ? -(3 + Math.floor(Math.random() * 5)) // Past: -3 to -7 days
+      : 2 + Math.floor(Math.random() * 4); // Future: +2 to +5 days
+
+    const meetingDate = getRandomWeekday(daysOffset);
+
+    // Set random business hour (10am, 11am, 2pm, 3pm are common slots)
+    const hours = [10, 11, 14, 15];
+    const hour = hours[Math.floor(Math.random() * hours.length)];
+    meetingDate.setHours(hour, 0, 0, 0);
+
+    // End time is 1 hour later
+    const endDate = new Date(meetingDate);
+    endDate.setHours(hour + 1, 0, 0, 0);
+
+    // Confirmation status: past meetings are fully confirmed
+    // Future meetings: 60% both confirmed, 40% userB pending
+    const userBConfirmed = isPast || Math.random() > 0.4;
+
+    // Notes: past meetings have specific topics, future meetings may have intent
+    const topics = ["technology", "hobbies", "career goals", "work projects"];
+    const userANote = isPast
+      ? `Great conversation about ${topics[Math.floor(Math.random() * topics.length)]}!`
+      : Math.random() > 0.5
+        ? "Looking forward to this"
+        : null;
+
+    // Randomly choose who created the meeting
+    const createdByUserId =
+      Math.random() > 0.5 ? pairing.userAId : pairing.userBId;
+
+    await prisma.meetingEvent.create({
+      data: {
+        pairingId: pairing.id,
+        userAId: pairing.userAId,
+        userBId: pairing.userBId,
+        startDateTime: meetingDate,
+        endDateTime: endDate,
+        userAConfirmationStatus: "confirmed",
+        userBConfirmationStatus: userBConfirmed ? "confirmed" : "pending",
+        createdByUserId,
+        userANote,
+      },
+    });
+
+    const dateStr = meetingDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const timeStr = meetingDate.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    console.log(
+      `    ✓ Created meeting event (${dateStr} @ ${timeStr}, ${pairing.status})`
+    );
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error(
+      `❌ Error creating meeting event for pairing ${pairing.id}:`,
+      err
+    );
+    // Don't throw - meeting events are optional for demo
+  }
+}
+
+/**
  * Generates a random uppercase alphabetic code of specified length
  * @param length - Length of code to generate (default: 6)
  * @returns Random uppercase code
@@ -73,16 +592,6 @@ const ORGANIZATIONS: OrgConfig[] = [
     name: "Digital Minds Collective",
     code: "DMIN",
     address: "789 Mission Street, Creative Hub, San Francisco, CA 94103",
-  },
-  {
-    name: "Future Labs Network",
-    code: "FLAB",
-    address: "321 Valencia Street, Tech Hub, San Francisco, CA 94103",
-  },
-  {
-    name: "Innovate Together Co",
-    code: "ITCO",
-    address: "654 Howard Street, Business District, San Francisco, CA 94105",
   },
 ];
 
@@ -168,12 +677,18 @@ async function createDemoUser(
   userKey: string,
   orgId: string,
   emailOverride?: string
-): Promise<void> {
+): Promise<{
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  isActive: boolean;
+} | null> {
   try {
     const profile = USER_PROFILES[userKey as keyof typeof USER_PROFILES];
     if (!profile) {
       console.warn(`⚠️  Profile not found for key: ${userKey}`);
-      return;
+      return null;
     }
 
     // Use override email if provided, otherwise use profile email
@@ -213,7 +728,13 @@ async function createDemoUser(
       console.log(
         `✅ Updated user: ${profile.firstName} ${profile.lastName} (${profile.role}) - ${email}`
       );
-      return;
+      return {
+        id: existingDbUser.id,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        role: profile.role,
+        isActive: existingDbUser.isActive,
+      };
     }
 
     // Create user in Supabase Auth
@@ -245,7 +766,7 @@ async function createDemoUser(
             });
             if (!dbUserByAuth) {
               // Database user doesn't exist, create it with the existing Auth user ID
-              await prisma.user.create({
+              const createdUser = await prisma.user.create({
                 data: {
                   id: existingAuthUser.id,
                   supabaseUserId: existingAuthUser.id,
@@ -268,9 +789,16 @@ async function createDemoUser(
               console.log(
                 `✅ Created database user: ${profile.firstName} ${profile.lastName} (${profile.role})`
               );
+              return {
+                id: createdUser.id,
+                firstName: createdUser.firstName,
+                lastName: createdUser.lastName,
+                role: createdUser.role,
+                isActive: createdUser.isActive,
+              };
             } else {
               // Update existing database user
-              await prisma.user.update({
+              const updatedUser = await prisma.user.update({
                 where: { id: existingAuthUser.id },
                 data: {
                   firstName: profile.firstName,
@@ -288,22 +816,29 @@ async function createDemoUser(
               console.log(
                 `✅ Updated database user: ${profile.firstName} ${profile.lastName} (${profile.role})`
               );
+              return {
+                id: updatedUser.id,
+                firstName: updatedUser.firstName,
+                lastName: updatedUser.lastName,
+                role: updatedUser.role,
+                isActive: updatedUser.isActive,
+              };
             }
           }
         }
       } else {
         console.error(`❌ Failed to create Supabase user ${email}:`, authError);
       }
-      return;
+      return null;
     }
 
     if (!authData.user) {
       console.error(`❌ No Supabase user returned for ${email}`);
-      return;
+      return null;
     }
 
     // Create user in database with Supabase user ID
-    await prisma.user.create({
+    const createdUser = await prisma.user.create({
       data: {
         id: authData.user.id, // Use Supabase auth user ID
         supabaseUserId: authData.user.id,
@@ -327,9 +862,18 @@ async function createDemoUser(
     console.log(
       `✅ Created user: ${profile.firstName} ${profile.lastName} (${profile.role}) - ${email}`
     );
+
+    return {
+      id: createdUser.id,
+      firstName: createdUser.firstName,
+      lastName: createdUser.lastName,
+      role: createdUser.role,
+      isActive: createdUser.isActive,
+    };
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
     console.error(`❌ Error creating demo user (${userKey}): ${err}`);
+    return null;
   }
 }
 
@@ -536,15 +1080,126 @@ const USER_PROFILES = {
 };
 
 /**
+ * Displays comprehensive seeding summary statistics
+ * Shows:
+ * - Overall counts for all data types
+ * - Status breakdowns for pairings and periods
+ * - Calendar event type distribution
+ * - Per-organization breakdown
+ * - Sample login credentials
+ * - Demo data highlights
+ * @param prisma - Prisma client instance
+ * @returns Promise<void>
+ */
+async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
+  try {
+    // Gather comprehensive statistics
+    const stats = {
+      organizations: await prisma.organization.count(),
+      users: await prisma.user.count(),
+      pairingPeriods: await prisma.pairingPeriod.count(),
+      pairings: await prisma.pairing.count(),
+      calendarEvents: await prisma.calendarEvent.count(),
+      meetingEvents: await prisma.meetingEvent.count(),
+    };
+
+    // Get status breakdowns
+    const pairingsByStatus = await prisma.pairing.groupBy({
+      by: ["status"],
+      _count: true,
+    });
+
+    const eventsByType = await prisma.calendarEvent.groupBy({
+      by: ["type"],
+      _count: true,
+    });
+
+    const periodsByStatus = await prisma.pairingPeriod.groupBy({
+      by: ["status"],
+      _count: true,
+    });
+
+    // Get per-org breakdown
+    const organizations = await prisma.organization.findMany({
+      include: {
+        _count: {
+          select: {
+            users: true,
+            pairings: true,
+            pairingPeriods: true,
+          },
+        },
+      },
+    });
+
+    // Display overall summary
+    console.log("📊 SEEDING SUMMARY");
+    console.log("=".repeat(50));
+    console.log(`🏢 Organizations:     ${stats.organizations}`);
+    console.log(`👥 Users:             ${stats.users}`);
+    console.log(`🗓️  Pairing Periods:   ${stats.pairingPeriods}`);
+    console.log(`🤝 Pairings:          ${stats.pairings}`);
+    console.log(`📅 Calendar Events:   ${stats.calendarEvents}`);
+    console.log(`📆 Meeting Events:    ${stats.meetingEvents}`);
+
+    // Display period status breakdown
+    console.log("\n🗓️  Pairing Period Status:");
+    for (const group of periodsByStatus) {
+      console.log(`   ${group.status}: ${group._count}`);
+    }
+
+    // Display pairing status breakdown
+    console.log("\n🤝 Pairing Status Breakdown:");
+    for (const group of pairingsByStatus.sort((a, b) =>
+      a.status.localeCompare(b.status)
+    )) {
+      console.log(`   ${group.status}: ${group._count}`);
+    }
+
+    // Display calendar event types
+    console.log("\n📅 Calendar Event Types:");
+    for (const group of eventsByType) {
+      console.log(`   ${group.type}: ${group._count}`);
+    }
+
+    // Display per-organization breakdown
+    console.log("\n🏢 Per-Organization Breakdown:");
+    for (const org of organizations) {
+      console.log(`\n   ${org.name} (${org.code}):`);
+      console.log(`      Users: ${org._count.users}`);
+      console.log(`      Periods: ${org._count.pairingPeriods}`);
+      console.log(`      Pairings: ${org._count.pairings}`);
+    }
+
+    // Display login credentials and highlights
+    console.log("\n🔐 Sample Login Credentials:");
+    console.log("   Organization: Torus Technologies Inc");
+    console.log("   Email: super_admin_torus@torus.com");
+    console.log("   Password: Password123!");
+
+    console.log("\n✨ Demo Data Highlights:");
+    console.log("   - Pairing periods: 3-week cycles (active + upcoming)");
+    console.log("   - Active period: 1 week in, 2 weeks remaining");
+    console.log("   - Mixed pairing statuses for realistic scenarios");
+    console.log("   - Calendar events show availability/unavailability patterns");
+    console.log("   - Meeting events scheduled for matched/met pairings");
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error("❌ Error generating summary:", err);
+  }
+}
+
+/**
  * Main orchestrator function for seeding demo data
- * Creates organization, super_admin, org_admin, and 9 regular users
- * Uploads avatar images to Supabase Storage and creates database records
- * Requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables
+ * Orchestrates seeding in phases:
+ * - Phase 1: Organizations
+ * - Phase 2: Users, Pairing Periods, Pairings, Calendar Events, Meeting Events
+ * - Phase 3: Summary Statistics
  * @returns void
  * @throws Error if required environment variables are missing or database operations fail
  */
 async function main(): Promise<void> {
-  console.log("🚀 Starting test data seeding for Torus...\n");
+  console.log("🚀 Starting Torus demo data seeding...\n");
 
   // Check required environment variables
   if (!supabaseUrl || !supabaseSecretKey) {
@@ -559,74 +1214,106 @@ async function main(): Promise<void> {
   const prisma = new PrismaClient();
 
   try {
-    // Connect to Prisma
     await prisma.$connect();
     console.log("📦 Connected to database\n");
 
-    // Create 5 organizations
+    // ========================================
+    // PHASE 1: Organizations
+    // ========================================
+    console.log("🏢 PHASE 1: Creating Organizations");
+    console.log("=".repeat(50));
     const organizationIds: string[] = [];
     for (const orgConfig of ORGANIZATIONS) {
       const orgId = await createDemoOrganization(prisma, orgConfig);
       organizationIds.push(orgId);
     }
-    console.log();
 
-    // Create all users (11 per organization) = 55 total users
-    const userKeys = ["super_admin", "org_admin", ...Array.from({ length: 9 }, (_, i) => `user${i + 1}`)];
+    // ========================================
+    // PHASE 2: Users & Related Data
+    // ========================================
+    console.log("\n👥 PHASE 2: Creating Users & Pairing Data");
+    console.log("=".repeat(50));
 
-    for (let orgIndex = 0; orgIndex < organizationIds.length; orgIndex++) {
-      const orgId = organizationIds[orgIndex];
-      const orgConfig = ORGANIZATIONS[orgIndex];
+    const userKeys = [
+      "super_admin",
+      "org_admin",
+      ...Array.from({ length: 9 }, (_, i) => `user${i + 1}`),
+    ];
 
-      console.log(`\n📍 Creating users for ${orgConfig.name}...`);
+    for (let i = 0; i < organizationIds.length; i++) {
+      const orgId = organizationIds[i];
+      const orgConfig = ORGANIZATIONS[i];
+
+      console.log(`\n📍 Organization: ${orgConfig.name}`);
+      console.log("-".repeat(50));
+
+      // 2a. Create users for this org
+      const users: {
+        id: string;
+        firstName: string | null;
+        lastName: string | null;
+        role: string;
+        isActive: boolean;
+      }[] = [];
+
+      console.log("Creating users...");
       for (const userKey of userKeys) {
-        // Generate org-specific email: e.g., super_admin_torus@torus.com
-        const emailPrefix = userKey.replace(/_/g, `_${orgConfig.code.toLowerCase()}_`);
+        const emailPrefix = userKey.replace(
+          /_/g,
+          `_${orgConfig.code.toLowerCase()}_`
+        );
         const email = `${emailPrefix}@torus.com`;
-        await createDemoUser(prisma, userKey, orgId, email);
+        const user = await createDemoUser(prisma, userKey, orgId, email);
+        if (user) {
+          users.push(user);
+        }
+      }
+
+      // 2b. Create pairing periods (3 weeks each)
+      console.log("\n🗓️  Creating pairing periods...");
+      const { activePeriodId, upcomingPeriodId } =
+        await createPairingPeriodsForOrg(prisma, orgId);
+
+      // 2c. Create pairings (only for active period)
+      console.log("\n🤝 Creating pairings...");
+      const pairings = await createPairingsForOrg(
+        prisma,
+        orgId,
+        activePeriodId,
+        users
+      );
+
+      // 2d. Create calendar events for each regular user
+      console.log("\n📅 Creating calendar events...");
+      const regularUsers = users.filter((u) => u.role === "user");
+      for (const user of regularUsers) {
+        await createCalendarEventsForUser(prisma, user.id);
+      }
+
+      // 2e. Create meeting events for matched/met pairings
+      console.log("\n📆 Creating meeting events...");
+      for (const pairing of pairings) {
+        if (pairing.status === "matched" || pairing.status === "met") {
+          await createMeetingEventForPairing(prisma, pairing);
+        }
       }
     }
 
-    console.log();
+    // ========================================
+    // PHASE 3: Enhanced Summary Stats
+    // ========================================
+    console.log("\n" + "=".repeat(50));
+    console.log("✅ SEEDING COMPLETED SUCCESSFULLY");
+    console.log("=".repeat(50) + "\n");
 
-    // Get summary stats
-    const totalOrgCount = await prisma.organization.count();
-    const totalUserCount = await prisma.user.count();
-    const organizations = await prisma.organization.findMany({
-      include: {
-        _count: {
-          select: { users: true },
-        },
-      },
-    });
-
-    // Log summary
-    console.log("==========================================");
-    console.log("✅ Seeding completed successfully!");
-    console.log("==========================================\n");
-    console.log("📊 Summary:");
-    console.log(`   Total Organizations: ${totalOrgCount}`);
-    console.log(`   Total Users Created: ${totalUserCount}\n`);
-    console.log("🏢 Organizations:");
-    for (const org of organizations) {
-      console.log(
-        `   - ${org.name} (${org.code}): ${org._count.users} users`
-      );
-    }
-    console.log("\n🔐 Sample Login Instructions:");
-    console.log("   Organization: Torus Technologies Inc (TORUS)");
-    console.log("   - Email: super_admin_torus@torus.com");
-    console.log("   - Password: Password123!\n");
-    console.log("   Organization: StartupHub Ventures (SHUB)");
-    console.log("   - Email: super_admin_shub@torus.com");
-    console.log("   - Password: Password123!\n");
+    await displayEnhancedSummary(prisma);
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
-    console.error("❌ Error during seeding:", err);
+    console.error("❌ Seeding failed:", err);
     throw error;
   } finally {
     await prisma.$disconnect();
-    console.log("🔌 Database connection closed.");
+    console.log("\n🔌 Database connection closed.");
   }
 }
 
