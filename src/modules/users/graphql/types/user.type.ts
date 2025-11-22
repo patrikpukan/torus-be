@@ -8,6 +8,7 @@ import {
 import { ProfileStatusEnum, UserRoleEnum } from "../../domain/user";
 import { UserBanType } from "./user-ban.type";
 import { DepartmentType } from "../../../organization/graphql/types/department.type";
+import { TagType } from "./tag.type";
 
 registerEnumType(UserRoleEnum, {
   name: "UserRoleEnum",
@@ -37,10 +38,16 @@ export class UserType {
   about?: string | null;
 
   @Field(() => String, { nullable: true })
-  hobbies?: string | null;
+  location?: string | null;
 
   @Field(() => String, { nullable: true })
-  interests?: string | null;
+  position?: string | null;
+
+  @Field(() => [TagType], { nullable: true, defaultValue: [] })
+  hobbies?: TagType[] | null;
+
+  @Field(() => [TagType], { nullable: true, defaultValue: [] })
+  interests?: TagType[] | null;
 
   @Field(() => String, { nullable: true })
   preferredActivity?: string | null;

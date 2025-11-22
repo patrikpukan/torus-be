@@ -65,7 +65,15 @@ export class UserResolver {
   async getCurrentUser(
     @User() identity: Identity
   ): Promise<CurrentUserType | null> {
-    return this.userService.getCurrentUser(identity);
+    const user = await this.userService.getCurrentUser(identity);
+    if (!user) {
+      return null;
+    }
+    return {
+      ...user,
+      hobbies: user.hobbies ? user.hobbies.map(tag => tag.name).join(", ") : null,
+      interests: user.interests ? user.interests.map(tag => tag.name).join(", ") : null,
+    };
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -122,7 +130,12 @@ export class UserResolver {
     @User() identity: Identity,
     @Args("input") input: UpdateCurrentUserProfileInputType
   ): Promise<CurrentUserType> {
-    return this.userService.updateCurrentUserProfile(identity, input);
+    const user = await this.userService.updateCurrentUserProfile(identity, input);
+    return {
+      ...user,
+      hobbies: user.hobbies ? user.hobbies.map(tag => tag.name).join(", ") : null,
+      interests: user.interests ? user.interests.map(tag => tag.name).join(", ") : null,
+    };
   }
 
   @Mutation(() => UserType)
