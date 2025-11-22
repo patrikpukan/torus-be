@@ -4,6 +4,7 @@ import { User } from "src/shared/auth/decorators/user.decorator";
 import type { Identity } from "src/shared/auth/domain/identity";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
 import { UserService } from "../../services/user.service";
+import { TagService } from "../../services/tag.service";
 import { SignUpInputType } from "../types/sign-up-input.type";
 import { UpdateUserInputType } from "../types/update-user-input.type";
 import { UserType } from "../types/user.type";
@@ -17,11 +18,13 @@ import { AnonUserType } from "../types/anon-user.type";
 import { ReportUserInputType } from "../types/report-user-input.type";
 import { UserReportType } from "../types/user-report.type";
 import { DepartmentService } from "src/modules/organization/services/department.service";
+import { TagType } from "../types/tag.type";
 
 @Resolver(() => UserType)
 export class UserResolver {
   constructor(
     private userService: UserService,
+    private tagService: TagService,
     private departmentService: DepartmentService
   ) {}
 
@@ -150,6 +153,24 @@ export class UserResolver {
       },
       data.profilePicture
     );
+  }
+
+  @ResolveField(() => [TagType])
+  async hobbies(@Parent() user: any): Promise<TagType[]> {
+    if (!user.userTags) return [];
+
+    return user.userTags
+      .filter((ut: any) => ut.tag?.category === "HOBBY")
+      .map((ut: any) => ut.tag);
+  }
+
+  @ResolveField(() => [TagType])
+  async interests(@Parent() user: any): Promise<TagType[]> {
+    if (!user.userTags) return [];
+
+    return user.userTags
+      .filter((ut: any) => ut.tag?.category === "INTEREST")
+      .map((ut: any) => ut.tag);
   }
 
   @ResolveField()
