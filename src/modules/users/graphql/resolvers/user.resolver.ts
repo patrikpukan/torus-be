@@ -1,5 +1,5 @@
 import { UseGuards } from "@nestjs/common";
-import { Args, ID, Mutation, Query, Resolver } from "@nestjs/graphql";
+import { Args, ID, Mutation, Query, Resolver, ResolveField, Parent } from "@nestjs/graphql";
 import { User } from "src/shared/auth/decorators/user.decorator";
 import type { Identity } from "src/shared/auth/domain/identity";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
@@ -16,10 +16,14 @@ import { BanUserInputType } from "../types/ban-user-input.type";
 import { AnonUserType } from "../types/anon-user.type";
 import { ReportUserInputType } from "../types/report-user-input.type";
 import { UserReportType } from "../types/user-report.type";
+import { DepartmentService } from "src/modules/organization/services/department.service";
 
 @Resolver(() => UserType)
 export class UserResolver {
-  constructor(private userService: UserService) {}
+  constructor(
+    private userService: UserService,
+    private departmentService: DepartmentService
+  ) {}
 
   @UseGuards(AuthenticatedUserGuard)
   @Query(() => UserType, { nullable: true })
@@ -133,5 +137,13 @@ export class UserResolver {
       },
       data.profilePicture
     );
+  }
+
+  @ResolveField()
+  async department(@Parent() user: any): Promise<any | null> {
+    if (!user.departmentId) {
+      return null;
+    }
+    return this.departmentService.getDepartmentById(user.departmentId);
   }
 }

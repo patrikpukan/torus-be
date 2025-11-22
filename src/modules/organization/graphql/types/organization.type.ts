@@ -1,4 +1,5 @@
 import { Field, ID, ObjectType } from "@nestjs/graphql";
+import { DepartmentType } from "./department.type";
 
 @ObjectType()
 export class OrganizationType {
@@ -19,6 +20,9 @@ export class OrganizationType {
 
   @Field(() => String, { nullable: true })
   imageUrl?: string | null;
+
+  @Field(() => [DepartmentType], { nullable: true })
+  departments?: DepartmentType[] | null;
 
   @Field()
   createdAt!: Date;

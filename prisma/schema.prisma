@@ -80,6 +80,7 @@ model Organization {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   users           User[]
+  departments     Department[]
   pairingPeriods  PairingPeriod[]
   pairings        Pairing[]
   bans            Ban[]
@@ -89,10 +90,28 @@ model Organization {
   @@map("organizations")
 }
 
+model Department {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  description    String?  @db.Text
+  organizationId String   @map("organization_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users        User[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("departments")
+}
+
 model User {
   id                String             @id @db.Uuid
   organizationId    String             @map("organization_id") @db.Uuid
   organization      Organization       @relation(fields: [organizationId], references: [id])
+  departmentId      String?            @map("department_id") @db.Uuid
+  department        Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   email             String
   emailVerified     Boolean
   passwordHash      String?            @map("password_hash")

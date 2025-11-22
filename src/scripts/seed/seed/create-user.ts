@@ -10,6 +10,7 @@ type CreateUserParams = {
   profilePictureUrl?: string;
   profileStatus?: string;
   organizationId?: string;
+  departmentId?: string | null;
 };
 
 export async function createUser(
@@ -24,6 +25,7 @@ export async function createUser(
     profilePictureUrl,
     profileStatus,
     organizationId,
+    departmentId,
   } = params;
   const db = prisma as any;
 
@@ -54,6 +56,7 @@ export async function createUser(
       role: (role as UserRole) ?? undefined,
       image: profilePictureUrl ?? undefined,
       profileStatus: profileStatus ?? "active",
+      departmentId: departmentId ?? undefined,
       updatedAt: now,
     },
   });

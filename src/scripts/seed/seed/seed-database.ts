@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { PrismaService } from "../../../core/prisma/prisma.service";
 import { Config } from "../../../shared/config/config.service";
 import { createUser } from "./create-user";
+import { createDepartments } from "./create-departments";
 
 export const seedDatabase = async (
   prisma: PrismaService,
@@ -32,6 +33,9 @@ export const seedDatabase = async (
       code: "DEFAULT",
     },
   });
+
+  // Create departments for the organization
+  const departmentIds = await createDepartments(prisma, defaultOrg.id);
 
   console.log("Creating superadmin user");
 
@@ -79,6 +83,12 @@ export const seedDatabase = async (
   const adminEmail = "admin@torus.local";
   const orgAdminEmail = "caffeinatedduck@example.com";
 
+  // Helper function to get random department ID
+  const getRandomDepartmentId = () => {
+    return departmentIds[Math.floor(Math.random() * departmentIds.length)];
+  };
+
+  // Admin users don't get assigned to departments
   const adminUser = await createUser(prisma, {
     email: adminEmail,
     password: "admin",
@@ -100,6 +110,8 @@ export const seedDatabase = async (
     organizationId: defaultOrg.id,
   });
 
+  // Regular users get assigned to departments
+  const memberDeptId = getRandomDepartmentId();
   const memberUser = await createUser(prisma, {
     email: "deepduckthoughts@example.com",
     password: "password2",
@@ -109,7 +121,9 @@ export const seedDatabase = async (
     profileStatus: "active",
     profilePictureUrl: "uploads/profile-pictures/deepduckavatar.png",
     organizationId: defaultOrg.id,
+    departmentId: memberDeptId,
   });
+  console.log(`  ✓ Assigned Deep Duck Thoughts to department`);
 
   console.log("Creating pairing period and sample pairing/messages");
 
