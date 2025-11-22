@@ -230,6 +230,7 @@ export class UserService {
       interests?: string | null;
       preferredActivity?: string | null;
       avatarUrl?: string | null;
+      departmentId?: string | null;
     }
   ): Promise<CurrentUser> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
@@ -251,6 +252,8 @@ export class UserService {
           preferredActivity: data.preferredActivity,
           profileImageUrl:
             typeof data.avatarUrl !== "undefined" ? data.avatarUrl : undefined,
+          departmentId:
+            typeof data.departmentId !== "undefined" ? data.departmentId : undefined,
         },
         tx
       );

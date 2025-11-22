@@ -19,7 +19,7 @@ import { CreateInviteCodeResponseType } from "../types/create-invite-code-respon
 import { InviteCodeValidationResponseType } from "../types/invite-code-validation-response.type";
 import { OrgAdminGuard } from "src/shared/auth/guards/org-admin.guard";
 
-@Resolver()
+@Resolver(() => OrganizationType)
 export class OrganizationResolver {
   private readonly logger = new Logger(OrganizationResolver.name);
 

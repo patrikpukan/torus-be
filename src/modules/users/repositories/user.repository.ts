@@ -157,6 +157,7 @@ export class UserRepository {
       preferredActivity?: string | null;
       isActive?: boolean;
       suspendedUntil?: Date | null;
+      departmentId?: string | null;
     },
     tx?: Prisma.TransactionClient
   ): Promise<UserType> {

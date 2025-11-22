@@ -7,6 +7,7 @@ import {
 } from "@nestjs/graphql";
 import { ProfileStatusEnum, UserRoleEnum } from "../../domain/user";
 import { UserBanType } from "./user-ban.type";
+import { DepartmentType } from "../../../organization/graphql/types/department.type";
 
 registerEnumType(UserRoleEnum, {
   name: "UserRoleEnum",
@@ -74,8 +75,8 @@ export class UserType {
   @Field(() => GraphQLISODateTime)
   updatedAt!: Date;
 
-  @Field(() => () => require("../../organization/graphql/types/department.type").DepartmentType, { nullable: true })
-  department?: any | null;
+  @Field(() => DepartmentType, { nullable: true })
+  department?: DepartmentType | null;
 
   @Field(() => UserBanType, { nullable: true })
   activeBan?: UserBanType | null;

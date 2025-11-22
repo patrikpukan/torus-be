@@ -2,6 +2,7 @@ import { Field, GraphQLISODateTime, ID, ObjectType } from "@nestjs/graphql";
 import { ProfileStatusEnum, UserRoleEnum } from "../../domain/user";
 import { SimpleOrganizationType } from "./organization.type";
 import { UserBanType } from "./user-ban.type";
+import { DepartmentType } from "../../../organization/graphql/types/department.type";
 
 @ObjectType("CurrentUser")
 export class CurrentUserType {
@@ -37,6 +38,12 @@ export class CurrentUserType {
 
   @Field(() => SimpleOrganizationType)
   organization!: SimpleOrganizationType;
+
+  @Field(() => String, { nullable: true })
+  departmentId?: string | null;
+
+  @Field(() => DepartmentType, { nullable: true })
+  department?: DepartmentType | null;
 
   @Field(() => UserRoleEnum)
   role!: UserRoleEnum;

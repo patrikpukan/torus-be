@@ -66,6 +66,12 @@ input CreateCalendarEventInput {
   userId: ID!
 }
 
+input CreateDepartmentInput {
+  description: String
+  name: String!
+  organizationId: ID!
+}
+
 input CreateInviteCodeInputType {
   """Optional: hours until code expires (default: 30 days if not set)"""
   expiresInHours: Float
@@ -95,6 +101,8 @@ input CreateMeetingEventInput {
 type CurrentUser {
   about: String
   activeBan: UserBan
+  department: Department
+  departmentId: String
   email: String!
   firstName: String
   hobbies: String
@@ -121,6 +129,21 @@ input DeleteCalendarEventInput {
   id: ID!
   occurrenceStart: DateTime
   scope: String! = "this"
+}
+
+input DeleteDepartmentInput {
+  id: ID!
+  organizationId: ID!
+}
+
+type Department {
+  createdAt: DateTime!
+  description: String
+  employeeCount: Float!
+  id: ID!
+  name: String!
+  organizationId: ID!
+  updatedAt: DateTime!
 }
 
 type ExpandedCalendarEventOccurrence {
@@ -200,9 +223,11 @@ type Mutation {
   cancelMeeting(input: CancelMeetingEventInput!): MeetingEvent!
   confirmMeeting(meetingId: ID!, note: String): MeetingEvent!
   createCalendarEvent(input: CreateCalendarEventInput!): CalendarEvent!
+  createDepartment(input: CreateDepartmentInput!): Department!
   createInviteCode(input: CreateInviteCodeInputType): CreateInviteCodeResponseType!
   createMeetingEvent(input: CreateMeetingEventInput!): MeetingEvent!
   deleteCalendarEvent(input: DeleteCalendarEventInput!): Boolean!
+  deleteDepartment(input: DeleteDepartmentInput!): Boolean!
   deleteUser(id: ID!): User!
   executePairingAlgorithm(organizationId: String!): PairingExecutionResult!
   inviteUserToOrganization(input: InviteUserInputType!): InviteUserResponseType!
@@ -218,6 +243,7 @@ type Mutation {
   updateAlgorithmSettings(input: UpdateAlgorithmSettingsInput!): AlgorithmSettingsResponse!
   updateCalendarEvent(input: UpdateCalendarEventInput!, occurrenceStart: DateTime, scope: String! = "this"): [CalendarEvent!]!
   updateCurrentUserProfile(input: UpdateCurrentUserProfileInputType!): CurrentUser!
+  updateDepartment(input: UpdateDepartmentInput!): Department!
   updateMeetingToProposedTime(meetingId: ID!): MeetingEvent!
   updateOrganization(input: UpdateOrganizationInputType!): OrganizationType!
   updateUser(data: UpdateUserInputType!): User!
@@ -227,6 +253,7 @@ type OrganizationType {
   address: String
   code: String!
   createdAt: DateTime!
+  departments: [Department!]
   id: ID!
   imageUrl: String
   name: String!
@@ -320,9 +347,12 @@ type Query {
   expandedCalendarOccurrences(endDate: DateTime!, startDate: DateTime!, userId: ID): [ExpandedCalendarEventOccurrence!]!
   getAlgorithmSettings(organizationId: String!): AlgorithmSettings!
   getCurrentUser: CurrentUser
+  getDepartmentById(id: String!): Department
+  getDepartmentsByOrganization(organizationId: String!): [Department!]!
   getOrganizationInvites: [InviteCodeType!]!
   getPairedUsers: [User!]!
   getPairingHistory: [PairingHistory!]!
+  getUsersByDepartment(departmentId: String!): [Department!]!
   latestMeetingForPairing(pairingId: ID!): MeetingEvent
   meetingEventById(id: ID!): MeetingEvent
   meetingEventsByDateRange(endDate: DateTime!, startDate: DateTime!): [MeetingEvent!]!
@@ -419,11 +449,18 @@ input UpdateCalendarEventInput {
 input UpdateCurrentUserProfileInputType {
   about: String
   avatarUrl: String
+  departmentId: String
   firstName: String
   hobbies: String
   interests: String
   lastName: String
   preferredActivity: String
+}
+
+input UpdateDepartmentInput {
+  description: String
+  id: ID!
+  name: String!
 }
 
 input UpdateMeetingEventConfirmationInput {
@@ -463,6 +500,8 @@ type User {
   about: String
   activeBan: UserBan
   createdAt: DateTime!
+  department: Department
+  departmentId: String
   email: String!
   firstName: String
   hobbies: String
