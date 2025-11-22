@@ -9,6 +9,203 @@ import { randomUUID } from "crypto";
 dotenv.config();
 
 /**
+ * Predefined hobby tags for demo data
+ */
+const HOBBY_TAGS = [
+  "Photography",
+  "Hiking",
+  "Reading",
+  "Cooking",
+  "Gaming",
+  "Running",
+  "Cycling",
+  "Painting",
+  "Music",
+  "Travel",
+  "Gardening",
+  "Yoga",
+  "Swimming",
+  "Dancing",
+  "Crafts",
+  "Chess",
+  "Fishing",
+  "Movies",
+  "Theater",
+  "Writing",
+];
+
+/**
+ * Predefined interest tags for demo data
+ */
+const INTEREST_TAGS = [
+  "Technology",
+  "Sports",
+  "Art",
+  "Science",
+  "Business",
+  "Culture",
+  "Food",
+  "Environment",
+  "Health",
+  "Innovation",
+  "Design",
+  "Marketing",
+  "Finance",
+  "Education",
+  "Politics",
+  "History",
+  "Fashion",
+  "Architecture",
+  "Psychology",
+  "Music",
+];
+
+/**
+ * Realistic locations for demo users
+ */
+const LOCATIONS = [
+  "Prague, Czech Republic",
+  "Berlin, Germany",
+  "London, United Kingdom",
+  "Amsterdam, Netherlands",
+  "Barcelona, Spain",
+  "Vienna, Austria",
+  "Warsaw, Poland",
+  "Budapest, Hungary",
+  "Remote, Worldwide",
+];
+
+/**
+ * Realistic job positions for demo users
+ */
+const POSITIONS = [
+  "Senior Software Engineer",
+  "Product Manager",
+  "UX Designer",
+  "Marketing Specialist",
+  "Sales Director",
+  "HR Manager",
+  "Financial Analyst",
+  "Operations Coordinator",
+  "DevOps Engineer",
+  "Data Scientist",
+  "Customer Success Manager",
+];
+
+/**
+ * Detailed department definitions for organizations
+ * Maps organization names to their departments with descriptions
+ */
+const DEPARTMENTS_BY_ORG: Record<
+  string,
+  Array<{ name: string; description: string }>
+> = {
+  "Tech Ventures Inc": [
+    {
+      name: "Engineering",
+      description:
+        "Core development team responsible for building and maintaining software products",
+    },
+    {
+      name: "Product",
+      description:
+        "Product strategy, roadmap, and user experience design team",
+    },
+    {
+      name: "DevOps",
+      description:
+        "Infrastructure, deployment, and system reliability engineering",
+    },
+    {
+      name: "QA",
+      description:
+        "Quality assurance, testing, and automated test infrastructure",
+    },
+    {
+      name: "Data Science",
+      description:
+        "Analytics, machine learning, and data-driven insights team",
+    },
+  ],
+  "Global Solutions Ltd": [
+    {
+      name: "Sales",
+      description:
+        "Client acquisition, account management, and business development",
+    },
+    {
+      name: "Customer Success",
+      description:
+        "Client onboarding, support, and retention team",
+    },
+    {
+      name: "Marketing",
+      description:
+        "Brand management, campaigns, and market research team",
+    },
+    {
+      name: "Operations",
+      description:
+        "Business processes, administration, and operational efficiency",
+    },
+    {
+      name: "Finance",
+      description:
+        "Accounting, budgeting, and financial planning team",
+    },
+  ],
+  "Creative Studios Co": [
+    {
+      name: "Design",
+      description:
+        "UI/UX design, visual design, and design systems team",
+    },
+    {
+      name: "Content",
+      description:
+        "Content creation, copywriting, and editorial team",
+    },
+    {
+      name: "Production",
+      description:
+        "Project management, production coordination, and timelines",
+    },
+    {
+      name: "Creative Strategy",
+      description:
+        "Strategic planning, creative direction, and brand positioning",
+    },
+  ],
+  "Digital Minds Collective": [
+    {
+      name: "Digital Innovation",
+      description:
+        "Emerging technologies, blockchain, and innovation lab",
+    },
+    {
+      name: "Web Development",
+      description:
+        "Full-stack web development and frontend engineering",
+    },
+    {
+      name: "Mobile Development",
+      description:
+        "iOS, Android, and cross-platform mobile application development",
+    },
+    {
+      name: "Consulting",
+      description:
+        "Digital transformation consulting and technical advisory services",
+    },
+    {
+      name: "Training",
+      description:
+        "Employee training, certifications, and skill development programs",
+    },
+  ],
+};
+
+/**
  * TypeScript type for user profile configuration
  */
 type UserProfile = {
@@ -19,9 +216,7 @@ type UserProfile = {
   username: string;
   role: "super_admin" | "org_admin" | "user";
   about: string;
-  hobbies: string;
   preferredActivity: string;
-  interests: string;
   avatarFileName: string;
 };
 
@@ -54,6 +249,189 @@ function addDays(date: Date, days: number): Date {
  */
 function formatDateShort(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/**
+ * Seeds predefined tags for hobbies and interests
+ * Idempotent: checks if tags exist before creating
+ * @param prisma - Prisma client instance
+ * @returns Object containing arrays of hobby and interest tags
+ */
+async function seedTags(prisma: PrismaClient) {
+  console.log("🏷️  Seeding predefined tags...");
+
+  const hobbyTags: Array<{ id: string; name: string; category: string }> = [];
+  const interestTags: Array<{ id: string; name: string; category: string }> = [];
+
+  // Create hobby tags (idempotent)
+  for (const name of HOBBY_TAGS) {
+    const tag = await prisma.tag.upsert({
+      where: { name },
+      update: {},
+      create: {
+        name,
+        category: "HOBBY",
+      },
+    });
+    hobbyTags.push({
+      id: tag.id,
+      name: tag.name,
+      category: tag.category,
+    });
+  }
+
+  // Create interest tags (idempotent)
+  for (const name of INTEREST_TAGS) {
+    const tag = await prisma.tag.upsert({
+      where: { name },
+      update: {},
+      create: {
+        name,
+        category: "INTEREST",
+      },
+    });
+    interestTags.push({
+      id: tag.id,
+      name: tag.name,
+      category: tag.category,
+    });
+  }
+
+  console.log(`  ✅ Created ${hobbyTags.length} hobby tags`);
+  console.log(`  ✅ Created ${interestTags.length} interest tags`);
+
+  return { hobbyTags, interestTags };
+}
+
+/**
+ * Gets random items from an array
+ * @param array - Array to select from
+ * @param count - Number of items to select
+ * @returns Array of random items
+ */
+function getRandomTags<T>(array: T[], count: number): T[] {
+  const shuffled = [...array].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, array.length));
+}
+
+/**
+ * Gets random string from array
+ * @param array - Array to select from
+ * @returns Random item from array
+ */
+function getRandomItem<T>(array: T[]): T {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
+/**
+ * Assigns random tags to a user
+ * @param prisma - Prisma client instance
+ * @param userId - User ID to assign tags to
+ * @param hobbyTags - Available hobby tags
+ * @param interestTags - Available interest tags
+ */
+async function assignTagsToUser(
+  prisma: PrismaClient,
+  userId: string,
+  hobbyTags: { id: string; name: string; category: string }[],
+  interestTags: { id: string; name: string; category: string }[]
+): Promise<void> {
+  // Randomly select 3-6 hobbies
+  const hobbyCount = Math.floor(Math.random() * 4) + 3; // 3-6
+  const selectedHobbies = getRandomTags(hobbyTags, hobbyCount);
+
+  // Randomly select 3-6 interests
+  const interestCount = Math.floor(Math.random() * 4) + 3; // 3-6
+  const selectedInterests = getRandomTags(interestTags, interestCount);
+
+  // Assign hobby tags
+  for (const hobby of selectedHobbies) {
+    await prisma.userTag.upsert({
+      where: {
+        userId_tagId: {
+          userId,
+          tagId: hobby.id,
+        },
+      },
+      update: {},
+      create: {
+        userId,
+        tagId: hobby.id,
+      },
+    });
+  }
+
+  // Assign interest tags
+  for (const interest of selectedInterests) {
+    await prisma.userTag.upsert({
+      where: {
+        userId_tagId: {
+          userId,
+          tagId: interest.id,
+        },
+      },
+      update: {},
+      create: {
+        userId,
+        tagId: interest.id,
+      },
+    });
+  }
+}
+
+/**
+ * Seeds departments for an organization
+ * Creates detailed department structure with descriptions
+ * Idempotent: checks if departments exist before creating
+ * @param prisma - Prisma client instance
+ * @param orgId - Organization ID
+ * @param orgName - Organization name to look up departments
+ * @returns Array of created department IDs
+ */
+async function seedDepartmentsForOrg(
+  prisma: PrismaClient,
+  orgId: string,
+  orgName: string
+): Promise<string[]> {
+  const departmentDefs = DEPARTMENTS_BY_ORG[orgName] || [];
+  const createdDepartmentIds: string[] = [];
+
+  if (departmentDefs.length === 0) {
+    console.log(`  ℹ️  No departments defined for organization: ${orgName}`);
+    return createdDepartmentIds;
+  }
+
+  for (const deptDef of departmentDefs) {
+    try {
+      const department = await prisma.department.upsert({
+        where: {
+          organizationId_name: {
+            organizationId: orgId,
+            name: deptDef.name,
+          },
+        },
+        update: {
+          description: deptDef.description,
+        },
+        create: {
+          name: deptDef.name,
+          description: deptDef.description,
+          organizationId: orgId,
+        },
+      });
+      createdDepartmentIds.push(department.id);
+    } catch (error) {
+      console.warn(
+        `  ⚠️  Failed to create department ${deptDef.name} for org ${orgName}:`,
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  console.log(
+    `  ✅ Seeded ${createdDepartmentIds.length} departments for ${orgName}`
+  );
+  return createdDepartmentIds;
 }
 
 /**
@@ -780,9 +1158,7 @@ async function createDemoUser(
           firstName: profile.firstName,
           lastName: profile.lastName,
           about: profile.about,
-          hobbies: profile.hobbies,
           preferredActivity: profile.preferredActivity,
-          interests: profile.interests,
           profileImageUrl: avatarUrl ?? null,
           role: profile.role,
           organizationId: orgId,
@@ -841,9 +1217,7 @@ async function createDemoUser(
                   role: profile.role,
                   organizationId: orgId,
                   about: profile.about,
-                  hobbies: profile.hobbies,
                   preferredActivity: profile.preferredActivity,
-                  interests: profile.interests,
                   profileImageUrl: avatarUrl ?? null,
                   isActive: true,
                   createdAt: new Date(),
@@ -868,9 +1242,7 @@ async function createDemoUser(
                   firstName: profile.firstName,
                   lastName: profile.lastName,
                   about: profile.about,
-                  hobbies: profile.hobbies,
                   preferredActivity: profile.preferredActivity,
-                  interests: profile.interests,
                   profileImageUrl: avatarUrl ?? null,
                   role: profile.role,
                   organizationId: orgId,
@@ -914,9 +1286,7 @@ async function createDemoUser(
           firstName: profile.firstName,
           lastName: profile.lastName,
           about: profile.about,
-          hobbies: profile.hobbies,
           preferredActivity: profile.preferredActivity,
-          interests: profile.interests,
           profileImageUrl: avatarUrl ?? null,
           role: profile.role,
           organizationId: orgId,
@@ -947,9 +1317,7 @@ async function createDemoUser(
         role: profile.role,
         organizationId: orgId,
         about: profile.about,
-        hobbies: profile.hobbies,
         preferredActivity: profile.preferredActivity,
-        interests: profile.interests,
         profileImageUrl: avatarUrl ?? null,
         isActive: true,
         createdAt: new Date(),
@@ -1029,10 +1397,9 @@ const USER_PROFILES = {
     role: "super_admin" as UserRole,
     about:
       "Passionate about building communities and fostering meaningful connections. I believe in the power of regular social interactions to create lasting friendships.",
-    hobbies: "Photography, Hiking, Reading sci-fi novels, Cooking",
     preferredActivity: "Coffee meetups and outdoor activities",
-    interests:
-      "Technology, Community building, Outdoor adventures, Philosophy",
+    location: "Prague, Czech Republic",
+    position: "Senior Software Engineer",
     avatarFileName: "super_admin.jpg",
   },
   org_admin: {
@@ -1044,9 +1411,9 @@ const USER_PROFILES = {
     role: "org_admin" as UserRole,
     about:
       "Tech enthusiast and community organizer. I love bringing people together and making sure everyone feels included.",
-    hobbies: "Board games, Basketball, Podcasting, Travel",
     preferredActivity: "Group activities and sports",
-    interests: "Sports, Gaming, Technology, Team building",
+    location: "Berlin, Germany",
+    position: "Product Manager",
     avatarFileName: "org_admin.jpeg",
   },
   user1: {
@@ -1058,9 +1425,9 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Software engineer who loves exploring new restaurants and trying different cuisines. Always up for a good conversation over coffee.",
-    hobbies: "Cooking, Running, Guitar, Wine tasting",
     preferredActivity: "Dining out and coffee chats",
-    interests: "Food & Dining, Music, Fitness, Technology",
+    location: "London, United Kingdom",
+    position: "UX Designer",
     avatarFileName: "user1.jpeg",
   },
   user2: {
@@ -1072,9 +1439,9 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Designer and creative thinker. I enjoy discussing design philosophy and exploring innovative ideas with like-minded people.",
-    hobbies: "Digital art, Skateboarding, Coffee roasting, Anime",
     preferredActivity: "Creative workshops and design talks",
-    interests: "Design, Art, Technology, Coffee culture",
+    location: "Amsterdam, Netherlands",
+    position: "Marketing Specialist",
     avatarFileName: "user2.jpg",
   },
   user3: {
@@ -1086,9 +1453,9 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Finance professional who loves outdoor activities. I believe in work-life balance and making time for meaningful relationships.",
-    hobbies: "Rock climbing, Fishing, Chess, Investing",
     preferredActivity: "Outdoor adventures and strategy games",
-    interests: "Finance, Fitness, Nature, Strategy games",
+    location: "Barcelona, Spain",
+    position: "Sales Director",
     avatarFileName: "user3.jpg",
   },
   user4: {
@@ -1100,9 +1467,9 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Marketing specialist and event organizer. I love meeting new people and creating memorable experiences together.",
-    hobbies: "Salsa dancing, Event planning, Photography, Travel",
     preferredActivity: "Social events and networking",
-    interests: "Marketing, Events, Travel, Music",
+    location: "Vienna, Austria",
+    position: "HR Manager",
     avatarFileName: "user4.jpeg",
   },
   user5: {
@@ -1114,9 +1481,9 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Data scientist who is passionate about machine learning and problem-solving. I enjoy technical discussions and intellectual challenges.",
-    hobbies: "Machine learning, Reading, Simulation games, Coding",
     preferredActivity: "Tech discussions and hackathons",
-    interests: "Technology, Science, Gaming, Mathematics",
+    location: "Warsaw, Poland",
+    position: "Financial Analyst",
     avatarFileName: "user5.jpg",
   },
   user6: {
@@ -1128,9 +1495,9 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Healthcare professional with a passion for wellness. I'm interested in discussing health trends and maintaining active lifestyle.",
-    hobbies: "Yoga, Trail running, Meal prep, Meditation",
     preferredActivity: "Fitness activities and wellness meetups",
-    interests: "Health & Wellness, Fitness, Nutrition, Mindfulness",
+    location: "Budapest, Hungary",
+    position: "Operations Coordinator",
     avatarFileName: "user6.png",
   },
   user7: {
@@ -1142,9 +1509,9 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Creative writer and storyteller. I love exploring narratives, discussing literature, and collaborating on creative projects.",
-    hobbies: "Writing, Theater, Book club, Podcasting",
     preferredActivity: "Literary discussions and creative collaborations",
-    interests: "Literature, Writing, Theater, Storytelling",
+    location: "Remote, Worldwide",
+    position: "DevOps Engineer",
     avatarFileName: "user7.jpg",
   },
   user8: {
@@ -1156,9 +1523,9 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Musician and audio engineer. I believe in the power of music to connect people and create meaningful moments.",
-    hobbies: "Music production, Vinyl collecting, DJing, Concert attending",
     preferredActivity: "Music jams and concert outings",
-    interests: "Music, Audio technology, Entertainment, Live events",
+    location: "Prague, Czech Republic",
+    position: "Data Scientist",
     avatarFileName: "user8.jpeg",
   },
   user9: {
@@ -1170,9 +1537,9 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Entrepreneur and startup enthusiast. I'm passionate about innovation, business strategy, and mentoring young professionals.",
-    hobbies: "Business reading, Networking, Mentoring, Volleyball",
     preferredActivity: "Business meetups and mentoring sessions",
-    interests: "Business, Entrepreneurship, Innovation, Leadership",
+    location: "Berlin, Germany",
+    position: "Customer Success Manager",
     avatarFileName: "user9.jpg",
   },
 };
@@ -1365,6 +1732,13 @@ async function main(): Promise<void> {
     }
 
     // ========================================
+    // PHASE 1.5: Tags
+    // ========================================
+    console.log("\n🏷️  PHASE 1.5: Seeding Tags");
+    console.log("=".repeat(50));
+    const { hobbyTags, interestTags } = await seedTags(prisma);
+
+    // ========================================
     // PHASE 2: Users & Related Data
     // ========================================
     console.log("\n👥 PHASE 2: Creating Users & Pairing Data");
@@ -1383,7 +1757,15 @@ async function main(): Promise<void> {
       console.log(`\n📍 Organization: ${orgConfig.name}`);
       console.log("-".repeat(50));
 
-      // 2a. Create users for this org
+      // 2a. Create departments for this org
+      console.log("Creating departments...");
+      const departmentIds = await seedDepartmentsForOrg(
+        prisma,
+        orgId,
+        orgConfig.name
+      );
+
+      // 2b. Create users for this org
       const users: {
         id: string;
         firstName: string | null;
@@ -1403,15 +1785,30 @@ async function main(): Promise<void> {
         const user = await createDemoUser(prisma, userKey, orgId, email);
         if (user) {
           users.push(user);
+          
+          // Assign random tags (hobbies and interests) to the user
+          // Skip tag assignment for admin users
+          if (user.role === "user") {
+            await assignTagsToUser(prisma, user.id, hobbyTags, interestTags);
+            
+            // Assign user to a random department (if departments exist)
+            if (departmentIds.length > 0) {
+              const randomDepartmentId = getRandomItem(departmentIds);
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { departmentId: randomDepartmentId },
+              });
+            }
+          }
         }
       }
 
-      // 2b. Create pairing periods (3 weeks each)
+      // 2c. Create pairing periods (3 weeks each)
       console.log("\n🗓️  Creating pairing periods...");
       const { activePeriodId, upcomingPeriodId } =
         await createPairingPeriodsForOrg(prisma, orgId);
 
-      // 2c. Create pairings (only for active period)
+      // 2d. Create pairings (only for active period)
       console.log("\n🤝 Creating pairings...");
       const pairings = await createPairingsForOrg(
         prisma,
@@ -1420,14 +1817,14 @@ async function main(): Promise<void> {
         users
       );
 
-      // 2d. Create calendar events for each regular user
+      // 2e. Create calendar events for each regular user
       console.log("\n📅 Creating calendar events...");
       const regularUsers = users.filter((u) => u.role === "user");
       for (const user of regularUsers) {
         await createCalendarEventsForUser(prisma, user.id);
       }
 
-      // 2e. Create meeting events for matched/met pairings
+      // 2f. Create meeting events for matched/met pairings
       console.log("\n📆 Creating meeting events...");
       for (const pairing of pairings) {
         if (pairing.status === "matched" || pairing.status === "met") {

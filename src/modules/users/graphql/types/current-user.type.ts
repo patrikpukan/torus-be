@@ -3,6 +3,7 @@ import { ProfileStatusEnum, UserRoleEnum } from "../../domain/user";
 import { SimpleOrganizationType } from "./organization.type";
 import { UserBanType } from "./user-ban.type";
 import { DepartmentType } from "../../../organization/graphql/types/department.type";
+import { TagType } from "./tag.type";
 
 @ObjectType("CurrentUser")
 export class CurrentUserType {
@@ -22,10 +23,16 @@ export class CurrentUserType {
   about?: string | null;
 
   @Field(() => String, { nullable: true })
-  hobbies?: string | null;
+  location?: string | null;
 
   @Field(() => String, { nullable: true })
-  interests?: string | null;
+  position?: string | null;
+
+  @Field(() => [TagType], { nullable: true })
+  hobbies?: TagType[] | null;
+
+  @Field(() => [TagType], { nullable: true })
+  interests?: TagType[] | null;
 
   @Field(() => String, { nullable: true })
   preferredActivity?: string | null;

@@ -21,6 +21,19 @@ type AlgorithmSettingsResponse {
   warning: String
 }
 
+type AnonUser {
+  email: String
+  firstName: String
+  hobbies: [Tag!]
+  id: ID!
+  interests: [Tag!]
+  lastName: String
+  organizationId: ID!
+  preferredActivity: String
+  profileImageUrl: String
+  role: UserRoleEnum
+}
+
 input BanUserInput {
   expiresAt: DateTime
   reason: String!
@@ -105,13 +118,15 @@ type CurrentUser {
   departmentId: String
   email: String!
   firstName: String
-  hobbies: String
+  hobbies: [Tag!]
   id: ID!
-  interests: String
+  interests: [Tag!]
   isActive: Boolean!
   lastName: String
+  location: String
   organization: SimpleOrganizationType!
   organizationId: ID!
+  position: String
   preferredActivity: String
   profileImageUrl: String
   profileStatus: ProfileStatusEnum!
@@ -346,13 +361,15 @@ type Query {
   calendarEventsByDateRange(endDate: DateTime!, startDate: DateTime!): [CalendarEvent!]!
   expandedCalendarOccurrences(endDate: DateTime!, startDate: DateTime!, userId: ID): [ExpandedCalendarEventOccurrence!]!
   getAlgorithmSettings(organizationId: String!): AlgorithmSettings!
+  getAllTags: [Tag!]!
   getCurrentUser: CurrentUser
   getDepartmentById(id: String!): Department
   getDepartmentsByOrganization(organizationId: String!): [Department!]!
   getOrganizationInvites: [InviteCodeType!]!
   getPairedUsers: [User!]!
   getPairingHistory: [PairingHistory!]!
-  getUsersByDepartment(departmentId: String!): [Department!]!
+  getTagsByCategory(category: TagCategory!): [Tag!]!
+  getUsersByDepartment(departmentId: String!): [AnonUser!]!
   latestMeetingForPairing(pairingId: ID!): MeetingEvent
   meetingEventById(id: ID!): MeetingEvent
   meetingEventsByDateRange(endDate: DateTime!, startDate: DateTime!): [MeetingEvent!]!
@@ -431,6 +448,20 @@ type StatisticsResponseType {
   reportsCount: Int!
 }
 
+type Tag {
+  category: TagCategory!
+  createdAt: DateTime!
+  id: ID!
+  name: String!
+  updatedAt: DateTime!
+}
+
+"""Category of a tag (hobby or interest)"""
+enum TagCategory {
+  HOBBY
+  INTEREST
+}
+
 input UpdateAlgorithmSettingsInput {
   organizationId: String!
   periodLengthDays: Int
@@ -451,9 +482,11 @@ input UpdateCurrentUserProfileInputType {
   avatarUrl: String
   departmentId: String
   firstName: String
-  hobbies: String
-  interests: String
+  hobbyIds: [String!]
+  interestIds: [String!]
   lastName: String
+  location: String
+  position: String
   preferredActivity: String
 }
 
@@ -504,12 +537,14 @@ type User {
   departmentId: String
   email: String!
   firstName: String
-  hobbies: String
+  hobbies: [Tag!]
   id: ID!
-  interests: String
+  interests: [Tag!]
   isActive: Boolean!
   lastName: String
+  location: String
   organizationId: ID!
+  position: String
   preferredActivity: String
   profileImageUrl: String
   profileStatus: ProfileStatusEnum!

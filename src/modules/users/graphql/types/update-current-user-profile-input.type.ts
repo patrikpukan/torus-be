@@ -1,5 +1,12 @@
 import { Field, InputType } from "@nestjs/graphql";
-import { IsOptional, IsUUID } from "class-validator";
+import {
+  IsOptional,
+  IsUUID,
+  IsString,
+  MaxLength,
+  IsArray,
+  ArrayMaxSize,
+} from "class-validator";
 
 @InputType()
 export class UpdateCurrentUserProfileInputType {
@@ -13,13 +20,31 @@ export class UpdateCurrentUserProfileInputType {
   about?: string;
 
   @Field(() => String, { nullable: true })
-  hobbies?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  location?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  position?: string;
+
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  hobbyIds?: string[];
+
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  interestIds?: string[];
 
   @Field(() => String, { nullable: true })
   preferredActivity?: string;
-
-  @Field(() => String, { nullable: true })
-  interests?: string;
 
   @Field(() => String, { nullable: true })
   avatarUrl?: string;

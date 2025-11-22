@@ -69,6 +69,13 @@ enum MeetingConfirmationStatus {
   @@map("meeting_confirmation_status")
 }
 
+enum TagCategory {
+  HOBBY
+  INTEREST
+
+  @@map("tag_category")
+}
+
 model Organization {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -106,6 +113,33 @@ model Department {
   @@map("departments")
 }
 
+model Tag {
+  id       String      @id @default(uuid()) @db.Uuid
+  name     String      @unique
+  category TagCategory
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  userTags UserTag[]
+
+  @@index([category])
+  @@map("tags")
+}
+
+model UserTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tagId     String   @map("tag_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tagId])
+  @@index([userId])
+  @@index([tagId])
+  @@map("user_tags")
+}
 model User {
   id                String             @id @db.Uuid
   organizationId    String             @map("organization_id") @db.Uuid
@@ -118,9 +152,9 @@ model User {
   firstName         String?            @map("first_name")
   lastName          String?            @map("last_name")
   about             String?            @db.Text
-  hobbies           String?            @db.Text
+  location          String?
+  position          String?
   preferredActivity String?            @map("preferred_activity")
-  interests         String?            @db.Text
   profileImageUrl   String?            @map("avatar_url") @db.Text
   isActive          Boolean            @default(true) @map("is_active")
   suspendedUntil    DateTime?          @map("suspended_until") @db.Date
@@ -143,6 +177,7 @@ model User {
   bansIssued        Ban[]              @relation("UserBanActions")
   blocksInitiated   UserBlock[]        @relation("UserBlocksBlocker")
   blocksReceived    UserBlock[]        @relation("UserBlocksBlocked")
+  userTags          UserTag[]
 	inviteCodesCreated InviteCode[]
 
   @@unique([email])

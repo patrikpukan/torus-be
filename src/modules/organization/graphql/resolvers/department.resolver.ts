@@ -13,6 +13,7 @@ import { DepartmentService } from "../../services/department.service";
 import { CreateDepartmentInput, UpdateDepartmentInput, DeleteDepartmentInput } from "../types/department-input.type";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
 import { PrismaService } from "src/core/prisma/prisma.service";
+import { AnonUserType } from "../../../users/graphql/types/anon-user.type";
 
 @Resolver(() => DepartmentType)
 export class DepartmentResolver {
@@ -131,7 +132,7 @@ export class DepartmentResolver {
   }
 
   @UseGuards(AuthenticatedUserGuard)
-  @Query(() => [DepartmentType])
+  @Query(() => [AnonUserType])
   async getUsersByDepartment(
     @Args("departmentId") departmentId: string
   ): Promise<any[]> {

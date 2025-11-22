@@ -2,8 +2,10 @@ import { Module, forwardRef } from "@nestjs/common";
 import { ConfigModule } from "@applifting-io/nestjs-decorated-config";
 import { PrismaModule } from "../../core/prisma/prisma.module";
 import { UserResolver } from "./graphql/resolvers/user.resolver";
+import { TagResolver } from "./resolvers/tag.resolver";
 import { UserRepository } from "./repositories/user.repository";
 import { UserService } from "./services/user.service";
+import { TagService } from "./services/tag.service";
 import { AuthenticatedUserGuard } from "../../shared/auth/guards/authenticated-user.guard";
 import { SupabaseAdminService } from "../../shared/auth/supabase-admin.service";
 import { OrganizationModule } from "../organization/organization.module";
@@ -25,7 +27,9 @@ import { ReportResolver } from "./graphql/resolvers/report.resolver";
     UserBanRepository,
     ReportRepository,
     UserService,
+    TagService,
     UserResolver,
+    TagResolver,
     ReportResolver,
     AuthenticatedUserGuard,
     SupabaseAdminService,

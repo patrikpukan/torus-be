@@ -7,6 +7,7 @@ import {
   UserRoleEnum,
 } from "../domain/user";
 import { UserType } from "../graphql/types/user.type";
+import { TagType } from "../graphql/types/tag.type";
 import { AnonUserType } from "../graphql/types/anon-user.type";
 
 export type PrismaUserEntity = Prisma.UserGetPayload<Prisma.UserDefaultArgs> & {
@@ -26,12 +27,36 @@ export const mapPrismaUserToDomainUser = (
     (user as unknown as { profileStatus?: ProfileStatusEnum })?.profileStatus ??
     ProfileStatusEnum.pending;
 
+  // Extract hobbies and interests from userTags if available
+  const userTags = (user as unknown as { userTags?: Array<{ tag: { id: string; name: string; category: string; createdAt: Date; updatedAt: Date } }> })?.userTags ?? [];
+  const hobbies = userTags
+    .filter((ut) => ut.tag.category === "HOBBY")
+    .map((ut) => ({
+      id: ut.tag.id,
+      name: ut.tag.name,
+      category: ut.tag.category,
+      createdAt: ut.tag.createdAt,
+      updatedAt: ut.tag.updatedAt,
+    })) as unknown as TagType[] | undefined;
+
+  const interests = userTags
+    .filter((ut) => ut.tag.category === "INTEREST")
+    .map((ut) => ({
+      id: ut.tag.id,
+      name: ut.tag.name,
+      category: ut.tag.category,
+      createdAt: ut.tag.createdAt,
+      updatedAt: ut.tag.updatedAt,
+    })) as unknown as TagType[] | undefined;
+
   return {
     ...user,
     role: user.role as UserRoleEnum,
     profileStatus,
     profileImageUrl: user.profileImageUrl ?? undefined,
     supabaseUserId: user.supabaseUserId ?? undefined,
+    hobbies: hobbies && hobbies.length > 0 ? hobbies : undefined,
+    interests: interests && interests.length > 0 ? interests : undefined,
   };
 };
 
@@ -66,7 +91,16 @@ export class UserRepository {
     tx?: Prisma.TransactionClient
   ): Promise<UserType | null> {
     const client = this.getClient(tx);
-    const user = await client.user.findUnique({ where: { id } });
+    const user = await client.user.findUnique({ 
+      where: { id },
+      include: {
+        userTags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+    });
 
     return user ? mapPrismaUserToDomainUser(user) : null;
   }
@@ -78,7 +112,14 @@ export class UserRepository {
     const client = this.getClient(tx);
     const user = await client.user.findUnique({
       where: { id },
-      include: { organization: true },
+      include: { 
+        organization: true,
+        userTags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
     });
 
     return user ? mapPrismaUserWithOrganizationToDomain(user) : null;
@@ -89,7 +130,16 @@ export class UserRepository {
     tx?: Prisma.TransactionClient
   ): Promise<UserType | null> {
     const client = this.getClient(tx);
-    const user = await client.user.findUnique({ where: { email } });
+    const user = await client.user.findUnique({ 
+      where: { email },
+      include: {
+        userTags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+    });
 
     return user ? mapPrismaUserToDomainUser(user) : null;
   }
@@ -107,6 +157,13 @@ export class UserRepository {
             organizationId: filters.organizationId,
           }
         : undefined,
+      include: {
+        userTags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 
@@ -126,6 +183,13 @@ export class UserRepository {
           organizationId: filters.organizationId,
         }
         : undefined,
+      include: {
+        userTags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 
@@ -166,6 +230,13 @@ export class UserRepository {
     const user = await client.user.update({
       where: { id },
       data: data as Prisma.UserUpdateInput,
+      include: {
+        userTags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
     });
 
     return mapPrismaUserToDomainUser(user);
