@@ -3,7 +3,7 @@ import { UseGuards } from "@nestjs/common";
 import { TagType } from "../graphql/types/tag.type";
 import { TagCategory } from "../graphql/types/tag-category.enum";
 import { TagService } from "../services/tag.service";
-import { AuthenticatedUserGuard } from "../../../shared/auth/authenticated-user.guard";
+import { AuthenticatedUserGuard } from "../../../shared/auth/guards/authenticated-user.guard";
 
 @Resolver(() => TagType)
 export class TagResolver {
@@ -18,7 +18,7 @@ export class TagResolver {
   @Query(() => [TagType])
   @UseGuards(AuthenticatedUserGuard)
   async getTagsByCategory(
-    @Args("category") category: TagCategory
+    @Args("category", { type: () => TagCategory }) category: TagCategory
   ): Promise<TagType[]> {
     return this.tagService.getTagsByCategory(category);
   }

@@ -72,11 +72,7 @@ export class UserResolver {
     if (!user) {
       return null;
     }
-    return {
-      ...user,
-      hobbies: user.hobbies ? user.hobbies.map(tag => tag.name).join(", ") : null,
-      interests: user.interests ? user.interests.map(tag => tag.name).join(", ") : null,
-    };
+    return user as CurrentUserType;
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -134,11 +130,7 @@ export class UserResolver {
     @Args("input") input: UpdateCurrentUserProfileInputType
   ): Promise<CurrentUserType> {
     const user = await this.userService.updateCurrentUserProfile(identity, input);
-    return {
-      ...user,
-      hobbies: user.hobbies ? user.hobbies.map(tag => tag.name).join(", ") : null,
-      interests: user.interests ? user.interests.map(tag => tag.name).join(", ") : null,
-    };
+    return user as CurrentUserType;
   }
 
   @Mutation(() => UserType)

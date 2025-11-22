@@ -19,9 +19,7 @@ type UserProfile = {
   username: string;
   role: "super_admin" | "org_admin" | "user";
   about: string;
-  hobbies: string;
   preferredActivity: string;
-  interests: string;
   avatarFileName: string;
 };
 
@@ -780,9 +778,7 @@ async function createDemoUser(
           firstName: profile.firstName,
           lastName: profile.lastName,
           about: profile.about,
-          hobbies: profile.hobbies,
           preferredActivity: profile.preferredActivity,
-          interests: profile.interests,
           profileImageUrl: avatarUrl ?? null,
           role: profile.role,
           organizationId: orgId,
@@ -841,9 +837,7 @@ async function createDemoUser(
                   role: profile.role,
                   organizationId: orgId,
                   about: profile.about,
-                  hobbies: profile.hobbies,
                   preferredActivity: profile.preferredActivity,
-                  interests: profile.interests,
                   profileImageUrl: avatarUrl ?? null,
                   isActive: true,
                   createdAt: new Date(),
@@ -868,9 +862,7 @@ async function createDemoUser(
                   firstName: profile.firstName,
                   lastName: profile.lastName,
                   about: profile.about,
-                  hobbies: profile.hobbies,
                   preferredActivity: profile.preferredActivity,
-                  interests: profile.interests,
                   profileImageUrl: avatarUrl ?? null,
                   role: profile.role,
                   organizationId: orgId,
@@ -914,9 +906,7 @@ async function createDemoUser(
           firstName: profile.firstName,
           lastName: profile.lastName,
           about: profile.about,
-          hobbies: profile.hobbies,
           preferredActivity: profile.preferredActivity,
-          interests: profile.interests,
           profileImageUrl: avatarUrl ?? null,
           role: profile.role,
           organizationId: orgId,
@@ -947,9 +937,7 @@ async function createDemoUser(
         role: profile.role,
         organizationId: orgId,
         about: profile.about,
-        hobbies: profile.hobbies,
         preferredActivity: profile.preferredActivity,
-        interests: profile.interests,
         profileImageUrl: avatarUrl ?? null,
         isActive: true,
         createdAt: new Date(),

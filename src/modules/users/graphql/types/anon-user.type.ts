@@ -1,4 +1,6 @@
 import { Field, ID, ObjectType } from "@nestjs/graphql";
+import { TagType } from "./tag.type";
+import { UserRoleEnum } from "../../domain/user";
 
 @ObjectType("AnonUser")
 export class AnonUserType {
@@ -6,16 +8,28 @@ export class AnonUserType {
   id!: string;
 
   @Field(() => String, { nullable: true })
-  hobbies?: string | null;
+  email?: string | null;
 
   @Field(() => String, { nullable: true })
-  interests?: string | null;
+  firstName?: string | null;
+
+  @Field(() => String, { nullable: true })
+  lastName?: string | null;
+
+  @Field(() => [TagType], { nullable: true })
+  hobbies?: TagType[] | null;
+
+  @Field(() => [TagType], { nullable: true })
+  interests?: TagType[] | null;
 
   @Field(() => String, { nullable: true })
   preferredActivity?: string | null;
 
   @Field(() => String, { nullable: true })
   profileImageUrl?: string | null;
+
+  @Field(() => UserRoleEnum, { nullable: true })
+  role?: UserRoleEnum | null;
 
   @Field(() => ID)
   organizationId!: string;
