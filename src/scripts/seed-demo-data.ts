@@ -93,6 +93,119 @@ const POSITIONS = [
 ];
 
 /**
+ * Detailed department definitions for organizations
+ * Maps organization names to their departments with descriptions
+ */
+const DEPARTMENTS_BY_ORG: Record<
+  string,
+  Array<{ name: string; description: string }>
+> = {
+  "Tech Ventures Inc": [
+    {
+      name: "Engineering",
+      description:
+        "Core development team responsible for building and maintaining software products",
+    },
+    {
+      name: "Product",
+      description:
+        "Product strategy, roadmap, and user experience design team",
+    },
+    {
+      name: "DevOps",
+      description:
+        "Infrastructure, deployment, and system reliability engineering",
+    },
+    {
+      name: "QA",
+      description:
+        "Quality assurance, testing, and automated test infrastructure",
+    },
+    {
+      name: "Data Science",
+      description:
+        "Analytics, machine learning, and data-driven insights team",
+    },
+  ],
+  "Global Solutions Ltd": [
+    {
+      name: "Sales",
+      description:
+        "Client acquisition, account management, and business development",
+    },
+    {
+      name: "Customer Success",
+      description:
+        "Client onboarding, support, and retention team",
+    },
+    {
+      name: "Marketing",
+      description:
+        "Brand management, campaigns, and market research team",
+    },
+    {
+      name: "Operations",
+      description:
+        "Business processes, administration, and operational efficiency",
+    },
+    {
+      name: "Finance",
+      description:
+        "Accounting, budgeting, and financial planning team",
+    },
+  ],
+  "Creative Studios Co": [
+    {
+      name: "Design",
+      description:
+        "UI/UX design, visual design, and design systems team",
+    },
+    {
+      name: "Content",
+      description:
+        "Content creation, copywriting, and editorial team",
+    },
+    {
+      name: "Production",
+      description:
+        "Project management, production coordination, and timelines",
+    },
+    {
+      name: "Creative Strategy",
+      description:
+        "Strategic planning, creative direction, and brand positioning",
+    },
+  ],
+  "Digital Minds Collective": [
+    {
+      name: "Digital Innovation",
+      description:
+        "Emerging technologies, blockchain, and innovation lab",
+    },
+    {
+      name: "Web Development",
+      description:
+        "Full-stack web development and frontend engineering",
+    },
+    {
+      name: "Mobile Development",
+      description:
+        "iOS, Android, and cross-platform mobile application development",
+    },
+    {
+      name: "Consulting",
+      description:
+        "Digital transformation consulting and technical advisory services",
+    },
+    {
+      name: "Training",
+      description:
+        "Employee training, certifications, and skill development programs",
+    },
+  ],
+};
+
+/**
  * TypeScript type for user profile configuration
  */
 type UserProfile = {
@@ -264,6 +377,61 @@ async function assignTagsToUser(
       },
     });
   }
+}
+
+/**
+ * Seeds departments for an organization
+ * Creates detailed department structure with descriptions
+ * Idempotent: checks if departments exist before creating
+ * @param prisma - Prisma client instance
+ * @param orgId - Organization ID
+ * @param orgName - Organization name to look up departments
+ * @returns Array of created department IDs
+ */
+async function seedDepartmentsForOrg(
+  prisma: PrismaClient,
+  orgId: string,
+  orgName: string
+): Promise<string[]> {
+  const departmentDefs = DEPARTMENTS_BY_ORG[orgName] || [];
+  const createdDepartmentIds: string[] = [];
+
+  if (departmentDefs.length === 0) {
+    console.log(`  ℹ️  No departments defined for organization: ${orgName}`);
+    return createdDepartmentIds;
+  }
+
+  for (const deptDef of departmentDefs) {
+    try {
+      const department = await prisma.department.upsert({
+        where: {
+          organizationId_name: {
+            organizationId: orgId,
+            name: deptDef.name,
+          },
+        },
+        update: {
+          description: deptDef.description,
+        },
+        create: {
+          name: deptDef.name,
+          description: deptDef.description,
+          organizationId: orgId,
+        },
+      });
+      createdDepartmentIds.push(department.id);
+    } catch (error) {
+      console.warn(
+        `  ⚠️  Failed to create department ${deptDef.name} for org ${orgName}:`,
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  console.log(
+    `  ✅ Seeded ${createdDepartmentIds.length} departments for ${orgName}`
+  );
+  return createdDepartmentIds;
 }
 
 /**
@@ -1589,7 +1757,15 @@ async function main(): Promise<void> {
       console.log(`\n📍 Organization: ${orgConfig.name}`);
       console.log("-".repeat(50));
 
-      // 2a. Create users for this org
+      // 2a. Create departments for this org
+      console.log("Creating departments...");
+      const departmentIds = await seedDepartmentsForOrg(
+        prisma,
+        orgId,
+        orgConfig.name
+      );
+
+      // 2b. Create users for this org
       const users: {
         id: string;
         firstName: string | null;
@@ -1614,16 +1790,25 @@ async function main(): Promise<void> {
           // Skip tag assignment for admin users
           if (user.role === "user") {
             await assignTagsToUser(prisma, user.id, hobbyTags, interestTags);
+            
+            // Assign user to a random department (if departments exist)
+            if (departmentIds.length > 0) {
+              const randomDepartmentId = getRandomItem(departmentIds);
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { departmentId: randomDepartmentId },
+              });
+            }
           }
         }
       }
 
-      // 2b. Create pairing periods (3 weeks each)
+      // 2c. Create pairing periods (3 weeks each)
       console.log("\n🗓️  Creating pairing periods...");
       const { activePeriodId, upcomingPeriodId } =
         await createPairingPeriodsForOrg(prisma, orgId);
 
-      // 2c. Create pairings (only for active period)
+      // 2d. Create pairings (only for active period)
       console.log("\n🤝 Creating pairings...");
       const pairings = await createPairingsForOrg(
         prisma,
@@ -1632,14 +1817,14 @@ async function main(): Promise<void> {
         users
       );
 
-      // 2d. Create calendar events for each regular user
+      // 2e. Create calendar events for each regular user
       console.log("\n📅 Creating calendar events...");
       const regularUsers = users.filter((u) => u.role === "user");
       for (const user of regularUsers) {
         await createCalendarEventsForUser(prisma, user.id);
       }
 
-      // 2e. Create meeting events for matched/met pairings
+      // 2f. Create meeting events for matched/met pairings
       console.log("\n📆 Creating meeting events...");
       for (const pairing of pairings) {
         if (pairing.status === "matched" || pairing.status === "met") {
