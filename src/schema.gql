@@ -47,6 +47,8 @@ type CalendarEvent {
   endDateTime: DateTime!
   exceptionDates: String
   exceptionRrules: String
+  externalId: String
+  externalSource: String
   id: ID!
   rrule: String
   rruleRecurringId: String
@@ -168,6 +170,27 @@ type ExpandedCalendarEventOccurrence {
   originalEvent: CalendarEvent!
 }
 
+type GoogleCalendar {
+  backgroundColor: String
+  foregroundColor: String
+  id: String!
+  primary: Boolean
+  summary: String!
+}
+
+type GoogleCalendarImportResult {
+  importedCount: Float!
+  message: String!
+  success: Boolean!
+}
+
+input ImportGoogleCalendarEventsInput {
+  accessToken: String
+  calendarIds: [String!]!
+  endDate: DateTime!
+  startDate: DateTime!
+}
+
 type InviteCodeType {
   code: String!
   createdAt: DateTime!
@@ -245,6 +268,7 @@ type Mutation {
   deleteDepartment(input: DeleteDepartmentInput!): Boolean!
   deleteUser(id: ID!): User!
   executePairingAlgorithm(organizationId: String!): PairingExecutionResult!
+  importGoogleCalendarEvents(input: ImportGoogleCalendarEventsInput!): GoogleCalendarImportResult!
   inviteUserToOrganization(input: InviteUserInputType!): InviteUserResponseType!
   pauseActivity(input: PauseActivityInput!): CalendarEvent!
   proposeMeetingTime(input: UpdateMeetingEventConfirmationInput!): MeetingEvent!
@@ -370,6 +394,7 @@ type Query {
   getPairingHistory: [PairingHistory!]!
   getTagsByCategory(category: TagCategory!): [Tag!]!
   getUsersByDepartment(departmentId: String!): [AnonUser!]!
+  googleCalendarList(accessToken: String): [GoogleCalendar!]!
   latestMeetingForPairing(pairingId: ID!): MeetingEvent
   meetingEventById(id: ID!): MeetingEvent
   meetingEventsByDateRange(endDate: DateTime!, startDate: DateTime!): [MeetingEvent!]!
