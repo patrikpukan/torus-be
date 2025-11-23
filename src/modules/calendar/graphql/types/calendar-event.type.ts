@@ -41,6 +41,12 @@ export class CalendarEventType {
   @Field(() => String, { nullable: true })
   exceptionRrules?: string | null;
 
+  @Field(() => String, { nullable: true })
+  externalId?: string | null;
+
+  @Field(() => String, { nullable: true })
+  externalSource?: string | null;
+
   @Field(() => Date, { nullable: true })
   deletedAt?: Date | null;
 

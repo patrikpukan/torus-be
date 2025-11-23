@@ -257,6 +257,9 @@ model CalendarEvent {
   exceptionDates     String?               @map("exception_dates") @db.Text
   exceptionRrules    String?               @map("exception_rrules") @db.Text
   
+  externalId         String?               @map("external_id")
+  externalSource     String?               @map("external_source")
+  
   deletedAt          DateTime?             @map("deleted_at")
   
   createdAt          DateTime              @default(now()) @map("created_at")
@@ -266,6 +269,8 @@ model CalendarEvent {
   @@index([type])
   @@index([startDateTime])
   @@index([rruleRecurringId])
+  @@index([externalId])
+  @@index([externalSource])
   @@map("calendar_events")
 }
 

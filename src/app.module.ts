@@ -5,6 +5,7 @@ import { ServeStaticModule } from "@nestjs/serve-static";
 import { UsersModule } from "./modules/users/users.module";
 import { OrganizationModule } from "./modules/organization/organization.module";
 import { CalendarModule } from "./modules/calendar/calendar.module";
+import { GoogleCalendarModule } from "./modules/google-calendar/google-calendar.module";
 import { SeedModule } from "./scripts/seed/seed.module";
 import { Config } from "./shared/config/config.service";
 import { GraphqlSetupModule } from "./shared/graphql/graphql-setup.module";
@@ -26,6 +27,7 @@ const imports = [
   UsersModule,
   OrganizationModule,
   CalendarModule,
+  GoogleCalendarModule,
   GraphqlSetupModule,
   PairingAlgorithmModule,
   PairingPeriodModule,
