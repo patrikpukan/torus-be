@@ -100,7 +100,7 @@ const DEPARTMENTS_BY_ORG: Record<
   string,
   Array<{ name: string; description: string }>
 > = {
-  "Tech Ventures Inc": [
+  "Torus Technologies Inc": [
     {
       name: "Engineering",
       description:
@@ -127,7 +127,7 @@ const DEPARTMENTS_BY_ORG: Record<
         "Analytics, machine learning, and data-driven insights team",
     },
   ],
-  "Global Solutions Ltd": [
+  "StartupHub Ventures": [
     {
       name: "Sales",
       description:
@@ -154,7 +154,7 @@ const DEPARTMENTS_BY_ORG: Record<
         "Accounting, budgeting, and financial planning team",
     },
   ],
-  "Creative Studios Co": [
+  "Digital Minds Collective": [
     {
       name: "Design",
       description:
@@ -176,33 +176,6 @@ const DEPARTMENTS_BY_ORG: Record<
         "Strategic planning, creative direction, and brand positioning",
     },
   ],
-  "Digital Minds Collective": [
-    {
-      name: "Digital Innovation",
-      description:
-        "Emerging technologies, blockchain, and innovation lab",
-    },
-    {
-      name: "Web Development",
-      description:
-        "Full-stack web development and frontend engineering",
-    },
-    {
-      name: "Mobile Development",
-      description:
-        "iOS, Android, and cross-platform mobile application development",
-    },
-    {
-      name: "Consulting",
-      description:
-        "Digital transformation consulting and technical advisory services",
-    },
-    {
-      name: "Training",
-      description:
-        "Employee training, certifications, and skill development programs",
-    },
-  ],
 };
 
 /**
@@ -217,6 +190,8 @@ type UserProfile = {
   role: "super_admin" | "org_admin" | "user";
   about: string;
   preferredActivity: string;
+  location: string;
+  position: string;
   avatarFileName: string;
 };
 
@@ -1314,6 +1289,8 @@ async function createDemoUser(
           lastName: profile.lastName,
           about: profile.about,
           preferredActivity: profile.preferredActivity,
+          location: profile.location,
+          position: profile.position,
           profileImageUrl: avatarUrl ?? null,
           role: profile.role,
           organizationId: orgId,
@@ -1373,6 +1350,8 @@ async function createDemoUser(
                   organizationId: orgId,
                   about: profile.about,
                   preferredActivity: profile.preferredActivity,
+                  location: profile.location,
+                  position: profile.position,
                   profileImageUrl: avatarUrl ?? null,
                   isActive: true,
                   createdAt: new Date(),
@@ -1398,6 +1377,8 @@ async function createDemoUser(
                   lastName: profile.lastName,
                   about: profile.about,
                   preferredActivity: profile.preferredActivity,
+                  location: profile.location,
+                  position: profile.position,
                   profileImageUrl: avatarUrl ?? null,
                   role: profile.role,
                   organizationId: orgId,
@@ -1442,6 +1423,8 @@ async function createDemoUser(
           lastName: profile.lastName,
           about: profile.about,
           preferredActivity: profile.preferredActivity,
+          location: profile.location,
+          position: profile.position,
           profileImageUrl: avatarUrl ?? null,
           role: profile.role,
           organizationId: orgId,
@@ -1473,6 +1456,8 @@ async function createDemoUser(
         organizationId: orgId,
         about: profile.about,
         preferredActivity: profile.preferredActivity,
+        location: profile.location,
+        position: profile.position,
         profileImageUrl: avatarUrl ?? null,
         isActive: true,
         createdAt: new Date(),
@@ -1552,7 +1537,7 @@ const USER_PROFILES = {
     role: "super_admin" as UserRole,
     about:
       "Passionate about building communities and fostering meaningful connections. I believe in the power of regular social interactions to create lasting friendships.",
-    preferredActivity: "Coffee meetups and outdoor activities",
+    preferredActivity: "Coffee",
     location: "Prague, Czech Republic",
     position: "Senior Software Engineer",
     avatarFileName: "super_admin.jpg",
@@ -1566,7 +1551,7 @@ const USER_PROFILES = {
     role: "org_admin" as UserRole,
     about:
       "Tech enthusiast and community organizer. I love bringing people together and making sure everyone feels included.",
-    preferredActivity: "Group activities and sports",
+    preferredActivity: "Lunch",
     location: "Berlin, Germany",
     position: "Product Manager",
     avatarFileName: "org_admin.jpeg",
@@ -1580,7 +1565,7 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Software engineer who loves exploring new restaurants and trying different cuisines. Always up for a good conversation over coffee.",
-    preferredActivity: "Dining out and coffee chats",
+    preferredActivity: "Coffee",
     location: "London, United Kingdom",
     position: "UX Designer",
     avatarFileName: "user1.jpeg",
@@ -1594,7 +1579,7 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Designer and creative thinker. I enjoy discussing design philosophy and exploring innovative ideas with like-minded people.",
-    preferredActivity: "Creative workshops and design talks",
+    preferredActivity: "Lunch",
     location: "Amsterdam, Netherlands",
     position: "Marketing Specialist",
     avatarFileName: "user2.jpg",
@@ -1608,7 +1593,7 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Finance professional who loves outdoor activities. I believe in work-life balance and making time for meaningful relationships.",
-    preferredActivity: "Outdoor adventures and strategy games",
+    preferredActivity: "Walk",
     location: "Barcelona, Spain",
     position: "Sales Director",
     avatarFileName: "user3.jpg",
@@ -1622,7 +1607,7 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Marketing specialist and event organizer. I love meeting new people and creating memorable experiences together.",
-    preferredActivity: "Social events and networking",
+    preferredActivity: "Video Call",
     location: "Vienna, Austria",
     position: "HR Manager",
     avatarFileName: "user4.jpeg",
@@ -1636,7 +1621,7 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Data scientist who is passionate about machine learning and problem-solving. I enjoy technical discussions and intellectual challenges.",
-    preferredActivity: "Tech discussions and hackathons",
+    preferredActivity: "Phone Call",
     location: "Warsaw, Poland",
     position: "Financial Analyst",
     avatarFileName: "user5.jpg",
@@ -1650,7 +1635,7 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Healthcare professional with a passion for wellness. I'm interested in discussing health trends and maintaining active lifestyle.",
-    preferredActivity: "Fitness activities and wellness meetups",
+    preferredActivity: "Walk",
     location: "Budapest, Hungary",
     position: "Operations Coordinator",
     avatarFileName: "user6.png",
@@ -1664,7 +1649,7 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Creative writer and storyteller. I love exploring narratives, discussing literature, and collaborating on creative projects.",
-    preferredActivity: "Literary discussions and creative collaborations",
+    preferredActivity: "Coffee",
     location: "Remote, Worldwide",
     position: "DevOps Engineer",
     avatarFileName: "user7.jpg",
@@ -1678,7 +1663,7 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Musician and audio engineer. I believe in the power of music to connect people and create meaningful moments.",
-    preferredActivity: "Music jams and concert outings",
+    preferredActivity: "Lunch",
     location: "Prague, Czech Republic",
     position: "Data Scientist",
     avatarFileName: "user8.jpeg",
@@ -1692,7 +1677,7 @@ const USER_PROFILES = {
     role: "user" as UserRole,
     about:
       "Entrepreneur and startup enthusiast. I'm passionate about innovation, business strategy, and mentoring young professionals.",
-    preferredActivity: "Business meetups and mentoring sessions",
+    preferredActivity: "Video Call",
     location: "Berlin, Germany",
     position: "Customer Success Manager",
     avatarFileName: "user9.jpg",
@@ -2082,19 +2067,16 @@ async function main(): Promise<void> {
         if (user) {
           users.push(user);
           
-          // Assign random tags (hobbies and interests) to the user
-          // Skip tag assignment for admin users
-          if (user.role === "user") {
-            await assignTagsToUser(prisma, user.id, hobbyTags, interestTags);
-            
-            // Assign user to a random department (if departments exist)
-            if (departmentIds.length > 0) {
-              const randomDepartmentId = getRandomItem(departmentIds);
-              await prisma.user.update({
-                where: { id: user.id },
-                data: { departmentId: randomDepartmentId },
-              });
-            }
+          // Assign random tags (hobbies and interests) to all users
+          await assignTagsToUser(prisma, user.id, hobbyTags, interestTags);
+          
+          // Assign all users to a random department (if departments exist)
+          if (departmentIds.length > 0) {
+            const randomDepartmentId = getRandomItem(departmentIds);
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { departmentId: randomDepartmentId },
+            });
           }
         }
       }

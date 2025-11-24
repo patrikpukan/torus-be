@@ -226,8 +226,10 @@ export class UserService {
       firstName?: string | null;
       lastName?: string | null;
       about?: string | null;
-      hobbies?: string | null;
-      interests?: string | null;
+      location?: string | null;
+      position?: string | null;
+      hobbyIds?: string[];
+      interestIds?: string[];
       preferredActivity?: string | null;
       avatarUrl?: string | null;
       departmentId?: string | null;
@@ -241,14 +243,15 @@ export class UserService {
         throw new NotFoundException();
       }
 
+      // Update user profile
       await this.userRepository.updateUser(
         identity.id,
         {
           firstName: data.firstName,
           lastName: data.lastName,
           about: data.about,
-          hobbies: data.hobbies,
-          interests: data.interests,
+          location: data.location,
+          position: data.position,
           preferredActivity: data.preferredActivity,
           profileImageUrl:
             typeof data.avatarUrl !== "undefined" ? data.avatarUrl : undefined,
@@ -257,6 +260,66 @@ export class UserService {
         },
         tx
       );
+
+      // Update hobbies if provided
+      if (Array.isArray(data.hobbyIds)) {
+        // Delete existing hobbies
+        await tx.userTag.deleteMany({
+          where: {
+            userId: identity.id,
+            tag: {
+              category: "HOBBY",
+            },
+          },
+        });
+
+        // Add new hobbies
+        for (const hobbyId of data.hobbyIds) {
+          await tx.userTag.upsert({
+            where: {
+              userId_tagId: {
+                userId: identity.id,
+                tagId: hobbyId,
+              },
+            },
+            update: {},
+            create: {
+              userId: identity.id,
+              tagId: hobbyId,
+            },
+          });
+        }
+      }
+
+      // Update interests if provided
+      if (Array.isArray(data.interestIds)) {
+        // Delete existing interests
+        await tx.userTag.deleteMany({
+          where: {
+            userId: identity.id,
+            tag: {
+              category: "INTEREST",
+            },
+          },
+        });
+
+        // Add new interests
+        for (const interestId of data.interestIds) {
+          await tx.userTag.upsert({
+            where: {
+              userId_tagId: {
+                userId: identity.id,
+                tagId: interestId,
+              },
+            },
+            update: {},
+            create: {
+              userId: identity.id,
+              tagId: interestId,
+            },
+          });
+        }
+      }
 
       const updatedUser = await this.userRepository.getUserWithOrganizationById(
         identity.id,

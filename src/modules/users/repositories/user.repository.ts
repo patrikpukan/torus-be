@@ -216,6 +216,8 @@ export class UserRepository {
       firstName?: string | null;
       lastName?: string | null;
       about?: string | null;
+      location?: string | null;
+      position?: string | null;
       hobbies?: string | null;
       interests?: string | null;
       preferredActivity?: string | null;
