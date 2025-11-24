@@ -214,15 +214,22 @@ export class GoogleCalendarService {
             if (googleEvent.start.date) {
               // All-day event
               // Google Calendar's end date for all-day events is exclusive
-              // e.g., Nov 17-18 means only Nov 17
-              // Store as local midnight to avoid timezone shifts
-              startDateTime = new Date(googleEvent.start.date + "T00:00:00");
-              // Subtract one day from the end date and set to 23:59:59
-              const exclusiveEndDate = new Date(googleEvent.end!.date!);
-              exclusiveEndDate.setDate(exclusiveEndDate.getDate() - 1);
-              endDateTime = new Date(
-                exclusiveEndDate.toISOString().split("T")[0] + "T23:59:59"
+              // e.g., Dec 24-25 means only Dec 24
+              // Store at 23:00 UTC the previous day so it displays as midnight in Prague (UTC+1)
+              const startDate = new Date(googleEvent.start.date + "T00:00:00Z");
+              startDate.setUTCHours(startDate.getUTCHours() - 1); // -1 hour for Prague timezone
+              startDateTime = startDate;
+
+              // For end: Google gives exclusive end date (Dec 25), subtract 1 day = Dec 24
+              // Then set to 22:59:59 UTC so it displays as 23:59:59 in Prague
+              const exclusiveEndDate = new Date(
+                googleEvent.end!.date! + "T00:00:00Z"
               );
+              exclusiveEndDate.setUTCDate(exclusiveEndDate.getUTCDate() - 1); // Now on correct day
+              exclusiveEndDate.setUTCHours(22); // 22:00 UTC = 23:00 Prague
+              exclusiveEndDate.setUTCMinutes(59);
+              exclusiveEndDate.setUTCSeconds(59);
+              endDateTime = exclusiveEndDate;
             } else if (googleEvent.start.dateTime) {
               // Timed event
               startDateTime = new Date(googleEvent.start.dateTime);
