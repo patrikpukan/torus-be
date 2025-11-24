@@ -241,16 +241,18 @@ async function cleanupDemoDataOnly(prisma: PrismaClient): Promise<void> {
   });
   console.log(`   ✓ Deleted ${deletedReports.count} reports`);
 
-  // 3d. Delete Pairings
+  // 3d. Delete Pairings (must delete before PairingPeriods)
   console.log("🤝 Deleting pairings...");
   const deletedPairings = await prisma.pairing.deleteMany({
     where: {
-      organizationId: { in: demoOrgIds },
+      period: {
+        organizationId: { in: demoOrgIds },
+      },
     },
   });
   console.log(`   ✓ Deleted ${deletedPairings.count} pairings`);
 
-  // 3e. Delete PairingPeriods
+  // 3e. Delete PairingPeriods (must delete after Pairings due to foreign key)
   console.log("🗓️  Deleting pairing periods...");
   const deletedPeriods = await prisma.pairingPeriod.deleteMany({
     where: {
@@ -279,7 +281,16 @@ async function cleanupDemoDataOnly(prisma: PrismaClient): Promise<void> {
   });
   console.log(`   ✓ Deleted ${deletedInvites.count} invite codes`);
 
-  // 3h. Delete Users
+  // 3h. Delete Bans (must delete before Users)
+  console.log("🚫 Deleting user bans...");
+  const deletedBans = await prisma.ban.deleteMany({
+    where: {
+      organizationId: { in: demoOrgIds },
+    },
+  });
+  console.log(`   ✓ Deleted ${deletedBans.count} user bans`);
+
+  // 3i. Delete Users
   console.log("👥 Deleting users...");
   const deletedUsers = await prisma.user.deleteMany({
     where: {
@@ -288,7 +299,7 @@ async function cleanupDemoDataOnly(prisma: PrismaClient): Promise<void> {
   });
   console.log(`   ✓ Deleted ${deletedUsers.count} users from database`);
 
-  // 3i. Delete Organizations
+  // 3j. Delete Organizations
   console.log("🏢 Deleting organizations...");
   const deletedOrgs = await prisma.organization.deleteMany({
     where: {
@@ -318,6 +329,7 @@ async function cleanupDemoDataOnly(prisma: PrismaClient): Promise<void> {
   console.log(`   Meeting Events: ${deletedMeetings.count}`);
   console.log(`   Messages: ${deletedMessages.count}`);
   console.log(`   Reports: ${deletedReports.count}`);
+  console.log(`   User Bans: ${deletedBans.count}`);
   console.log(`   Invite Codes: ${deletedInvites.count}`);
   console.log("\n✅ Production data preserved!");
 }

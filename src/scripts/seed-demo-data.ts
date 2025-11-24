@@ -933,6 +933,161 @@ async function createMeetingEventForPairing(
 }
 
 /**
+ * Creates user reports for some pairings (when pairings exist)
+ * Generates realistic conflict/concern reports with various reasons
+ * Idempotent: checks if reports already exist before creating
+ * @param prisma - Prisma client instance
+ * @param pairings - Array of pairings to potentially create reports for
+ * @param users - Array of users that can be reporters
+ * @returns Promise<void>
+ */
+async function createUserReportsForPairings(
+  prisma: PrismaClient,
+  pairings: Array<{ id: string; userAId: string; userBId: string }>,
+  users: Array<{ id: string; role: string }>
+): Promise<void> {
+  try {
+    if (pairings.length === 0 || users.length < 2) {
+      return; // Need at least 2 users for a report
+    }
+
+    // Report reasons
+    const reportReasons = [
+      "Inappropriate behavior during pairing session",
+      "Lack of professionalism in communication",
+      "Disruptive behavior during meeting",
+      "Not following pairing guidelines",
+      "Creating uncomfortable atmosphere",
+      "Refusing to participate in pairing activities",
+    ];
+
+    // Create reports for ~20% of pairings
+    const reportsToCreate = Math.ceil(pairings.length * 0.2);
+    const regularUsers = users.filter((u) => u.role === "user");
+
+    if (regularUsers.length < 2) return;
+
+    for (let i = 0; i < reportsToCreate; i++) {
+      const pairing = pairings[Math.floor(Math.random() * pairings.length)];
+      
+      // Check if report already exists for this pairing
+      const existingReport = await prisma.report.findFirst({
+        where: { pairingId: pairing.id },
+      });
+
+      if (existingReport) {
+        continue;
+      }
+
+      // Randomly choose reporter and reported user
+      const reporterIsUserA = Math.random() > 0.5;
+      const reporterId = reporterIsUserA ? pairing.userAId : pairing.userBId;
+      const reportedUserId = reporterIsUserA ? pairing.userBId : pairing.userAId;
+
+      const reason =
+        reportReasons[Math.floor(Math.random() * reportReasons.length)];
+
+      await prisma.report.create({
+        data: {
+          reporterId,
+          reportedUserId,
+          pairingId: pairing.id,
+          reason,
+          createdAt: addDays(new Date(), -(1 + Math.floor(Math.random() * 7))), // 1-7 days ago
+        },
+      });
+    }
+
+    console.log(`    ✓ Created user reports`);
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `⚠️  Warning: Could not create user reports: ${err}`
+    );
+    // Don't throw - reports are optional for demo
+  }
+}
+
+/**
+ * Creates user bans for some users in each organization
+ * Generates realistic bans with various reasons
+ * Idempotent: checks if bans already exist before creating
+ * @param prisma - Prisma client instance
+ * @param orgId - Organization ID
+ * @param users - Array of users in the organization
+ * @returns Promise<void>
+ */
+async function createUserBansForOrg(
+  prisma: PrismaClient,
+  orgId: string,
+  users: Array<{ id: string; role: string }>
+): Promise<void> {
+  try {
+    if (users.length < 2) {
+      return; // Need at least 2 users (one to ban, one to ban by)
+    }
+
+    // Ban reasons
+    const banReasons = [
+      "Repeated violation of community guidelines",
+      "Harassment or bullying behavior",
+      "Inappropriate content or language",
+      "Multiple complaints from other users",
+      "Violation of pairing terms of service",
+    ];
+
+    const regularUsers = users.filter((u) => u.role === "user");
+    const adminUsers = users.filter((u) => u.role === "org_admin");
+
+    if (regularUsers.length === 0 || adminUsers.length === 0) {
+      return;
+    }
+
+    // Ban ~10% of regular users
+    const bansToCreate = Math.max(1, Math.floor(regularUsers.length * 0.1));
+    const admin = adminUsers[0];
+
+    for (let i = 0; i < bansToCreate; i++) {
+      const userToBan = regularUsers[i % regularUsers.length];
+
+      // Check if ban already exists for this user
+      const existingBan = await prisma.ban.findFirst({
+        where: { userId: userToBan.id, organizationId: orgId },
+      });
+
+      if (existingBan) {
+        continue;
+      }
+
+      const reason = banReasons[Math.floor(Math.random() * banReasons.length)];
+      const isPermanent = Math.random() > 0.7; // 30% permanent bans
+      const expiresAt = isPermanent
+        ? null
+        : addDays(new Date(), 30 + Math.floor(Math.random() * 60)); // 30-90 days
+
+      await prisma.ban.create({
+        data: {
+          organizationId: orgId,
+          userId: userToBan.id,
+          bannedById: admin.id,
+          reason,
+          createdAt: addDays(new Date(), -(1 + Math.floor(Math.random() * 14))), // 1-14 days ago
+          expiresAt,
+        },
+      });
+    }
+
+    console.log(`    ✓ Created user bans`);
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `⚠️  Warning: Could not create user bans: ${err}`
+    );
+    // Don't throw - bans are optional for demo
+  }
+}
+
+/**
  * Generates a random uppercase alphabetic code of specified length
  * @param length - Length of code to generate (default: 6)
  * @returns Random uppercase code
@@ -1655,16 +1810,150 @@ async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
 }
 
 /**
+ * Cleans up demo Supabase Auth users created during seeding
+ * Deletes all users from Supabase Auth that match the demo user email patterns
+ * This ensures a clean state for re-seeding without orphaned auth users
+ * @returns Promise<void>
+ */
+async function cleanupSupabaseAuthUsers(): Promise<void> {
+  console.log("🧹 Cleaning up Supabase Auth users...\n");
+
+  try {
+    if (!supabaseUrl || !supabaseSecretKey) {
+      console.log("⚠️  Skipping Supabase cleanup (credentials not configured)");
+      return;
+    }
+
+    // Get all users from Supabase
+    const { data: allUsers, error: listError } =
+      await supabaseAdmin.auth.admin.listUsers();
+
+    if (listError) {
+      console.warn(`⚠️  Could not list Supabase users: ${listError.message}`);
+      return;
+    }
+
+    if (!allUsers?.users || allUsers.users.length === 0) {
+      console.log("ℹ️  No users found in Supabase Auth");
+      return;
+    }
+
+    // Filter demo users based on email patterns
+    const demoEmailPatterns = [
+      "superadmin@torus.com",
+      "orgadmin@torus.com",
+      "@torus.com", // Any @torus.com email is likely a demo user
+    ];
+
+    const demoUsers = allUsers.users.filter((user) => {
+      if (!user.email) return false;
+      return demoEmailPatterns.some((pattern) =>
+        user.email?.includes(pattern)
+      );
+    });
+
+    if (demoUsers.length === 0) {
+      console.log("ℹ️  No demo users found to clean up");
+      return;
+    }
+
+    // Delete each demo user
+    let deletedCount = 0;
+    for (const user of demoUsers) {
+      try {
+        const { error: deleteError } =
+          await supabaseAdmin.auth.admin.deleteUser(user.id);
+
+        if (deleteError) {
+          console.warn(
+            `⚠️  Failed to delete user ${user.email}: ${deleteError.message}`
+          );
+        } else {
+          deletedCount++;
+          console.log(`  ✓ Deleted: ${user.email}`);
+        }
+      } catch (error) {
+        const err = error instanceof Error ? error.message : String(error);
+        console.warn(`⚠️  Error deleting user ${user.email}: ${err}`);
+      }
+    }
+
+    console.log(`\n✅ Cleaned up ${deletedCount} demo users from Supabase Auth\n`);
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Warning: Supabase cleanup incomplete: ${err}`);
+    console.warn("   Proceeding with seeding anyway...\n");
+  }
+}
+
+/**
  * Main orchestrator function for seeding demo data
  * Orchestrates seeding in phases:
+ * - Phase 0: Cleanup (delete demo users from Supabase Auth)
  * - Phase 1: Organizations
  * - Phase 2: Users, Pairing Periods, Pairings, Calendar Events, Meeting Events
  * - Phase 3: Summary Statistics
  * @returns void
  * @throws Error if required environment variables are missing or database operations fail
  */
+/**
+ * Cleanup Supabase Auth demo users before seeding
+ * Prevents "user already exists" errors when re-running seed
+ */
+async function cleanupSupabaseAuthDemoUsers(): Promise<void> {
+  try {
+    if (!supabaseUrl || !supabaseSecretKey) {
+      return; // Skip if credentials not available
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    // Get all users from Supabase Auth
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers();
+
+    if (error || !data?.users) {
+      return; // Skip on error
+    }
+
+    // Find demo users (those with @torus.com emails)
+    const demoUsers = data.users.filter(
+      (user) => user.email && user.email.includes("@torus.com")
+    );
+
+    if (demoUsers.length === 0) {
+      return; // No demo users to clean
+    }
+
+    console.log(`🧹 Cleaning up ${demoUsers.length} existing demo users from Supabase Auth...`);
+
+    let deletedCount = 0;
+    for (const user of demoUsers) {
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
+        user.id
+      );
+      if (!deleteError) {
+        deletedCount++;
+      }
+    }
+
+    console.log(`  ✓ Deleted ${deletedCount} demo users from Supabase Auth\n`);
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Warning: Could not cleanup Supabase Auth users: ${err}`);
+    console.warn("  Continuing with seed...\n");
+  }
+}
+
 async function main(): Promise<void> {
   console.log("🚀 Starting Torus demo data seeding...\n");
+
+  // Clean up any existing demo users from Supabase Auth first
+  await cleanupSupabaseAuthDemoUsers();
 
   // Check required environment variables
   if (!supabaseUrl || !supabaseSecretKey) {
@@ -1719,6 +2008,13 @@ async function main(): Promise<void> {
   try {
     await prisma.$connect();
     console.log("📦 Connected to database\n");
+
+    // ========================================
+    // PHASE 0: Cleanup Supabase Auth Users
+    // ========================================
+    console.log("🧹 PHASE 0: Cleaning up demo users from Supabase Auth");
+    console.log("=".repeat(50));
+    await cleanupSupabaseAuthUsers();
 
     // ========================================
     // PHASE 1: Organizations
@@ -1831,6 +2127,14 @@ async function main(): Promise<void> {
           await createMeetingEventForPairing(prisma, pairing);
         }
       }
+
+      // 2g. Create user reports for some pairings
+      console.log("\n📋 Creating user reports...");
+      await createUserReportsForPairings(prisma, pairings, users);
+
+      // 2h. Create user bans for organization
+      console.log("\n🚫 Creating user bans...");
+      await createUserBansForOrg(prisma, orgId, users);
     }
 
     // ========================================
