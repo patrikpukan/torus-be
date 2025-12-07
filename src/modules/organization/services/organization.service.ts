@@ -81,56 +81,44 @@ export class OrganizationService {
       // The trigger will create the user in public.user table
       let supabaseAuthId: string | undefined;
 
-      if (this.supabaseAdminService.isEnabled()) {
-        try {
-
-          // Use inviteUserByEmail - this automatically sends an invitation email
-          // with a link for the user to set their password
-          const supabaseResult =
-            await this.supabaseAdminService.inviteUserByEmail(
-              data.adminEmail,
-              {
-                data: {
-                  organization_id: organization.id,
-                  organization_name: organization.name,
-                  role: UserRoleEnum.org_admin,
-                },
-              }
-            );
-
-          if (supabaseResult.error) {
-            this.logger.error(
-              `Supabase user invitation error: ${supabaseResult.error.message}`,
-              supabaseResult.error.stack
-            );
-            throw new BadRequestException(
-              `Failed to invite admin user: ${supabaseResult.error.message}`
-            );
-          } else {
-            supabaseAuthId = supabaseResult.data?.user?.id ?? undefined;
-            this.logger.log(
-              `Invited Supabase auth user: ${data.adminEmail} (${supabaseAuthId}) - invitation email sent`
-            );
-          }
-        } catch (error) {
-          const err = error as Error;
-          this.logger.error(
-            "Supabase user invitation failed",
-            err.stack ?? err.message
-          );
-          throw new BadRequestException(
-            `Failed to invite admin user: ${err.message}`
-          );
-        }
-      } else {
+      if (!this.supabaseAdminService.isEnabled()) {
         throw new BadRequestException(
           "Authentication system is not configured. Please contact support."
         );
       }
 
+      // Use inviteUserByEmail - this automatically sends an invitation email
+      // with a link for the user to set their password
+      const supabaseResult =
+        await this.supabaseAdminService.inviteUserByEmail(
+          data.adminEmail,
+          {
+            data: {
+              organization_id: organization.id,
+              organization_name: organization.name,
+              role: UserRoleEnum.org_admin,
+            },
+          }
+        );
+
+      if (supabaseResult.error) {
+        this.logger.error(
+          `Supabase user invitation error: ${supabaseResult.error.message}`,
+          supabaseResult.error.stack
+        );
+        throw new BadRequestException(
+          `Failed to invite admin user: ${supabaseResult.error.message}`
+        );
+      }
+
+      supabaseAuthId = supabaseResult.data?.user?.id ?? undefined;
       if (!supabaseAuthId) {
         throw new BadRequestException("Failed to create authentication user");
       }
+
+      this.logger.log(
+        `Invited Supabase auth user: ${data.adminEmail} (${supabaseAuthId}) - invitation email sent`
+      );
 
       // 3. The trigger automatically creates a user in public.user table
       // We need to update it with the correct organization and role

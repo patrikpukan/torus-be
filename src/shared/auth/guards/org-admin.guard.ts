@@ -30,11 +30,7 @@ export class OrgAdminGuard implements CanActivate {
       throw new ForbiddenException("Authentication required");
     }
 
-    try {
-      this.authService.checkRole(identity, [UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN]);
-      return true;
-    } catch (error) {
-      throw error;
-    }
+    this.authService.checkRole(identity, [UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN]);
+    return true;
   }
 }
