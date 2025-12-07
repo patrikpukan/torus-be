@@ -12,6 +12,11 @@ import {
 } from "../types/calendar-event-input.type";
 import { ExpandedCalendarEventOccurrenceType } from "../types/expanded-occurrence.type";
 import { PauseActivityInput } from "../../dto/pause-activity.input";
+import {
+  mapCalendarEventToGraphQL,
+  mapCalendarEventsToGraphQL,
+} from "../../mappers/calendar-event.mapper";
+import { mapExpandedOccurrencesToGraphQL } from "../../mappers/expanded-occurrence.mapper";
 
 @Resolver(() => CalendarEventType)
 export class CalendarEventResolver {
@@ -23,7 +28,11 @@ export class CalendarEventResolver {
     @User() identity: Identity,
     @Args("id", { type: () => ID }) id: string
   ): Promise<CalendarEventType | null> {
-    return this.calendarEventService.getCalendarEvent(identity, id) as any;
+    const event = await this.calendarEventService.getCalendarEvent(
+      identity,
+      id
+    );
+    return event ? mapCalendarEventToGraphQL(event) : null;
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -33,11 +42,12 @@ export class CalendarEventResolver {
     @Args("startDate") startDate: Date,
     @Args("endDate") endDate: Date
   ): Promise<CalendarEventType[]> {
-    return this.calendarEventService.getCalendarEventsByDateRange(
+    const events = await this.calendarEventService.getCalendarEventsByDateRange(
       identity,
       startDate,
       endDate
-    ) as any;
+    );
+    return mapCalendarEventsToGraphQL(events);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -50,19 +60,22 @@ export class CalendarEventResolver {
   ): Promise<ExpandedCalendarEventOccurrenceType[]> {
     // If userId is provided and differs from the requester, authorize and fetch for that user
     if (userId && userId !== identity.id) {
-      return (await this.calendarEventService.getExpandedOccurrencesForUser(
-        identity,
-        userId,
-        startDate,
-        endDate
-      )) as any;
+      const occurrences =
+        await this.calendarEventService.getExpandedOccurrencesForUser(
+          identity,
+          userId,
+          startDate,
+          endDate
+        );
+      return mapExpandedOccurrencesToGraphQL(occurrences);
     }
     // Default: current user's occurrences
-    return (await this.calendarEventService.getExpandedOccurrences(
+    const occurrences = await this.calendarEventService.getExpandedOccurrences(
       identity,
       startDate,
       endDate
-    )) as any;
+    );
+    return mapExpandedOccurrencesToGraphQL(occurrences);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -71,10 +84,11 @@ export class CalendarEventResolver {
     @User() identity: Identity,
     @Args("input") input: CreateCalendarEventInputType
   ): Promise<CalendarEventType> {
-    return this.calendarEventService.createCalendarEvent(
+    const event = await this.calendarEventService.createCalendarEvent(
       identity,
       input as any
-    ) as any;
+    );
+    return mapCalendarEventToGraphQL(event);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -96,7 +110,7 @@ export class CalendarEventResolver {
     );
     // Ensure we always return an array for consistency
     const events = Array.isArray(result) ? result : [result];
-    return events as any;
+    return mapCalendarEventsToGraphQL(events);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -120,7 +134,11 @@ export class CalendarEventResolver {
     @User() identity: Identity,
     @Args("input") input: PauseActivityInput
   ): Promise<CalendarEventType> {
-    return this.calendarEventService.pauseActivity(identity, input) as any;
+    const event = await this.calendarEventService.pauseActivity(
+      identity,
+      input
+    );
+    return mapCalendarEventToGraphQL(event);
   }
 
   @UseGuards(AuthenticatedUserGuard)

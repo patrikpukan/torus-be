@@ -10,6 +10,10 @@ import {
   UpdateMeetingEventConfirmationInputType,
   CancelMeetingEventInputType,
 } from "../types/meeting-event-input.type";
+import {
+  mapMeetingEventToGraphQL,
+  mapMeetingEventsToGraphQL,
+} from "../../mappers/meeting-event.mapper";
 
 @Resolver(() => MeetingEventType)
 export class MeetingEventResolver {
@@ -21,7 +25,11 @@ export class MeetingEventResolver {
     @User() identity: Identity,
     @Args("id", { type: () => ID }) id: string
   ): Promise<MeetingEventType | null> {
-    return this.meetingEventService.getMeetingEvent(identity, id) as any;
+    const event = await this.meetingEventService.getMeetingEvent(
+      identity,
+      id
+    );
+    return event ? mapMeetingEventToGraphQL(event) : null;
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -31,11 +39,12 @@ export class MeetingEventResolver {
     @Args("startDate") startDate: Date,
     @Args("endDate") endDate: Date
   ): Promise<MeetingEventType[]> {
-    return this.meetingEventService.getMeetingsByDateRange(
+    const events = await this.meetingEventService.getMeetingsByDateRange(
       identity,
       startDate,
       endDate
-    ) as any;
+    );
+    return mapMeetingEventsToGraphQL(events);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -43,7 +52,10 @@ export class MeetingEventResolver {
   async upcomingMeetings(
     @User() identity: Identity
   ): Promise<MeetingEventType[]> {
-    return this.meetingEventService.getUpcomingMeetings(identity) as any;
+    const events = await this.meetingEventService.getUpcomingMeetings(
+      identity
+    );
+    return mapMeetingEventsToGraphQL(events);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -51,7 +63,10 @@ export class MeetingEventResolver {
   async pendingMeetingConfirmations(
     @User() identity: Identity
   ): Promise<MeetingEventType[]> {
-    return this.meetingEventService.getPendingConfirmations(identity) as any;
+    const events = await this.meetingEventService.getPendingConfirmations(
+      identity
+    );
+    return mapMeetingEventsToGraphQL(events);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -60,10 +75,11 @@ export class MeetingEventResolver {
     @User() identity: Identity,
     @Args("pairingId", { type: () => ID }) pairingId: string
   ): Promise<MeetingEventType | null> {
-    return this.meetingEventService.getLatestMeetingForPairing(
+    const event = await this.meetingEventService.getLatestMeetingForPairing(
       identity,
       pairingId
-    ) as any;
+    );
+    return event ? mapMeetingEventToGraphQL(event) : null;
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -72,10 +88,11 @@ export class MeetingEventResolver {
     @User() identity: Identity,
     @Args("pairingId", { type: () => ID }) pairingId: string
   ): Promise<MeetingEventType[]> {
-    return this.meetingEventService.getAllMeetingsForPairing(
+    const events = await this.meetingEventService.getAllMeetingsForPairing(
       identity,
       pairingId
-    ) as any;
+    );
+    return mapMeetingEventsToGraphQL(events);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -84,10 +101,11 @@ export class MeetingEventResolver {
     @User() identity: Identity,
     @Args("input") input: CreateMeetingEventInputType
   ): Promise<MeetingEventType> {
-    return this.meetingEventService.createMeetingEvent(
+    const event = await this.meetingEventService.createMeetingEvent(
       identity,
       input as any
-    ) as any;
+    );
+    return mapMeetingEventToGraphQL(event);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -97,11 +115,12 @@ export class MeetingEventResolver {
     @Args("meetingId", { type: () => ID }) meetingId: string,
     @Args("note", { nullable: true }) note?: string
   ): Promise<MeetingEventType> {
-    return this.meetingEventService.confirmMeeting(
+    const event = await this.meetingEventService.confirmMeeting(
       identity,
       meetingId,
       note
-    ) as any;
+    );
+    return mapMeetingEventToGraphQL(event);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -111,11 +130,12 @@ export class MeetingEventResolver {
     @Args("meetingId", { type: () => ID }) meetingId: string,
     @Args("note", { nullable: true }) note?: string
   ): Promise<MeetingEventType> {
-    return this.meetingEventService.rejectMeeting(
+    const event = await this.meetingEventService.rejectMeeting(
       identity,
       meetingId,
       note
-    ) as any;
+    );
+    return mapMeetingEventToGraphQL(event);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -124,10 +144,11 @@ export class MeetingEventResolver {
     @User() identity: Identity,
     @Args("input") input: UpdateMeetingEventConfirmationInputType
   ): Promise<MeetingEventType> {
-    return this.meetingEventService.proposeMeetingTime(
+    const event = await this.meetingEventService.proposeMeetingTime(
       identity,
       input as any
-    ) as any;
+    );
+    return mapMeetingEventToGraphQL(event);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -136,10 +157,11 @@ export class MeetingEventResolver {
     @User() identity: Identity,
     @Args("meetingId", { type: () => ID }) meetingId: string
   ): Promise<MeetingEventType> {
-    return this.meetingEventService.updateMeetingToProposedTime(
+    const event = await this.meetingEventService.updateMeetingToProposedTime(
       identity,
       meetingId
-    ) as any;
+    );
+    return mapMeetingEventToGraphQL(event);
   }
 
   @UseGuards(AuthenticatedUserGuard)
@@ -148,9 +170,10 @@ export class MeetingEventResolver {
     @User() identity: Identity,
     @Args("input") input: CancelMeetingEventInputType
   ): Promise<MeetingEventType> {
-    return this.meetingEventService.cancelMeeting(
+    const event = await this.meetingEventService.cancelMeeting(
       identity,
       input as any
-    ) as any;
+    );
+    return mapMeetingEventToGraphQL(event);
   }
 }
