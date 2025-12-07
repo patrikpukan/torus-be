@@ -129,7 +129,7 @@ const buildIdentity = async (
   }
 
   // Ensure role and organizationId are always defined for authenticated users
-  const role = appRole || (typeof claims.role === "string" ? claims.role : undefined);
+  const role = appRole ?? (typeof claims.role === "string" ? claims.role : undefined);
   if (!role) {
     throw new UnauthorizedException("User role not found in claims or database");
   }

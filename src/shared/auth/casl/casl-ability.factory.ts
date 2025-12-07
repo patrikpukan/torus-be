@@ -77,20 +77,15 @@ export class CaslAbilityFactory {
     // Grant permissions based on user role
     switch (identity.role) {
       case UserRoleEnum.super_admin:
-        return this.defineSupperAdminAbilities(can, cannot);
+        return this.defineSuperAdminAbilities(can, cannot, build);
 
       case UserRoleEnum.org_admin:
-        return this.defineOrgAdminAbilities(can, cannot, identity);
+        return this.defineOrgAdminAbilities(can, cannot, build, identity);
 
       case UserRoleEnum.user:
       default:
-        return this.defineUserAbilities(can, cannot, identity);
+        return this.defineUserAbilities(can, cannot, build, identity);
     }
-
-    return build({
-      detectSubjectType: (item) =>
-        item.constructor as ExtractSubjectType<Subjects>,
-    });
   }
 
   /**
@@ -99,14 +94,18 @@ export class CaslAbilityFactory {
    * Super admins can perform any action on any subject.
    * This is the highest privilege level.
    */
-  private defineSupperAdminAbilities(
+  private defineSuperAdminAbilities(
     can: any,
-    cannot: any
+    cannot: any,
+    build: any
   ): AppAbility {
     // Full access to everything
     can('manage', 'all');
 
-    return can;
+    return build({
+      detectSubjectType: (item) =>
+        item.constructor as ExtractSubjectType<Subjects>,
+    });
   }
 
   /**
@@ -123,6 +122,7 @@ export class CaslAbilityFactory {
   private defineOrgAdminAbilities(
     can: any,
     cannot: any,
+    build: any,
     identity: Identity
   ): AppAbility {
     // Can manage own organization
@@ -155,7 +155,10 @@ export class CaslAbilityFactory {
     // Can manage departments for their organization
     can('manage', 'Department', { organizationId: identity.organizationId });
 
-    return can;
+    return build({
+      detectSubjectType: (item) =>
+        item.constructor as ExtractSubjectType<Subjects>,
+    });
   }
 
   /**
@@ -171,6 +174,7 @@ export class CaslAbilityFactory {
   private defineUserAbilities(
     can: any,
     cannot: any,
+    build: any,
     identity: Identity
   ): AppAbility {
     // Can read own user profile
@@ -200,6 +204,9 @@ export class CaslAbilityFactory {
     cannot('manage', 'InviteCode');
     cannot('manage', 'Department');
 
-    return can;
+    return build({
+      detectSubjectType: (item) =>
+        item.constructor as ExtractSubjectType<Subjects>,
+    });
   }
 }

@@ -3,7 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { AlgorithmSettingsResponse, AlgorithmSettingsType } from './types/algorithm-settings.type';
 import { UpdateAlgorithmSettingsInput } from './types/update-algorithm-settings.input';
 import { AlgorithmSettingsService } from './services/algorithm-settings.service';
-import { UserContextService } from '../../shared/auth/services/user-context.service';
+import { UserContextService, ResolvedUser } from '../../shared/auth/services/user-context.service';
 import { AuthenticatedUserGuard } from '../../shared/auth/guards/authenticated-user.guard';
 import { PoliciesGuard } from '../../shared/auth/guards/policies.guard';
 import { CheckPolicies } from '../../shared/auth/decorators/check-policies.decorator';
@@ -29,7 +29,14 @@ export class AlgorithmSettingsResolver {
     @User() identity: Identity,
     @Args('input') input: UpdateAlgorithmSettingsInput,
   ): Promise<AlgorithmSettingsResponse> {
-    return this.algorithmSettingsService.updateSettings(input, identity);
+    // Cast Identity to ResolvedUser - both have required id, role, and organizationId
+    const user: ResolvedUser = {
+      id: identity.id,
+      organizationId: identity.organizationId,
+      role: identity.role,
+      appRole: identity.appRole,
+    };
+    return this.algorithmSettingsService.updateSettings(input, user);
   }
 
   /**

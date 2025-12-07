@@ -182,7 +182,8 @@ export class AlgorithmSettingsService {
       return candidate;
     }
 
-    return randomInt(minSeed, maxSeed + 1);
+    // randomInt upper bound is exclusive, so we use maxSeed (not maxSeed + 1) to stay within INT4 range
+    return randomInt(minSeed, maxSeed);
   }
 
   private buildWarning(periodLengthDays: number): string | null {

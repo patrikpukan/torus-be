@@ -40,7 +40,7 @@ export class ResponseBuilder {
     return {
       success: false,
       message,
-      data: (data as any) || null,
+      data: data ?? null,
     };
   }
 
@@ -51,7 +51,7 @@ export class ResponseBuilder {
     return {
       success: false,
       message,
-      data: (data as any) || null,
+      data: data ?? null,
     };
   }
 
