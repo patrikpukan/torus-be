@@ -626,6 +626,95 @@ export class PairingAlgorithmService {
     }
   }
 
+  /**
+   * Executes the pairing algorithm with statistics for manual triggering.
+   * Tracks pairing counts and unpaired users.
+   *
+   * @param organizationId - UUID of the organization
+   * @param executedByUserId - UUID of the user executing this operation
+   * @returns Promise<PairingExecutionResult> with success status and statistics
+   */
+  async executePairingWithStats(
+    organizationId: string,
+    executedByUserId: string,
+  ): Promise<any> {
+    try {
+      const beforeCount = await this.prisma.pairing.count({
+        where: { organizationId },
+      });
+
+      await this.executePairing(organizationId);
+
+      const afterCount = await this.prisma.pairing.count({
+        where: { organizationId },
+      });
+
+      const pairingsCreated = Math.max(afterCount - beforeCount, 0);
+      const unpairedUsers = await this.calculateUnpairedUsers(organizationId);
+
+      const message =
+        pairingsCreated > 0
+          ? `Pairing algorithm executed successfully: ${pairingsCreated} new pairings created.`
+          : 'Pairing algorithm executed successfully with no new pairings.';
+
+      this.logger.log(
+        `Pairing algorithm executed by user ${executedByUserId} for organization ${organizationId}. New pairings: ${pairingsCreated}`,
+        PairingAlgorithmService.name,
+      );
+
+      return {
+        success: true,
+        pairingsCreated,
+        message,
+        unpairedUsers,
+      };
+    } catch (error) {
+      const err = error as Error;
+      this.logger.error(
+        `Failed to execute pairing algorithm for organization ${organizationId}: ${err.message}`,
+        err.stack,
+        PairingAlgorithmService.name,
+      );
+
+      // Re-throw to let resolver handle it
+      throw error;
+    }
+  }
+
+  /**
+   * Calculates the number of unpaired users in the active pairing period.
+   *
+   * @param organizationId - UUID of the organization
+   * @returns Promise<number | undefined> Count of unpaired users, or undefined if no active period
+   */
+  private async calculateUnpairedUsers(organizationId: string): Promise<number | undefined> {
+    const activePeriod = await this.prisma.pairingPeriod.findFirst({
+      where: { organizationId, status: PairingPeriodStatus.active },
+      orderBy: { startDate: 'desc' },
+      select: { id: true },
+    });
+
+    if (!activePeriod) {
+      return undefined;
+    }
+
+    const unpairedCount = await this.prisma.user.count({
+      where: {
+        organizationId,
+        isActive: true,
+        OR: [{ suspendedUntil: null }, { suspendedUntil: { lt: new Date() } }],
+        pairingsAsUserA: {
+          none: { periodId: activePeriod.id },
+        },
+        pairingsAsUserB: {
+          none: { periodId: activePeriod.id },
+        },
+      },
+    });
+
+    return unpairedCount;
+  }
+
   private validatePeriodLength(days: number): string | null {
     if (days < this.config.minPeriodDays) {
       return `Period length is too short (< ${this.config.minPeriodDays} days). Users may not have enough time to meet.`;
