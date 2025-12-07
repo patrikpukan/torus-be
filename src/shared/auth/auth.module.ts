@@ -6,6 +6,8 @@ import { RoleGuard } from "./guards/role.guard";
 import { OrgAdminGuard } from "./guards/org-admin.guard";
 import { SuperAdminGuard } from "./guards/super-admin.guard";
 import { AuthenticatedUserGuard } from "./guards/authenticated-user.guard";
+import { PoliciesGuard } from "./guards/policies.guard";
+import { CaslAbilityFactory } from "./casl/casl-ability.factory";
 
 /**
  * Authentication & Authorization Module
@@ -13,7 +15,8 @@ import { AuthenticatedUserGuard } from "./guards/authenticated-user.guard";
  * Provides:
  * - AuthorizationService: Business logic for role-based access control
  * - UserContextService: User resolution and validation from GraphQL context
- * - Guards: OrgAdminGuard, SuperAdminGuard, RoleGuard, AuthenticatedUserGuard
+ * - Guards: OrgAdminGuard, SuperAdminGuard, RoleGuard, AuthenticatedUserGuard, PoliciesGuard
+ * - CaslAbilityFactory: Fine-grained permission system using CASL
  *
  * Usage:
  * Import this module in your module to use the authorization system.
@@ -27,6 +30,8 @@ import { AuthenticatedUserGuard } from "./guards/authenticated-user.guard";
     OrgAdminGuard,
     SuperAdminGuard,
     AuthenticatedUserGuard,
+    PoliciesGuard,
+    CaslAbilityFactory,
   ],
   exports: [
     AuthorizationService,
@@ -35,6 +40,8 @@ import { AuthenticatedUserGuard } from "./guards/authenticated-user.guard";
     OrgAdminGuard,
     SuperAdminGuard,
     AuthenticatedUserGuard,
+    PoliciesGuard,
+    CaslAbilityFactory,
   ],
 })
 export class AuthModule {}

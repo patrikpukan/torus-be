@@ -10,6 +10,8 @@ import { DepartmentType } from "../types/department.type";
 import { User } from "src/shared/auth/decorators/user.decorator";
 import type { Identity } from "src/shared/auth/domain/identity";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
+import { PoliciesGuard } from "src/shared/auth/guards/policies.guard";
+import { CheckPolicies } from "src/shared/auth/decorators/check-policies.decorator";
 import { UpdateOrganizationInputType } from "../types/update-organization-input.type";
 import { InviteUserInputType } from "../types/invite-user-input.type";
 import { InviteUserResponseType } from "../types/invite-user-response.type";
@@ -17,7 +19,6 @@ import { InviteCodeType } from "../types/invite-code.type";
 import { CreateInviteCodeInputType } from "../types/create-invite-code-input.type";
 import { CreateInviteCodeResponseType } from "../types/create-invite-code-response.type";
 import { InviteCodeValidationResponseType } from "../types/invite-code-validation-response.type";
-import { OrgAdminGuard } from "src/shared/auth/guards/org-admin.guard";
 
 @Resolver(() => OrganizationType)
 export class OrganizationResolver {
@@ -29,13 +30,15 @@ export class OrganizationResolver {
     private readonly departmentService: DepartmentService
   ) {}
 
-  @UseGuards(AuthenticatedUserGuard)
+  @UseGuards(AuthenticatedUserGuard, PoliciesGuard)
+  @CheckPolicies((ability) => ability.can('read', 'Organization'))
   @Query(() => [OrganizationType])
   async organizations(): Promise<OrganizationType[]> {
     return this.organizationService.listOrganizations();
   }
 
-  @UseGuards(AuthenticatedUserGuard)
+  @UseGuards(AuthenticatedUserGuard, PoliciesGuard)
+  @CheckPolicies((ability) => ability.can('read', 'Organization'))
   @Query(() => OrganizationType, { nullable: true })
   async organizationById(
     @Args("id", { type: () => ID }) id: string
@@ -43,7 +46,8 @@ export class OrganizationResolver {
     return this.organizationService.getOrganizationById(id);
   }
 
-  @UseGuards(AuthenticatedUserGuard)
+  @UseGuards(AuthenticatedUserGuard, PoliciesGuard)
+  @CheckPolicies((ability) => ability.can('read', 'Organization'))
   @Query(() => OrganizationType, { nullable: true })
   async myOrganization(
     @User() identity: Identity
@@ -51,7 +55,8 @@ export class OrganizationResolver {
     return this.organizationService.getOrganizationByUserId(identity.id);
   }
 
-  @UseGuards(AuthenticatedUserGuard)
+  @UseGuards(AuthenticatedUserGuard, PoliciesGuard)
+  @CheckPolicies((ability) => ability.can('manage', 'Organization'))
   @Mutation(() => OrganizationType)
   async updateOrganization(
     @Args("input") input: UpdateOrganizationInputType
@@ -64,7 +69,8 @@ export class OrganizationResolver {
     });
   }
 
-  @UseGuards(AuthenticatedUserGuard)
+  @UseGuards(AuthenticatedUserGuard, PoliciesGuard)
+  @CheckPolicies((ability) => ability.can('manage', 'InviteCode'))
   @Mutation(() => InviteUserResponseType)
   async inviteUserToOrganization(
     @Args("input") input: InviteUserInputType
