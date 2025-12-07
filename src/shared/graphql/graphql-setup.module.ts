@@ -2,7 +2,12 @@ import { join } from "path";
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
 import { ConfigModule } from "@applifting-io/nestjs-decorated-config";
 import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
-import { ForbiddenException, Logger, Module, UnauthorizedException } from "@nestjs/common";
+import {
+  ForbiddenException,
+  Logger,
+  Module,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { GraphQLModule } from "@nestjs/graphql";
 import type { Request, Response } from "express";
 import { verifySupabaseJwt } from "../../auth/verifySupabaseJwt";
@@ -10,8 +15,12 @@ import { Identity } from "../auth/domain/identity";
 import { Config } from "../config/config.service";
 import { PrismaModule } from "../../core/prisma/prisma.module";
 import { PrismaService } from "../../core/prisma/prisma.service";
+import { PubSub } from "graphql-subscriptions";
 
 const logger = new Logger("GraphqlSetupModule");
+
+// Create a singleton PubSub instance for subscriptions
+export const pubSub = new PubSub();
 
 interface GraphQLContextShape {
   req: Request & { user?: Identity | null };
@@ -97,7 +106,12 @@ const buildIdentity = async (
       } else if (typeof claims.email === "string" && claims.email) {
         const fallbackUser = await prisma.user.findFirst({
           where: { email: claims.email },
-          select: { id: true, role: true, supabaseUserId: true, organizationId: true },
+          select: {
+            id: true,
+            role: true,
+            supabaseUserId: true,
+            organizationId: true,
+          },
         });
 
         if (fallbackUser) {
@@ -129,9 +143,12 @@ const buildIdentity = async (
   }
 
   // Ensure role and organizationId are always defined for authenticated users
-  const role = appRole ?? (typeof claims.role === "string" ? claims.role : undefined);
+  const role =
+    appRole ?? (typeof claims.role === "string" ? claims.role : undefined);
   if (!role) {
-    throw new UnauthorizedException("User role not found in claims or database");
+    throw new UnauthorizedException(
+      "User role not found in claims or database"
+    );
   }
 
   if (!organizationId) {
@@ -161,17 +178,88 @@ const buildIdentity = async (
       driver: ApolloDriver,
       imports: [ConfigModule, PrismaModule],
       inject: [Config, PrismaService],
-      useFactory: (config: Config, prisma: PrismaService): ApolloDriverConfig => {
+      useFactory: (
+        config: Config,
+        prisma: PrismaService
+      ): ApolloDriverConfig => {
         return {
           autoSchemaFile: join(process.cwd(), "src/schema.gql"),
           sortSchema: true,
           playground: false,
           introspection: true,
+          subscriptions: {
+            "graphql-ws": {
+              onConnect: async (context: any) => {
+                logger.log(
+                  `[WS] 🔄 WebSocket connection attempt - params: ${JSON.stringify(context.connectionParams)}`
+                );
+
+                const request = context.connectionParams?.authorization
+                  ? {
+                      headers: {
+                        authorization: context.connectionParams.authorization,
+                      },
+                    }
+                  : null;
+
+                if (!request) {
+                  logger.warn("[WS] ❌ No authorization provided");
+                  throw new UnauthorizedException("No authorization provided");
+                }
+
+                const token = extractBearerToken(request.headers.authorization);
+                if (!token) {
+                  logger.warn("[WS] ❌ Invalid token format");
+                  throw new UnauthorizedException("Invalid token format");
+                }
+
+                try {
+                  const identity = await buildIdentity(
+                    token,
+                    config.supabaseJwtSecret,
+                    prisma
+                  );
+                  context.user = identity;
+                  if (identity) {
+                    logger.log(
+                      `[WS] ✅ Connected: user=${identity.id}, org=${identity.organizationId}`
+                    );
+                  }
+                  return true;
+                } catch (error) {
+                  if (error instanceof ForbiddenException) {
+                    logger.warn(`[WS] ❌ User banned: ${error.message}`);
+                    throw error;
+                  }
+                  const err = error as Error;
+                  logger.warn(
+                    `[WS] ❌ JWT verification failed: ${err.message}`
+                  );
+                  throw new UnauthorizedException("Invalid token");
+                }
+              },
+            },
+          },
           context: async (ctx): Promise<GraphQLContextShape> => {
+            // Handle WebSocket context (graphql-ws) where user is already authenticated in onConnect
+            if ((ctx as any).user) {
+              return {
+                req: (ctx as any).extra?.request,
+                res: {} as any,
+                user: (ctx as any).user,
+              };
+            }
+
             const { req, res } = ctx as {
               req: Request;
               res: Response;
             };
+
+            // If req is missing and no user is set, it's likely a WS connection that hasn't been handled correctly or a different transport
+            if (!req) {
+              return {} as any;
+            }
+
             const request = req as GraphQLContextShape["req"];
             let identity: Identity | null = null;
 
