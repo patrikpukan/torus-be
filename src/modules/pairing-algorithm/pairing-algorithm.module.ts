@@ -8,11 +8,13 @@ import { PairingAlgorithmResolver } from './pairing-algorithm.resolver';
 import { AlgorithmSettingsResolver } from './algorithm-settings.resolver';
 import { AlgorithmSettingsService } from './services/algorithm-settings.service';
 import { PairingAlgorithmConfig } from './pairing-algorithm.config';
+import { PairingAlgorithmRepository } from './repositories/pairing-algorithm.repository';
 
 @Module({
   imports: [ScheduleModule.forRoot(), PrismaModule, LoggerModule, AuthModule],
   providers: [
     PairingAlgorithmConfig,
+    PairingAlgorithmRepository,
     PairingAlgorithmService,
     AlgorithmSettingsService,
     PairingAlgorithmResolver,

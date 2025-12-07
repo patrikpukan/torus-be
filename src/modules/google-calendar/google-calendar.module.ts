@@ -4,10 +4,12 @@ import { GoogleCalendarService } from "./services/google-calendar.service";
 import { GoogleCalendarResolver } from "./graphql/resolvers/google-calendar.resolver";
 import { CalendarModule } from "../calendar/calendar.module";
 import { SupabaseAdminService } from "src/shared/auth/supabase-admin.service";
+import { GoogleCalendarRepository } from "./repositories/google-calendar.repository";
 
 @Module({
   imports: [PrismaModule, CalendarModule],
   providers: [
+    GoogleCalendarRepository,
     GoogleCalendarService,
     GoogleCalendarResolver,
     SupabaseAdminService,
