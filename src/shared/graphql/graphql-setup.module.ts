@@ -2,7 +2,7 @@ import { join } from "path";
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
 import { ConfigModule } from "@applifting-io/nestjs-decorated-config";
 import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
-import { ForbiddenException, Logger, Module } from "@nestjs/common";
+import { ForbiddenException, Logger, Module, UnauthorizedException } from "@nestjs/common";
 import { GraphQLModule } from "@nestjs/graphql";
 import type { Request, Response } from "express";
 import { verifySupabaseJwt } from "../../auth/verifySupabaseJwt";
@@ -128,11 +128,21 @@ const buildIdentity = async (
     );
   }
 
+  // Ensure role and organizationId are always defined for authenticated users
+  const role = appRole || (typeof claims.role === "string" ? claims.role : undefined);
+  if (!role) {
+    throw new UnauthorizedException("User role not found in claims or database");
+  }
+
+  if (!organizationId) {
+    throw new UnauthorizedException("User organization not found in database");
+  }
+
   return {
     id: resolvedUserId,
     supabaseUserId,
     email: typeof claims.email === "string" ? claims.email : undefined,
-    role: typeof claims.role === "string" ? claims.role : undefined,
+    role,
     appRole,
     organizationId,
     rawClaims: claims,

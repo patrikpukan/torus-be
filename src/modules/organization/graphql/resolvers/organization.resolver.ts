@@ -10,6 +10,7 @@ import { DepartmentType } from "../types/department.type";
 import { User } from "src/shared/auth/decorators/user.decorator";
 import type { Identity } from "src/shared/auth/domain/identity";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
+import { OrgAdminGuard } from "src/shared/auth/guards/org-admin.guard";
 import { PoliciesGuard } from "src/shared/auth/guards/policies.guard";
 import { CheckPolicies } from "src/shared/auth/decorators/check-policies.decorator";
 import { UpdateOrganizationInputType } from "../types/update-organization-input.type";

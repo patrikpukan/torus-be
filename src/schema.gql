@@ -384,7 +384,7 @@ type Query {
   calendarEventById(id: ID!): CalendarEvent
   calendarEventsByDateRange(endDate: DateTime!, startDate: DateTime!): [CalendarEvent!]!
   expandedCalendarOccurrences(endDate: DateTime!, startDate: DateTime!, userId: ID): [ExpandedCalendarEventOccurrence!]!
-  getAlgorithmSettings(organizationId: String!): AlgorithmSettings!
+  getAlgorithmSettings(organizationId: ID!): AlgorithmSettings!
   getAllTags: [Tag!]!
   getCurrentUser: CurrentUser
   getDepartmentById(id: String!): Department

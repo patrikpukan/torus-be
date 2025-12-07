@@ -8,7 +8,7 @@ import { AuthenticatedUserGuard } from '../../shared/auth/guards/authenticated-u
 import { PoliciesGuard } from '../../shared/auth/guards/policies.guard';
 import { CheckPolicies } from '../../shared/auth/decorators/check-policies.decorator';
 import { User } from '../../shared/auth/decorators/user.decorator';
-import { Identity } from '../../shared/auth/domain/identity';
+import type { Identity } from '../../shared/auth/domain/identity';
 
 @Resolver(() => AlgorithmSettingsType)
 export class AlgorithmSettingsResolver {
