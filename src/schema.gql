@@ -256,6 +256,20 @@ type MeetingEvent {
   userBProposedStartDateTime: DateTime
 }
 
+type MessageModel {
+  content: String!
+  createdAt: DateTime!
+  id: ID!
+  isRead: Boolean!
+  pairingId: ID!
+  senderId: ID!
+}
+
+type MessagesReadEvent {
+  pairingId: ID!
+  userId: ID!
+}
+
 type Mutation {
   banUser(input: BanUserInput!): User!
   cancelMeeting(input: CancelMeetingEventInput!): MeetingEvent!
@@ -270,6 +284,9 @@ type Mutation {
   executePairingAlgorithm(organizationId: String!): PairingExecutionResult!
   importGoogleCalendarEvents(input: ImportGoogleCalendarEventsInput!): GoogleCalendarImportResult!
   inviteUserToOrganization(input: InviteUserInputType!): InviteUserResponseType!
+
+  """Mark all messages in a pairing as read"""
+  markMessagesAsRead(pairingId: ID!): Boolean!
   pauseActivity(input: PauseActivityInput!): CalendarEvent!
   proposeMeetingTime(input: UpdateMeetingEventConfirmationInput!): MeetingEvent!
   registerOrganization(input: RegisterOrganizationInputType!): RegisterOrganizationResponseType!
@@ -277,6 +294,12 @@ type Mutation {
   reportUser(input: ReportUserInput!): UserReport!
   resolveReport(input: ResolveReportInput!): UserReport!
   resumeActivity: Boolean!
+
+  """Send a message to a user you are paired with"""
+  sendMessage(input: SendMessageInput!): MessageModel!
+
+  """Set typing status for a pairing"""
+  setTypingStatus(isTyping: Boolean!, pairingId: ID!): Boolean!
   signUp(data: SignUpInputType!): User!
   unbanUser(userId: ID!): User!
   updateAlgorithmSettings(input: UpdateAlgorithmSettingsInput!): AlgorithmSettingsResponse!
@@ -389,6 +412,9 @@ type Query {
   getCurrentUser: CurrentUser
   getDepartmentById(id: String!): Department
   getDepartmentsByOrganization(organizationId: String!): [Department!]!
+
+  """Get all messages for a specific pairing"""
+  getMessages(pairingId: ID!): [MessageModel!]!
   getOrganizationInvites: [InviteCodeType!]!
   getPairedUsers: [User!]!
   getPairingHistory: [PairingHistory!]!
@@ -439,6 +465,11 @@ input ResolveReportInput {
   resolutionNote: String
 }
 
+input SendMessageInput {
+  content: String!
+  pairingId: ID!
+}
+
 input SignUpInputType {
   email: String!
   firstName: String
@@ -473,6 +504,17 @@ type StatisticsResponseType {
   reportsCount: Int!
 }
 
+type Subscription {
+  """Subscribe to new messages in a pairing"""
+  messageSent(pairingId: ID!): MessageModel!
+
+  """Subscribe to read receipt events in a pairing"""
+  messagesRead(pairingId: ID!, userId: ID!): MessagesReadEvent!
+
+  """Subscribe to typing status changes in a pairing"""
+  typingStatus(pairingId: ID!, userId: ID!): TypingStatus!
+}
+
 type Tag {
   category: TagCategory!
   createdAt: DateTime!
@@ -485,6 +527,12 @@ type Tag {
 enum TagCategory {
   HOBBY
   INTEREST
+}
+
+type TypingStatus {
+  isTyping: Boolean!
+  pairingId: ID!
+  userId: ID!
 }
 
 input UpdateAlgorithmSettingsInput {

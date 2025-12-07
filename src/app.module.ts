@@ -14,6 +14,7 @@ import { PairingAlgorithmModule } from "./modules/pairing-algorithm/pairing-algo
 import { PairingPeriodModule } from "./modules/pairing-period/pairing-period.module";
 import { AuthModule } from "./shared/auth/auth.module";
 import { StatisticsModule } from "./modules/statistics/statistics.module";
+import { ChatModule } from "./modules/chat/chat.module";
 
 const imports = [
   LoggerModule,
@@ -32,6 +33,7 @@ const imports = [
   PairingAlgorithmModule,
   PairingPeriodModule,
   StatisticsModule,
+  ChatModule,
 ];
 
 @Module({
