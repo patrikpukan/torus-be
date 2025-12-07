@@ -15,6 +15,8 @@ export type CalendarEvent = {
   rruleRecurringId?: string | null; // Groups recurring series together
   exceptionDates?: string | null; // JSON array of ISO strings for exceptions
   exceptionRrules?: string | null; // JSON array of modified RRULEs
+  externalId?: string | null; // Google Calendar event ID or other external source ID
+  externalSource?: string | null; // Source of external event (e.g., "google")
   deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;

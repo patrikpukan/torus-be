@@ -11,15 +11,20 @@ export interface Identity {
    */
   supabaseUserId?: string;
   email?: string;
-  role?: string;
+  /**
+   * User role from JWT claims (e.g., from Supabase auth).
+   * Required for authorization checks and permission evaluation.
+   */
+  role: string;
   /**
    * Application-level role resolved from the database (e.g. UserRoleEnum).
    */
   appRole?: string;
   /**
-   * Organization ID for the current user (if applicable).
+   * Organization ID for the current user.
+   * Required for org-level authorization checks and feature access.
    */
-  organizationId?: string;
+  organizationId: string;
   rawClaims: SupabaseJwtClaims;
   /**
    * Additional metadata copied from JWT claims (e.g. user metadata).

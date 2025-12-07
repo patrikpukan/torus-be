@@ -42,11 +42,7 @@ export class RoleGuard implements CanActivate {
     }
 
     // Check if user has one of the allowed roles
-    try {
-      this.authService.checkRole(identity, allowedRoles);
-      return true;
-    } catch (error) {
-      throw error;
-    }
+    this.authService.checkRole(identity, allowedRoles);
+    return true;
   }
 }

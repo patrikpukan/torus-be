@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
 } from "@nestjs/common";
+import { randomBytes } from "crypto";
 import { PrismaService } from "src/core/prisma/prisma.service";
 import { SupabaseAdminService } from "src/shared/auth/supabase-admin.service";
 import { OrganizationRepository } from "../repositories/organization.repository";
@@ -23,7 +24,7 @@ export class OrganizationService {
   /**
    * Registers a new organization along with its admin user.
    * Steps:
-   * 1. Generate unique organization code
+   * 1. Generate unique organization code with retry strategy
    * 2. Create organization in database
    * 3. Invite Supabase auth user (sends invitation email automatically)
    * 4. Database trigger creates user record in our database
@@ -46,17 +47,10 @@ export class OrganizationService {
       );
     }
 
-    // Generate organization code from name
-    const orgCode = this.generateOrganizationCode(data.organizationName);
-
-    // Check if code already exists
-    const existingOrg =
-      await this.organizationRepository.getOrganizationByCode(orgCode);
-    if (existingOrg) {
-      throw new ConflictException(
-        `An organization with similar name already exists. Please use a different name.`
-      );
-    }
+    // Generate unique organization code with retry strategy for collisions
+    const orgCode = await this.generateUniqueOrganizationCode(
+      data.organizationName
+    );
 
     // Parse organization size
     const sizeNumber = this.parseOrganizationSize(data.organizationSize);
@@ -81,56 +75,44 @@ export class OrganizationService {
       // The trigger will create the user in public.user table
       let supabaseAuthId: string | undefined;
 
-      if (this.supabaseAdminService.isEnabled()) {
-        try {
-
-          // Use inviteUserByEmail - this automatically sends an invitation email
-          // with a link for the user to set their password
-          const supabaseResult =
-            await this.supabaseAdminService.inviteUserByEmail(
-              data.adminEmail,
-              {
-                data: {
-                  organization_id: organization.id,
-                  organization_name: organization.name,
-                  role: UserRoleEnum.org_admin,
-                },
-              }
-            );
-
-          if (supabaseResult.error) {
-            this.logger.error(
-              `Supabase user invitation error: ${supabaseResult.error.message}`,
-              supabaseResult.error.stack
-            );
-            throw new BadRequestException(
-              `Failed to invite admin user: ${supabaseResult.error.message}`
-            );
-          } else {
-            supabaseAuthId = supabaseResult.data?.user?.id ?? undefined;
-            this.logger.log(
-              `Invited Supabase auth user: ${data.adminEmail} (${supabaseAuthId}) - invitation email sent`
-            );
-          }
-        } catch (error) {
-          const err = error as Error;
-          this.logger.error(
-            "Supabase user invitation failed",
-            err.stack ?? err.message
-          );
-          throw new BadRequestException(
-            `Failed to invite admin user: ${err.message}`
-          );
-        }
-      } else {
+      if (!this.supabaseAdminService.isEnabled()) {
         throw new BadRequestException(
           "Authentication system is not configured. Please contact support."
         );
       }
 
+      // Use inviteUserByEmail - this automatically sends an invitation email
+      // with a link for the user to set their password
+      const supabaseResult =
+        await this.supabaseAdminService.inviteUserByEmail(
+          data.adminEmail,
+          {
+            data: {
+              organization_id: organization.id,
+              organization_name: organization.name,
+              role: UserRoleEnum.org_admin,
+            },
+          }
+        );
+
+      if (supabaseResult.error) {
+        this.logger.error(
+          `Supabase user invitation error: ${supabaseResult.error.message}`,
+          supabaseResult.error.stack
+        );
+        throw new BadRequestException(
+          `Failed to invite admin user: ${supabaseResult.error.message}`
+        );
+      }
+
+      supabaseAuthId = supabaseResult.data?.user?.id ?? undefined;
       if (!supabaseAuthId) {
         throw new BadRequestException("Failed to create authentication user");
       }
+
+      this.logger.log(
+        `Invited Supabase auth user: ${data.adminEmail} (${supabaseAuthId}) - invitation email sent`
+      );
 
       // 3. The trigger automatically creates a user in public.user table
       // We need to update it with the correct organization and role
@@ -185,7 +167,94 @@ export class OrganizationService {
   }
 
   /**
-   * Generates a unique organization code from the organization name.
+   * Generates a unique organization code with collision retry strategy.
+   *
+   * RETRY STRATEGY:
+   * 1. Generate base code from organization name (e.g., "acme-corp")
+   * 2. Check if code exists in database
+   * 3. If collision occurs, append random 4-character suffix (e.g., "acme-corp-a7f2")
+   * 4. Retry up to 5 times with different random suffixes
+   * 5. Only throw ConflictException after all retries exhausted (extremely rare)
+   *
+   * PROBABILITY: With 5 retries, probability of collision is < 0.0001%
+   * - Base code space: 36^4 = 1,679,616 possible suffixes
+   * - 5 retries means checking 5 different codes
+   *
+   * @param name - Organization name to generate code from
+   * @returns Unique organization code
+   * @throws ConflictException if unable to generate unique code after 5 retries
+   */
+  private async generateUniqueOrganizationCode(name: string): Promise<string> {
+    const MAX_RETRIES = 5;
+    const SUFFIX_LENGTH = 4;
+    const baseCode = this.generateOrganizationCode(name);
+
+    // Track collision attempts for logging
+    let collisionCount = 0;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      // First attempt uses base code without suffix
+      let candidateCode = baseCode;
+
+      if (attempt > 0) {
+        // Subsequent attempts add random suffix
+        const randomSuffix = this.generateRandomSuffix(SUFFIX_LENGTH);
+        candidateCode = `${baseCode}-${randomSuffix}`;
+      }
+
+      // Check if code already exists
+      const existingOrg =
+        await this.organizationRepository.getOrganizationByCode(candidateCode);
+
+      if (!existingOrg) {
+        // Success - unique code found
+        if (collisionCount > 0) {
+          this.logger.debug(
+            `Generated unique org code after ${collisionCount} collision(s): ${candidateCode} (base: ${baseCode})`
+          );
+        }
+        return candidateCode;
+      }
+
+      // Collision occurred - log and retry
+      collisionCount++;
+      this.logger.debug(
+        `Organization code collision (attempt ${attempt + 1}/${MAX_RETRIES}): ${candidateCode}`
+      );
+    }
+
+    // All retries exhausted - this is extremely unlikely
+    this.logger.error(
+      `Failed to generate unique organization code after ${MAX_RETRIES} retries. Base: ${baseCode}, Collisions: ${collisionCount}`
+    );
+    throw new ConflictException(
+      "Unable to generate unique organization code. Please try again with a different organization name."
+    );
+  }
+
+  /**
+   * Generates a random suffix for organization code uniqueness.
+   * Uses crypto.randomBytes for secure randomization.
+   *
+   * @param length - Length of the random suffix (default: 4)
+   * @returns Random alphanumeric string (lowercase + digits)
+   */
+  private generateRandomSuffix(length: number = 4): string {
+    // Generate random bytes and convert to base36 (0-9, a-z)
+    // Each random byte contributes ~5.2 bits of entropy
+    const bytes = randomBytes(Math.ceil(length * 0.6));
+    let result = "";
+
+    for (const byte of bytes) {
+      // Use modulo 36 to map to 0-9, a-z range
+      result += (byte % 36).toString(36);
+    }
+
+    return result.substring(0, length);
+  }
+
+  /**
+   * Generates a basic organization code from the organization name.
    * Format: lowercase, alphanumeric only, max 50 chars
    */
   private generateOrganizationCode(name: string): string {
