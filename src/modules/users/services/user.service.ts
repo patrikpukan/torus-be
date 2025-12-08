@@ -125,7 +125,7 @@ export class UserService {
     });
   }
 
-  async listUsers(identity: Identity): Promise<UserType[]> {
+  async listUsers(identity: Identity, organizationId?: string): Promise<UserType[]> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const role = identity.appRole as UserRoleEnum | undefined;
       const isSuperAdmin = role === UserRoleEnum.super_admin;
@@ -137,15 +137,19 @@ export class UserService {
         );
       }
 
-      const organizationId = isSuperAdmin ? undefined : identity.organizationId;
+      const effectiveOrganizationId = isSuperAdmin
+        ? organizationId
+        : identity.organizationId;
 
-      if (!isSuperAdmin && !organizationId) {
+      if (!isSuperAdmin && !effectiveOrganizationId) {
         throw new ForbiddenException("Organization context is missing");
       }
 
       const users = await this.userRepository.listUsers(
         tx,
-        organizationId ? { organizationId } : undefined
+        effectiveOrganizationId
+          ? { organizationId: effectiveOrganizationId }
+          : undefined
       );
       const bans = await this.userBanRepository.findActiveBansByUserIds(
         users.map((user) => user.id),
