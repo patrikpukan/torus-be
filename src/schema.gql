@@ -433,7 +433,7 @@ type Query {
   statistics(filter: StatisticsFilterInputType): StatisticsResponseType!
   upcomingMeetings: [MeetingEvent!]!
   userById(id: ID!): User
-  users: [User!]!
+    users(organizationId: ID): [User!]!
   validateInviteCode(code: String!): InviteCodeValidationResponseType!
 }
 

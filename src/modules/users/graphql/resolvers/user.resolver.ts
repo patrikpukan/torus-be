@@ -39,8 +39,12 @@ export class UserResolver {
 
   @RequireRole(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @Query(() => [UserType])
-  async users(@User() identity: Identity): Promise<UserType[]> {
-    return this.userService.listUsers(identity);
+  async users(
+    @User() identity: Identity,
+    @Args("organizationId", { type: () => ID, nullable: true })
+    organizationId?: string
+  ): Promise<UserType[]> {
+    return this.userService.listUsers(identity, organizationId);
   }
 
   @RequireRole(UserRole.USER)
@@ -129,7 +133,10 @@ export class UserResolver {
     @User() identity: Identity,
     @Args("input") input: UpdateCurrentUserProfileInputType
   ): Promise<CurrentUserType> {
-    const user = await this.userService.updateCurrentUserProfile(identity, input);
+    const user = await this.userService.updateCurrentUserProfile(
+      identity,
+      input
+    );
     return user as CurrentUserType;
   }
 
