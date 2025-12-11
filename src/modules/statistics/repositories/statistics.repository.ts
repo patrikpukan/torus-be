@@ -257,4 +257,29 @@ export class StatisticsRepository {
       status: p.status,
     }));
   }
+
+  /**
+   * Get user distribution across departments for an organization
+   */
+  async getDepartmentDistribution(organizationId: string): Promise<
+    Array<{ departmentName: string; userCount: number }>
+  > {
+    const departmentUsers = await this.prisma.department.findMany({
+      where: { organizationId },
+      select: {
+        name: true,
+        _count: {
+          select: { users: true },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return departmentUsers.map((dept) => ({
+      departmentName: dept.name,
+      userCount: dept._count.users,
+    }));
+  }
 }

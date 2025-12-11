@@ -163,6 +163,16 @@ type Department {
   updatedAt: DateTime!
 }
 
+type DepartmentDistributionItemType {
+  departmentName: String!
+  userCount: Int!
+}
+
+type DepartmentDistributionResponseType {
+  departments: [DepartmentDistributionItemType!]!
+  totalUsers: Int!
+}
+
 type ExpandedCalendarEventOccurrence {
   id: ID!
   occurrenceEnd: DateTime!
@@ -406,6 +416,7 @@ type Query {
   anonUsers: [User!]!
   calendarEventById(id: ID!): CalendarEvent
   calendarEventsByDateRange(endDate: DateTime!, startDate: DateTime!): [CalendarEvent!]!
+  departmentDistribution: DepartmentDistributionResponseType!
   expandedCalendarOccurrences(endDate: DateTime!, startDate: DateTime!, userId: ID): [ExpandedCalendarEventOccurrence!]!
   getAlgorithmSettings(organizationId: ID!): AlgorithmSettings!
   getAllTags: [Tag!]!
@@ -433,7 +444,7 @@ type Query {
   statistics(filter: StatisticsFilterInputType): StatisticsResponseType!
   upcomingMeetings: [MeetingEvent!]!
   userById(id: ID!): User
-    users(organizationId: ID): [User!]!
+  users(organizationId: ID): [User!]!
   validateInviteCode(code: String!): InviteCodeValidationResponseType!
 }
 

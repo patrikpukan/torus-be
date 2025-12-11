@@ -230,5 +230,35 @@ export class StatisticsService {
       };
     });
   }
+
+  /**
+   * Gets department user distribution for an organization
+   */
+  async getDepartmentDistribution(organizationId: string) {
+    const departmentUsers = await this.prisma.department.findMany({
+      where: { organizationId },
+      select: {
+        name: true,
+        _count: {
+          select: { users: true },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    const departments = departmentUsers.map((dept) => ({
+      departmentName: dept.name,
+      userCount: dept._count.users,
+    }));
+
+    const totalUsers = departments.reduce((sum, dept) => sum + dept.userCount, 0);
+
+    return {
+      departments,
+      totalUsers,
+    };
+  }
 }
 
