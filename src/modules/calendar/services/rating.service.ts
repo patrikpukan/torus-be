@@ -137,4 +137,23 @@ export class RatingService {
 
     return this.ratingRepository.findUnratedMeetingsForUser(identity.id);
   }
+
+  /**
+   * Get all ratings received by a user
+   */
+  async getReceivedRatings(userId: string): Promise<any[]> {
+    this.logger.log(`Getting received ratings for user: ${userId}`);
+
+    return this.ratingRepository.findReceivedRatings(userId);
+  }
+
+  /**
+   * Calculate average rating for a user
+   */
+  calculateAverageRating(ratings: any[]): number | null {
+    if (ratings.length === 0) return null;
+
+    const sum = ratings.reduce((acc, rating) => acc + rating.stars, 0);
+    return Math.round((sum / ratings.length) * 10) / 10; // Round to 1 decimal place
+  }
 }

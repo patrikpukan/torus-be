@@ -88,6 +88,35 @@ export class RatingRepository {
     });
   }
 
+  async findReceivedRatings(receivedByUserId: string): Promise<any[]> {
+    // Find all ratings received by a user (where they are one of the meeting participants)
+    const results = await this.prisma.rating.findMany({
+      where: {
+        meetingEvent: {
+          OR: [{ userAId: receivedByUserId }, { userBId: receivedByUserId }],
+        },
+      },
+      include: {
+        meetingEvent: {
+          include: {
+            userA: {
+              select: { id: true, firstName: true, lastName: true, email: true },
+            },
+            userB: {
+              select: { id: true, firstName: true, lastName: true, email: true },
+            },
+          },
+        },
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return results;
+  }
+
   private mapToDomain(raw: any): Rating {
     return {
       id: raw.id,
