@@ -163,10 +163,7 @@ export class InviteCodeService {
       };
     }
 
-    if (
-      inviteCode.maxUses &&
-      inviteCode.usedCount >= inviteCode.maxUses
-    ) {
+    if (inviteCode.maxUses && inviteCode.usedCount >= inviteCode.maxUses) {
       return {
         isValid: false,
         message: "Invite code has reached maximum uses",

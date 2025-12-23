@@ -179,6 +179,7 @@ model User {
   blocksReceived    UserBlock[]        @relation("UserBlocksBlocked")
   userTags          UserTag[]
 	inviteCodesCreated InviteCode[]
+  ratings           Rating[]           @relation("UserRatings")
 
   @@unique([email])
   @@map("user")
@@ -315,6 +316,28 @@ model MeetingEvent {
   @@index([userBConfirmationStatus])
   @@index([startDateTime])
   @@map("meeting_events")
+  
+  ratings Rating[]
+}
+
+model Rating {
+  id              String   @id @default(uuid()) @db.Uuid
+  meetingEventId  String   @map("meeting_event_id") @db.Uuid
+  meetingEvent    MeetingEvent @relation(fields: [meetingEventId], references: [id], onDelete: Cascade)
+  
+  userId          String   @map("user_id") @db.Uuid
+  user            User     @relation("UserRatings", fields: [userId], references: [id], onDelete: Cascade)
+  
+  stars           Int      // 0-5 integer
+  feedback        String?  @db.Text
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@unique([meetingEventId, userId])
+  @@index([userId])
+  @@index([meetingEventId])
+  @@map("ratings")
 }
 
 model Report {

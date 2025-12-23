@@ -8,4 +8,3 @@ export class ResolveReportInputType {
   @Field(() => String, { nullable: true })
   resolutionNote?: string | null;
 }
-

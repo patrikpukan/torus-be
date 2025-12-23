@@ -19,8 +19,10 @@ export function mapMeetingEventToGraphQL(
     createdByUserId: event.createdByUserId,
     startDateTime: event.startDateTime,
     endDateTime: event.endDateTime,
-    userAConfirmationStatus: event.userAConfirmationStatus as MeetingConfirmationStatus,
-    userBConfirmationStatus: event.userBConfirmationStatus as MeetingConfirmationStatus,
+    userAConfirmationStatus:
+      event.userAConfirmationStatus as MeetingConfirmationStatus,
+    userBConfirmationStatus:
+      event.userBConfirmationStatus as MeetingConfirmationStatus,
     userAProposedStartDateTime: event.userAProposedStartDateTime,
     userAProposedEndDateTime: event.userAProposedEndDateTime,
     userBProposedStartDateTime: event.userBProposedStartDateTime,

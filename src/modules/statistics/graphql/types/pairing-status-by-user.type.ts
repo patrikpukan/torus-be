@@ -17,4 +17,3 @@ export class PairingStatusByUserType {
   @Field(() => Int)
   count: number;
 }
-

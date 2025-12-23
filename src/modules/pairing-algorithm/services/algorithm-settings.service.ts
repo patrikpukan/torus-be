@@ -1,14 +1,17 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { randomInt } from 'crypto';
-import { PrismaService } from '../../../core/prisma/prisma.service';
-import { AppLoggerService } from '../../../shared/logger/logger.service';
-import { UserContextService, ResolvedUser } from '../../../shared/auth/services/user-context.service';
-import { PairingAlgorithmConfig } from '../pairing-algorithm.config';
-import { UpdateAlgorithmSettingsInput } from '../types/update-algorithm-settings.input';
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { randomInt } from "crypto";
+import { PrismaService } from "../../../core/prisma/prisma.service";
+import { AppLoggerService } from "../../../shared/logger/logger.service";
+import {
+  UserContextService,
+  ResolvedUser,
+} from "../../../shared/auth/services/user-context.service";
+import { PairingAlgorithmConfig } from "../pairing-algorithm.config";
+import { UpdateAlgorithmSettingsInput } from "../types/update-algorithm-settings.input";
 import {
   AlgorithmSettingsResponse,
   AlgorithmSettingsType,
-} from '../types/algorithm-settings.type';
+} from "../types/algorithm-settings.type";
 
 @Injectable()
 export class AlgorithmSettingsService {
@@ -16,12 +19,12 @@ export class AlgorithmSettingsService {
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
     private readonly userContextService: UserContextService,
-    private readonly pairingConfig: PairingAlgorithmConfig,
+    private readonly pairingConfig: PairingAlgorithmConfig
   ) {}
 
   async updateSettings(
     input: UpdateAlgorithmSettingsInput,
-    user: ResolvedUser,
+    user: ResolvedUser
   ): Promise<AlgorithmSettingsResponse> {
     this.assertAdminAccess(user, input.organizationId);
 
@@ -31,11 +34,11 @@ export class AlgorithmSettingsService {
 
     const periodLengthDays = this.resolvePeriodLengthDays(
       input.periodLengthDays,
-      existingSettings?.periodLengthDays,
+      existingSettings?.periodLengthDays
     );
     const randomSeed = this.resolveRandomSeed(
       input.randomSeed,
-      existingSettings?.randomSeed,
+      existingSettings?.randomSeed
     );
 
     const warning = this.buildWarning(periodLengthDays);
@@ -58,7 +61,7 @@ export class AlgorithmSettingsService {
 
     this.logger.log(
       `Algorithm settings updated for organization ${input.organizationId} by user ${user.id}`,
-      AlgorithmSettingsService.name,
+      AlgorithmSettingsService.name
     );
 
     return {
@@ -73,7 +76,7 @@ export class AlgorithmSettingsService {
   }
 
   async getOrCreateSettings(
-    organizationId: string,
+    organizationId: string
   ): Promise<AlgorithmSettingsType> {
     const existingSettings = await this.prisma.algorithmSetting.findUnique({
       where: { organizationId },
@@ -101,11 +104,11 @@ export class AlgorithmSettingsService {
 
     const periodLengthDays = this.resolvePeriodLengthDays(
       undefined,
-      existingSettings.periodLengthDays,
+      existingSettings.periodLengthDays
     );
     const randomSeed = this.resolveRandomSeed(
       undefined,
-      existingSettings.randomSeed,
+      existingSettings.randomSeed
     );
 
     if (
@@ -146,13 +149,13 @@ export class AlgorithmSettingsService {
 
   private resolvePeriodLengthDays(
     input: number | null | undefined,
-    fallback?: number | null,
+    fallback?: number | null
   ): number {
     const value = input ?? fallback ?? this.pairingConfig.defaultPeriodDays;
 
     if (!Number.isInteger(value) || value <= 0) {
       throw new BadRequestException(
-        'periodLengthDays must be a positive integer',
+        "periodLengthDays must be a positive integer"
       );
     }
 
@@ -161,7 +164,7 @@ export class AlgorithmSettingsService {
 
   private resolveRandomSeed(
     input: number | null | undefined,
-    fallback?: number | null,
+    fallback?: number | null
   ): number {
     const minSeed = 1;
     const maxSeed = 2_147_483_647; // INT4 max value
@@ -175,7 +178,7 @@ export class AlgorithmSettingsService {
         candidate > maxSeed
       ) {
         throw new BadRequestException(
-          `randomSeed must be an integer between ${minSeed} and ${maxSeed}`,
+          `randomSeed must be an integer between ${minSeed} and ${maxSeed}`
         );
       }
 

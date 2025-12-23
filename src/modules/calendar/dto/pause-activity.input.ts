@@ -1,16 +1,16 @@
-import { Field, InputType, registerEnumType } from '@nestjs/graphql';
-import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { Field, InputType, registerEnumType } from "@nestjs/graphql";
+import { IsEnum, IsInt, IsOptional, Min } from "class-validator";
 
 export enum PauseDurationType {
-  ONE_PERIOD = 'ONE_PERIOD',
-  N_PERIODS = 'N_PERIODS',
-  UNTIL_DATE = 'UNTIL_DATE',
-  INDEFINITE = 'INDEFINITE',
+  ONE_PERIOD = "ONE_PERIOD",
+  N_PERIODS = "N_PERIODS",
+  UNTIL_DATE = "UNTIL_DATE",
+  INDEFINITE = "INDEFINITE",
 }
 
 registerEnumType(PauseDurationType, {
-  name: 'PauseDurationType',
-  description: 'Type of activity pause duration',
+  name: "PauseDurationType",
+  description: "Type of activity pause duration",
 });
 
 @InputType()

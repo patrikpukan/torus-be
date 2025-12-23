@@ -12,7 +12,10 @@ import {
 import { AppModule } from "../src/app.module";
 import { PrismaService } from "../src/core/prisma/prisma.service";
 import { Config } from "../src/shared/config/config.service";
-import { PairingAlgorithmService, InsufficientUsersException } from "../src/modules/pairing-algorithm/pairing-algorithm.service";
+import {
+  PairingAlgorithmService,
+  InsufficientUsersException,
+} from "../src/modules/pairing-algorithm/pairing-algorithm.service";
 
 describe("Pairing Algorithm E2E", () => {
   let app: INestApplication;
@@ -36,13 +39,19 @@ describe("Pairing Algorithm E2E", () => {
         where: {
           organizationId,
           isActive: true,
-          OR: [{ suspendedUntil: null }, { suspendedUntil: { lt: new Date() } }],
+          OR: [
+            { suspendedUntil: null },
+            { suspendedUntil: { lt: new Date() } },
+          ],
         },
         orderBy: { createdAt: "asc" },
       });
 
       if (activeUsers.length < 2) {
-        throw new InsufficientUsersException(organizationId, activeUsers.length);
+        throw new InsufficientUsersException(
+          organizationId,
+          activeUsers.length
+        );
       }
 
       await this.prisma.$transaction(async (tx) => {
@@ -52,7 +61,9 @@ describe("Pairing Algorithm E2E", () => {
         });
 
         const startDate = new Date();
-        const endDate = new Date(startDate.getTime() + 21 * 24 * 60 * 60 * 1000);
+        const endDate = new Date(
+          startDate.getTime() + 21 * 24 * 60 * 60 * 1000
+        );
 
         const period = existingPeriod
           ? existingPeriod
@@ -65,11 +76,16 @@ describe("Pairing Algorithm E2E", () => {
               },
             });
 
-        await tx.pairing.deleteMany({ where: { organizationId, periodId: period.id } });
+        await tx.pairing.deleteMany({
+          where: { organizationId, periodId: period.id },
+        });
 
         const pairs = [] as Array<{ userAId: string; userBId: string }>;
         for (let index = 0; index + 1 < activeUsers.length; index += 2) {
-          pairs.push({ userAId: activeUsers[index].id, userBId: activeUsers[index + 1].id });
+          pairs.push({
+            userAId: activeUsers[index].id,
+            userBId: activeUsers[index + 1].id,
+          });
         }
 
         if (pairs.length === 0) {
@@ -111,7 +127,9 @@ describe("Pairing Algorithm E2E", () => {
     const periodIds = periods.map((period) => period.id);
 
     if (periodIds.length > 0) {
-      await prisma.pairing.deleteMany({ where: { periodId: { in: periodIds } } });
+      await prisma.pairing.deleteMany({
+        where: { periodId: { in: periodIds } },
+      });
     }
 
     await prisma.pairing.deleteMany({ where: { organizationId } });
@@ -137,7 +155,7 @@ describe("Pairing Algorithm E2E", () => {
   const createAuthenticatedUser = async (
     organizationId: string,
     role: UserRole,
-    emailPrefix: string,
+    emailPrefix: string
   ) => {
     const now = new Date();
     const supabaseUserId = randomUUID();
@@ -168,7 +186,7 @@ describe("Pairing Algorithm E2E", () => {
       jwtSecret(),
       {
         algorithm: "HS256",
-      },
+      }
     );
 
     return { user, token };
@@ -180,11 +198,17 @@ describe("Pairing Algorithm E2E", () => {
     }
 
     await prisma.pairing.deleteMany({ where: { organizationId: testOrgId } });
-    await prisma.pairingPeriod.deleteMany({ where: { organizationId: testOrgId } });
+    await prisma.pairingPeriod.deleteMany({
+      where: { organizationId: testOrgId },
+    });
     await prisma.userBlock.deleteMany({ where: { organizationId: testOrgId } });
-    await prisma.algorithmSetting.deleteMany({ where: { organizationId: testOrgId } });
+    await prisma.algorithmSetting.deleteMany({
+      where: { organizationId: testOrgId },
+    });
 
-    const persistentIds = [adminUserId, regularUserId].filter(Boolean) as string[];
+    const persistentIds = [adminUserId, regularUserId].filter(
+      Boolean
+    ) as string[];
 
     await prisma.user.deleteMany({
       where: {
@@ -196,7 +220,7 @@ describe("Pairing Algorithm E2E", () => {
 
   const ensureAlgorithmSettings = async (
     organizationId: string,
-    overrides: Partial<{ periodLengthDays: number; randomSeed: number }> = {},
+    overrides: Partial<{ periodLengthDays: number; randomSeed: number }> = {}
   ) => {
     const { periodLengthDays = 21, randomSeed = 12345 } = overrides;
 
@@ -244,7 +268,7 @@ describe("Pairing Algorithm E2E", () => {
     const { user: admin, token } = await createAuthenticatedUser(
       organizationId,
       UserRole.org_admin,
-      "admin",
+      "admin"
     );
 
     if (userCount > 1) {
@@ -273,7 +297,7 @@ describe("Pairing Algorithm E2E", () => {
     const adminResult = await createAuthenticatedUser(
       testOrgId,
       UserRole.org_admin,
-      "admin",
+      "admin"
     );
     adminToken = adminResult.token;
     adminUserId = adminResult.user.id;
@@ -281,7 +305,7 @@ describe("Pairing Algorithm E2E", () => {
     const userResult = await createAuthenticatedUser(
       testOrgId,
       UserRole.user,
-      "member",
+      "member"
     );
     userToken = userResult.token;
     regularUserId = userResult.user.id;
@@ -357,7 +381,7 @@ describe("Pairing Algorithm E2E", () => {
       expect(shortResponse.status).toBe(200);
       expect(shortResponse.body.errors).toBeUndefined();
       expect(shortResponse.body.data.updateAlgorithmSettings.warning).toBe(
-        "Recommended pairing period is between 7 and 365 days.",
+        "Recommended pairing period is between 7 and 365 days."
       );
 
       const longResponse = await graphql(adminToken).send({
@@ -374,7 +398,7 @@ describe("Pairing Algorithm E2E", () => {
       expect(longResponse.status).toBe(200);
       expect(longResponse.body.errors).toBeUndefined();
       expect(longResponse.body.data.updateAlgorithmSettings.warning).toBe(
-        "Recommended pairing period is between 7 and 365 days.",
+        "Recommended pairing period is between 7 and 365 days."
       );
     });
 
@@ -399,11 +423,16 @@ describe("Pairing Algorithm E2E", () => {
 
       expect(response.status).toBe(200);
       expect(response.body.errors).toBeDefined();
-      expect(response.body.errors[0].message).toContain("Insufficient permissions");
+      expect(response.body.errors[0].message).toContain(
+        "Insufficient permissions"
+      );
     });
 
     it("should fetch current algorithm settings", async () => {
-      await ensureAlgorithmSettings(testOrgId, { periodLengthDays: 21, randomSeed: 9999 });
+      await ensureAlgorithmSettings(testOrgId, {
+        periodLengthDays: 21,
+        randomSeed: 9999,
+      });
 
       const query = `
         query GetSettings($organizationId: String!) {
@@ -431,7 +460,10 @@ describe("Pairing Algorithm E2E", () => {
 
   describe("Pairing Execution", () => {
     it("should allow admin to execute pairing manually", async () => {
-      await ensureAlgorithmSettings(testOrgId, { periodLengthDays: 21, randomSeed: 54321 });
+      await ensureAlgorithmSettings(testOrgId, {
+        periodLengthDays: 21,
+        randomSeed: 54321,
+      });
       await createMembers(testOrgId, 6);
 
       const mutation = `
@@ -455,10 +487,16 @@ describe("Pairing Algorithm E2E", () => {
       expect(response.body.data.executePairingAlgorithm).toMatchObject({
         success: true,
       });
-      expect(response.body.data.executePairingAlgorithm.pairingsCreated).toBeGreaterThan(0);
+      expect(
+        response.body.data.executePairingAlgorithm.pairingsCreated
+      ).toBeGreaterThan(0);
 
-      const pairingCount = await prisma.pairing.count({ where: { organizationId: testOrgId } });
-      expect(pairingCount).toBe(response.body.data.executePairingAlgorithm.pairingsCreated);
+      const pairingCount = await prisma.pairing.count({
+        where: { organizationId: testOrgId },
+      });
+      expect(pairingCount).toBe(
+        response.body.data.executePairingAlgorithm.pairingsCreated
+      );
     });
 
     it("should prevent non-admin from executing pairing", async () => {
@@ -480,12 +518,13 @@ describe("Pairing Algorithm E2E", () => {
       expect(response.status).toBe(200);
       expect(response.body.errors).toBeDefined();
       expect(response.body.errors[0].message).toContain(
-        "You do not have permission to execute the pairing algorithm",
+        "You do not have permission to execute the pairing algorithm"
       );
     });
 
     it("should return error when not enough users", async () => {
-      const { organizationId, adminToken: smallOrgToken } = await createOrgWithAdmin(1);
+      const { organizationId, adminToken: smallOrgToken } =
+        await createOrgWithAdmin(1);
 
       const mutation = `
         mutation ExecutePairing($organizationId: String!) {
@@ -504,7 +543,9 @@ describe("Pairing Algorithm E2E", () => {
       expect(response.status).toBe(200);
       expect(response.body.errors).toBeUndefined();
       expect(response.body.data.executePairingAlgorithm.success).toBe(false);
-      expect(response.body.data.executePairingAlgorithm.message).toContain("Not enough users");
+      expect(response.body.data.executePairingAlgorithm.message).toContain(
+        "Not enough users"
+      );
     });
   });
 
@@ -550,9 +591,13 @@ describe("Pairing Algorithm E2E", () => {
 
       expect(pairingResponse.status).toBe(200);
       expect(pairingResponse.body.errors).toBeUndefined();
-      expect(pairingResponse.body.data.executePairingAlgorithm.success).toBe(true);
+      expect(pairingResponse.body.data.executePairingAlgorithm.success).toBe(
+        true
+      );
 
-      const pairings = await prisma.pairing.findMany({ where: { organizationId: testOrgId } });
+      const pairings = await prisma.pairing.findMany({
+        where: { organizationId: testOrgId },
+      });
       expect(pairings.length).toBeGreaterThan(0);
       expect(pairings[0].status).toBe(PairingStatus.planned);
 
@@ -563,7 +608,9 @@ describe("Pairing Algorithm E2E", () => {
       });
 
       expect(period).toBeDefined();
-      expect(period?.pairings.length).toBe(pairingResponse.body.data.executePairingAlgorithm.pairingsCreated);
+      expect(period?.pairings.length).toBe(
+        pairingResponse.body.data.executePairingAlgorithm.pairingsCreated
+      );
     });
   });
 });

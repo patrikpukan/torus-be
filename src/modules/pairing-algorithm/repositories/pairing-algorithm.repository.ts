@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../core/prisma/prisma.service';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../../core/prisma/prisma.service";
 import {
   AlgorithmSetting,
   Pairing,
@@ -7,7 +7,7 @@ import {
   UserBlock,
   PairingPeriodStatus,
   UserRole,
-} from '@prisma/client';
+} from "@prisma/client";
 
 /**
  * Repository for pairing algorithm data access.
@@ -24,7 +24,9 @@ export class PairingAlgorithmRepository {
 
   // ============== AlgorithmSetting Operations ==============
 
-  async getSettingsByOrganization(organizationId: string): Promise<AlgorithmSetting | null> {
+  async getSettingsByOrganization(
+    organizationId: string
+  ): Promise<AlgorithmSetting | null> {
     return this.prisma.algorithmSetting.findUnique({
       where: { organizationId },
     });
@@ -34,7 +36,10 @@ export class PairingAlgorithmRepository {
     return this.prisma.algorithmSetting.findMany();
   }
 
-  async createSettings(organizationId: string, data: Partial<AlgorithmSetting>): Promise<AlgorithmSetting> {
+  async createSettings(
+    organizationId: string,
+    data: Partial<AlgorithmSetting>
+  ): Promise<AlgorithmSetting> {
     return this.prisma.algorithmSetting.create({
       data: {
         organizationId,
@@ -43,7 +48,10 @@ export class PairingAlgorithmRepository {
     });
   }
 
-  async updateSettings(organizationId: string, data: Partial<AlgorithmSetting>): Promise<AlgorithmSetting> {
+  async updateSettings(
+    organizationId: string,
+    data: Partial<AlgorithmSetting>
+  ): Promise<AlgorithmSetting> {
     return this.prisma.algorithmSetting.update({
       where: { organizationId },
       data,
@@ -55,7 +63,7 @@ export class PairingAlgorithmRepository {
   async getActivePeriod(organizationId: string): Promise<PairingPeriod | null> {
     return this.prisma.pairingPeriod.findFirst({
       where: { organizationId, status: PairingPeriodStatus.active },
-      orderBy: { startDate: 'desc' },
+      orderBy: { startDate: "desc" },
     });
   }
 
@@ -67,22 +75,22 @@ export class PairingAlgorithmRepository {
 
   async getPreviousPeriods(
     organizationId: string,
-    limit: number = 5,
+    limit: number = 5
   ): Promise<PairingPeriod[]> {
     return this.prisma.pairingPeriod.findMany({
       where: { organizationId },
-      orderBy: { startDate: 'desc' },
+      orderBy: { startDate: "desc" },
       take: limit,
     });
   }
 
   async getPeriodsByStatus(
     organizationId: string,
-    status: PairingPeriodStatus,
+    status: PairingPeriodStatus
   ): Promise<PairingPeriod[]> {
     return this.prisma.pairingPeriod.findMany({
       where: { organizationId, status },
-      orderBy: { startDate: 'desc' },
+      orderBy: { startDate: "desc" },
     });
   }
 
@@ -104,7 +112,7 @@ export class PairingAlgorithmRepository {
 
   async updatePeriodStatus(
     periodId: string,
-    status: PairingPeriodStatus,
+    status: PairingPeriodStatus
   ): Promise<PairingPeriod> {
     return this.prisma.pairingPeriod.update({
       where: { id: periodId },
@@ -129,10 +137,7 @@ export class PairingAlgorithmRepository {
   async getPairingsByUser(userId: string): Promise<Pairing[]> {
     return this.prisma.pairing.findMany({
       where: {
-        OR: [
-          { userAId: userId },
-          { userBId: userId },
-        ],
+        OR: [{ userAId: userId }, { userBId: userId }],
       },
     });
   }
@@ -145,7 +150,7 @@ export class PairingAlgorithmRepository {
 
   async getPairingsByOrganizationAndPeriod(
     organizationId: string,
-    periodId: string,
+    periodId: string
   ): Promise<Pairing[]> {
     return this.prisma.pairing.findMany({
       where: { organizationId, periodId },
@@ -163,12 +168,14 @@ export class PairingAlgorithmRepository {
     });
   }
 
-  async createPairingsBatch(pairings: Array<{
-    periodId: string;
-    organizationId: string;
-    userAId: string;
-    userBId: string;
-  }>): Promise<Pairing[]> {
+  async createPairingsBatch(
+    pairings: Array<{
+      periodId: string;
+      organizationId: string;
+      userAId: string;
+      userBId: string;
+    }>
+  ): Promise<Pairing[]> {
     return this.prisma.$transaction((tx) =>
       Promise.all(
         pairings.map((p) =>
@@ -188,7 +195,9 @@ export class PairingAlgorithmRepository {
     });
   }
 
-  async getEligibleUsers(organizationId: string): Promise<Array<{ id: string }>> {
+  async getEligibleUsers(
+    organizationId: string
+  ): Promise<Array<{ id: string }>> {
     return this.prisma.user.findMany({
       where: {
         organizationId,
@@ -201,7 +210,7 @@ export class PairingAlgorithmRepository {
 
   async getNewUsersInPeriod(
     organizationId: string,
-    periodStartDate: Date,
+    periodStartDate: Date
   ): Promise<Array<{ id: string; createdAt: Date }>> {
     return this.prisma.user.findMany({
       where: {
@@ -215,7 +224,7 @@ export class PairingAlgorithmRepository {
 
   async getPairedUsersInPeriod(
     organizationId: string,
-    periodId: string,
+    periodId: string
   ): Promise<string[]> {
     const pairings = await this.prisma.pairing.findMany({
       where: { organizationId, periodId },
@@ -235,7 +244,7 @@ export class PairingAlgorithmRepository {
 
   async getUnpairedUserCount(
     organizationId: string,
-    periodId: string,
+    periodId: string
   ): Promise<number> {
     const activePeriod = await this.prisma.pairingPeriod.findUnique({
       where: { id: periodId },
@@ -245,7 +254,10 @@ export class PairingAlgorithmRepository {
       return 0;
     }
 
-    const pairedUsers = await this.getPairedUsersInPeriod(organizationId, periodId);
+    const pairedUsers = await this.getPairedUsersInPeriod(
+      organizationId,
+      periodId
+    );
     const totalEligible = await this.getEligibleUsers(organizationId);
     const unpaired = totalEligible.filter((u) => !pairedUsers.includes(u.id));
 
@@ -262,11 +274,11 @@ export class PairingAlgorithmRepository {
 
   async getRecentBlockedPairs(
     organizationId: string,
-    periods: number = 2,
+    periods: number = 2
   ): Promise<Array<{ userAId: string; userBId: string }>> {
     const recentPeriods = await this.prisma.pairingPeriod.findMany({
       where: { organizationId },
-      orderBy: { startDate: 'desc' },
+      orderBy: { startDate: "desc" },
       take: periods,
       select: { id: true },
     });
@@ -297,7 +309,7 @@ export class PairingAlgorithmRepository {
   async isUserBlockedWithPeer(
     organizationId: string,
     userId: string,
-    peerId: string,
+    peerId: string
   ): Promise<boolean> {
     const block = await this.prisma.userBlock.findFirst({
       where: {
@@ -328,12 +340,14 @@ export class PairingAlgorithmRepository {
    * Create multiple pairings in a single transaction
    * This is a convenience method that wraps Prisma transaction
    */
-  async createPairingsBatchTransaction(pairings: Array<{
-    periodId: string;
-    organizationId: string;
-    userAId: string;
-    userBId: string;
-  }>): Promise<Pairing[]> {
+  async createPairingsBatchTransaction(
+    pairings: Array<{
+      periodId: string;
+      organizationId: string;
+      userAId: string;
+      userBId: string;
+    }>
+  ): Promise<Pairing[]> {
     return this.prisma.$transaction(
       pairings.map((p) =>
         this.prisma.pairing.create({

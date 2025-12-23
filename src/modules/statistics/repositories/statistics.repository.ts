@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../core/prisma/prisma.service';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../../core/prisma/prisma.service";
 
 /**
  * Repository for statistics data access.
@@ -15,10 +15,10 @@ export class StatisticsRepository {
   async getPairingStatusCounts(
     organizationId: string,
     startDate: Date,
-    endDate: Date,
+    endDate: Date
   ): Promise<Array<{ status: string; count: number }>> {
     const pairings = await this.prisma.pairing.groupBy({
-      by: ['organizationId'],
+      by: ["organizationId"],
       where: {
         organizationId,
         createdAt: {
@@ -32,7 +32,7 @@ export class StatisticsRepository {
     });
 
     return pairings.map((p) => ({
-      status: 'active',
+      status: "active",
       count: p._count.id,
     }));
   }
@@ -44,17 +44,14 @@ export class StatisticsRepository {
     organizationId: string,
     userId: string,
     startDate: Date,
-    endDate: Date,
+    endDate: Date
   ): Promise<Array<{ partnerId: string; count: number }>> {
     const pairings = await this.prisma.pairing.findMany({
       where: {
         organizationId,
         AND: [
           {
-            OR: [
-              { userAId: userId },
-              { userBId: userId },
-            ],
+            OR: [{ userAId: userId }, { userBId: userId }],
           },
           {
             period: {
@@ -72,7 +69,8 @@ export class StatisticsRepository {
 
     const partnerMap = new Map<string, number>();
     for (const pairing of pairings) {
-      const partnerId = pairing.userAId === userId ? pairing.userBId : pairing.userAId;
+      const partnerId =
+        pairing.userAId === userId ? pairing.userBId : pairing.userAId;
       partnerMap.set(partnerId, (partnerMap.get(partnerId) ?? 0) + 1);
     }
 
@@ -88,13 +86,15 @@ export class StatisticsRepository {
   async getPairings(
     organizationId: string,
     startDate: Date,
-    endDate: Date,
-  ): Promise<Array<{
-    id: string;
-    userAId: string;
-    userBId: string;
-    createdAt: Date;
-  }>> {
+    endDate: Date
+  ): Promise<
+    Array<{
+      id: string;
+      userAId: string;
+      userBId: string;
+      createdAt: Date;
+    }>
+  > {
     return this.prisma.pairing.findMany({
       where: {
         organizationId,
@@ -135,12 +135,14 @@ export class StatisticsRepository {
   /**
    * Get all users in an organization
    */
-  async getOrganizationUsers(organizationId: string): Promise<Array<{
-    id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-  }>> {
+  async getOrganizationUsers(organizationId: string): Promise<
+    Array<{
+      id: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+    }>
+  > {
     return this.prisma.user.findMany({
       where: { organizationId },
       select: {
@@ -192,9 +194,9 @@ export class StatisticsRepository {
     const period = await this.prisma.pairingPeriod.findFirst({
       where: {
         organizationId,
-        status: 'active',
+        status: "active",
       },
-      orderBy: { startDate: 'desc' },
+      orderBy: { startDate: "desc" },
       select: {
         id: true,
         startDate: true,
@@ -217,13 +219,15 @@ export class StatisticsRepository {
   async getPeriods(
     organizationId: string,
     startDate: Date,
-    endDate: Date,
-  ): Promise<Array<{
-    id: string;
-    startDate: Date | null;
-    endDate: Date | null;
-    status: string;
-  }>> {
+    endDate: Date
+  ): Promise<
+    Array<{
+      id: string;
+      startDate: Date | null;
+      endDate: Date | null;
+      status: string;
+    }>
+  > {
     const periods = await this.prisma.pairingPeriod.findMany({
       where: {
         organizationId,
@@ -261,9 +265,9 @@ export class StatisticsRepository {
   /**
    * Get user distribution across departments for an organization
    */
-  async getDepartmentDistribution(organizationId: string): Promise<
-    Array<{ departmentName: string; userCount: number }>
-  > {
+  async getDepartmentDistribution(
+    organizationId: string
+  ): Promise<Array<{ departmentName: string; userCount: number }>> {
     const departmentUsers = await this.prisma.department.findMany({
       where: { organizationId },
       select: {
@@ -273,7 +277,7 @@ export class StatisticsRepository {
         },
       },
       orderBy: {
-        name: 'asc',
+        name: "asc",
       },
     });
 

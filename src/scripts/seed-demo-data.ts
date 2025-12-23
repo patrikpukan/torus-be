@@ -108,8 +108,7 @@ const DEPARTMENTS_BY_ORG: Record<
     },
     {
       name: "Product",
-      description:
-        "Product strategy, roadmap, and user experience design team",
+      description: "Product strategy, roadmap, and user experience design team",
     },
     {
       name: "DevOps",
@@ -123,8 +122,7 @@ const DEPARTMENTS_BY_ORG: Record<
     },
     {
       name: "Data Science",
-      description:
-        "Analytics, machine learning, and data-driven insights team",
+      description: "Analytics, machine learning, and data-driven insights team",
     },
   ],
   "StartupHub Ventures": [
@@ -135,13 +133,11 @@ const DEPARTMENTS_BY_ORG: Record<
     },
     {
       name: "Customer Success",
-      description:
-        "Client onboarding, support, and retention team",
+      description: "Client onboarding, support, and retention team",
     },
     {
       name: "Marketing",
-      description:
-        "Brand management, campaigns, and market research team",
+      description: "Brand management, campaigns, and market research team",
     },
     {
       name: "Operations",
@@ -150,25 +146,21 @@ const DEPARTMENTS_BY_ORG: Record<
     },
     {
       name: "Finance",
-      description:
-        "Accounting, budgeting, and financial planning team",
+      description: "Accounting, budgeting, and financial planning team",
     },
   ],
   "Digital Minds Collective": [
     {
       name: "Design",
-      description:
-        "UI/UX design, visual design, and design systems team",
+      description: "UI/UX design, visual design, and design systems team",
     },
     {
       name: "Content",
-      description:
-        "Content creation, copywriting, and editorial team",
+      description: "Content creation, copywriting, and editorial team",
     },
     {
       name: "Production",
-      description:
-        "Project management, production coordination, and timelines",
+      description: "Project management, production coordination, and timelines",
     },
     {
       name: "Creative Strategy",
@@ -236,7 +228,8 @@ async function seedTags(prisma: PrismaClient) {
   console.log("🏷️  Seeding predefined tags...");
 
   const hobbyTags: Array<{ id: string; name: string; category: string }> = [];
-  const interestTags: Array<{ id: string; name: string; category: string }> = [];
+  const interestTags: Array<{ id: string; name: string; category: string }> =
+    [];
 
   // Create hobby tags (idempotent)
   for (const name of HOBBY_TAGS) {
@@ -752,8 +745,7 @@ async function createCalendarEventsForUser(
               new Date(eventDate),
               startHour + duration
             ),
-            rrule:
-              Math.random() < 0.3 ? "FREQ=WEEKLY;BYDAY=MO,WE,FR" : null,
+            rrule: Math.random() < 0.3 ? "FREQ=WEEKLY;BYDAY=MO,WE,FR" : null,
           },
         });
         availabilityCount++;
@@ -944,7 +936,7 @@ async function createUserReportsForPairings(
 
     for (let i = 0; i < reportsToCreate; i++) {
       const pairing = pairings[Math.floor(Math.random() * pairings.length)];
-      
+
       // Check if report already exists for this pairing
       const existingReport = await prisma.report.findFirst({
         where: { pairingId: pairing.id },
@@ -957,7 +949,9 @@ async function createUserReportsForPairings(
       // Randomly choose reporter and reported user
       const reporterIsUserA = Math.random() > 0.5;
       const reporterId = reporterIsUserA ? pairing.userAId : pairing.userBId;
-      const reportedUserId = reporterIsUserA ? pairing.userBId : pairing.userAId;
+      const reportedUserId = reporterIsUserA
+        ? pairing.userBId
+        : pairing.userAId;
 
       const reason =
         reportReasons[Math.floor(Math.random() * reportReasons.length)];
@@ -976,9 +970,7 @@ async function createUserReportsForPairings(
     console.log(`    ✓ Created user reports`);
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `⚠️  Warning: Could not create user reports: ${err}`
-    );
+    console.warn(`⚠️  Warning: Could not create user reports: ${err}`);
     // Don't throw - reports are optional for demo
   }
 }
@@ -1055,9 +1047,7 @@ async function createUserBansForOrg(
     console.log(`    ✓ Created user bans`);
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `⚠️  Warning: Could not create user bans: ${err}`
-    );
+    console.warn(`⚠️  Warning: Could not create user bans: ${err}`);
     // Don't throw - bans are optional for demo
   }
 }
@@ -1124,9 +1114,7 @@ async function uploadAvatarToSupabase(
 
     // Check if file exists
     if (!fs.existsSync(avatarPath)) {
-      console.log(
-        `  ⚠️  Avatar not found: ${avatarFileName}, skipping upload`
-      );
+      console.log(`  ⚠️  Avatar not found: ${avatarFileName}, skipping upload`);
       return null;
     }
 
@@ -1190,9 +1178,7 @@ async function uploadAvatarToSupabase(
     return publicUrlData.publicUrl;
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `  ⚠️  Error uploading avatar ${avatarFileName}: ${err}`
-    );
+    console.warn(`  ⚠️  Error uploading avatar ${avatarFileName}: ${err}`);
     return null;
   }
 }
@@ -1786,7 +1772,9 @@ async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
     console.log("   - Pairing periods: 3-week cycles (active + upcoming)");
     console.log("   - Active period: 1 week in, 2 weeks remaining");
     console.log("   - Mixed pairing statuses for realistic scenarios");
-    console.log("   - Calendar events show availability/unavailability patterns");
+    console.log(
+      "   - Calendar events show availability/unavailability patterns"
+    );
     console.log("   - Meeting events scheduled for matched/met pairings");
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
@@ -1832,9 +1820,7 @@ async function cleanupSupabaseAuthUsers(): Promise<void> {
 
     const demoUsers = allUsers.users.filter((user) => {
       if (!user.email) return false;
-      return demoEmailPatterns.some((pattern) =>
-        user.email?.includes(pattern)
-      );
+      return demoEmailPatterns.some((pattern) => user.email?.includes(pattern));
     });
 
     if (demoUsers.length === 0) {
@@ -1863,7 +1849,9 @@ async function cleanupSupabaseAuthUsers(): Promise<void> {
       }
     }
 
-    console.log(`\n✅ Cleaned up ${deletedCount} demo users from Supabase Auth\n`);
+    console.log(
+      `\n✅ Cleaned up ${deletedCount} demo users from Supabase Auth\n`
+    );
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
     console.warn(`⚠️  Warning: Supabase cleanup incomplete: ${err}`);
@@ -1914,7 +1902,9 @@ async function cleanupSupabaseAuthDemoUsers(): Promise<void> {
       return; // No demo users to clean
     }
 
-    console.log(`🧹 Cleaning up ${demoUsers.length} existing demo users from Supabase Auth...`);
+    console.log(
+      `🧹 Cleaning up ${demoUsers.length} existing demo users from Supabase Auth...`
+    );
 
     let deletedCount = 0;
     for (const user of demoUsers) {
@@ -2066,10 +2056,10 @@ async function main(): Promise<void> {
         const user = await createDemoUser(prisma, userKey, orgId, email);
         if (user) {
           users.push(user);
-          
+
           // Assign random tags (hobbies and interests) to all users
           await assignTagsToUser(prisma, user.id, hobbyTags, interestTags);
-          
+
           // Assign all users to a random department (if departments exist)
           if (departmentIds.length > 0) {
             const randomDepartmentId = getRandomItem(departmentIds);
@@ -2142,4 +2132,3 @@ main().catch((error) => {
   console.error("Fatal error:", error);
   process.exit(1);
 });
-

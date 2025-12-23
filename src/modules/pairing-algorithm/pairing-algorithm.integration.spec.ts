@@ -1,15 +1,15 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { PairingStatus } from '@prisma/client';
-import { randomUUID } from 'crypto';
-import { PairingAlgorithmModule } from './pairing-algorithm.module';
-import { PairingAlgorithmService } from './pairing-algorithm.service';
-import { PrismaService } from '../../core/prisma/prisma.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { PairingStatus } from "@prisma/client";
+import { randomUUID } from "crypto";
+import { PairingAlgorithmModule } from "./pairing-algorithm.module";
+import { PairingAlgorithmService } from "./pairing-algorithm.service";
+import { PrismaService } from "../../core/prisma/prisma.service";
 
 const createTimestamp = () => new Date();
 
 const collectUniqueValues = <T>(values: T[]): Set<T> => new Set(values);
 
-describe('PairingAlgorithm Integration', () => {
+describe("PairingAlgorithm Integration", () => {
   let moduleRef: TestingModule;
   let prisma: PrismaService;
   let service: PairingAlgorithmService;
@@ -23,7 +23,9 @@ describe('PairingAlgorithm Integration', () => {
     const periodIds = periods.map((period) => period.id);
 
     if (periodIds.length > 0) {
-      await prisma.pairing.deleteMany({ where: { periodId: { in: periodIds } } });
+      await prisma.pairing.deleteMany({
+        where: { periodId: { in: periodIds } },
+      });
     }
 
     await prisma.pairing.deleteMany({ where: { organizationId } });
@@ -31,7 +33,9 @@ describe('PairingAlgorithm Integration', () => {
     await prisma.userBlock.deleteMany({ where: { organizationId } });
     await prisma.algorithmSetting.deleteMany({ where: { organizationId } });
     await prisma.user.deleteMany({ where: { organizationId } });
-    await prisma.organization.delete({ where: { id: organizationId } }).catch(() => undefined);
+    await prisma.organization
+      .delete({ where: { id: organizationId } })
+      .catch(() => undefined);
   };
 
   const createOrganization = async (): Promise<string> => {
@@ -60,7 +64,7 @@ describe('PairingAlgorithm Integration', () => {
           createdAt: timestamp,
           updatedAt: timestamp,
           firstName: `User${index + 1}`,
-          lastName: 'Integration',
+          lastName: "Integration",
         },
       });
 
@@ -72,7 +76,7 @@ describe('PairingAlgorithm Integration', () => {
 
   const ensureAlgorithmSettings = async (
     organizationId: string,
-    overrides: Partial<{ periodLengthDays: number; randomSeed: number }> = {},
+    overrides: Partial<{ periodLengthDays: number; randomSeed: number }> = {}
   ) => {
     const { periodLengthDays = 21, randomSeed = 12345 } = overrides;
 
@@ -121,26 +125,31 @@ describe('PairingAlgorithm Integration', () => {
     }
   });
 
-  it('should complete full pairing cycle for 6 users', async () => {
+  it("should complete full pairing cycle for 6 users", async () => {
     if (!currentOrgId) {
-      throw new Error('Test organization was not initialized');
+      throw new Error("Test organization was not initialized");
     }
 
     const users = await createUsers(currentOrgId, 6);
-    await ensureAlgorithmSettings(currentOrgId, { periodLengthDays: 21, randomSeed: 12345 });
+    await ensureAlgorithmSettings(currentOrgId, {
+      periodLengthDays: 21,
+      randomSeed: 12345,
+    });
 
     await service.executePairing(currentOrgId);
 
     const pairingPeriod = await prisma.pairingPeriod.findFirst({
       where: { organizationId: currentOrgId },
       include: { pairings: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     expect(pairingPeriod).toBeDefined();
     expect(pairingPeriod?.pairings.length).toBe(3);
 
-    const pairings = await prisma.pairing.findMany({ where: { organizationId: currentOrgId } });
+    const pairings = await prisma.pairing.findMany({
+      where: { organizationId: currentOrgId },
+    });
     expect(pairings).toHaveLength(3);
 
     pairings.forEach((pairing) => {
@@ -149,18 +158,24 @@ describe('PairingAlgorithm Integration', () => {
     });
 
     const pairedUserIds = collectUniqueValues(
-      pairings.flatMap((pair) => [pair.userAId, pair.userBId]),
+      pairings.flatMap((pair) => [pair.userAId, pair.userBId])
     );
     expect(pairedUserIds.size).toBe(users.length);
   });
 
-  it('should respect blocking constraints', async () => {
+  it("should respect blocking constraints", async () => {
     if (!currentOrgId) {
-      throw new Error('Test organization was not initialized');
+      throw new Error("Test organization was not initialized");
     }
 
-    const [userOne, userTwo, userThree, userFour] = await createUsers(currentOrgId, 4);
-    await ensureAlgorithmSettings(currentOrgId, { periodLengthDays: 21, randomSeed: 54321 });
+    const [userOne, userTwo, userThree, userFour] = await createUsers(
+      currentOrgId,
+      4
+    );
+    await ensureAlgorithmSettings(currentOrgId, {
+      periodLengthDays: 21,
+      randomSeed: 54321,
+    });
 
     await prisma.userBlock.create({
       data: {
@@ -172,18 +187,23 @@ describe('PairingAlgorithm Integration', () => {
 
     await service.executePairing(currentOrgId);
 
-    const pairings = await prisma.pairing.findMany({ where: { organizationId: currentOrgId } });
+    const pairings = await prisma.pairing.findMany({
+      where: { organizationId: currentOrgId },
+    });
     expect(pairings.length).toBeGreaterThanOrEqual(1);
 
     const blockedPairExists = pairings.some((pairing) => {
-      const participants = collectUniqueValues([pairing.userAId, pairing.userBId]);
+      const participants = collectUniqueValues([
+        pairing.userAId,
+        pairing.userBId,
+      ]);
       return participants.has(userOne.id) && participants.has(userTwo.id);
     });
 
     expect(blockedPairExists).toBe(false);
 
     const pairedUserIds = collectUniqueValues(
-      pairings.flatMap((pair) => [pair.userAId, pair.userBId]),
+      pairings.flatMap((pair) => [pair.userAId, pair.userBId])
     );
 
     expect(pairedUserIds.size).toBeGreaterThanOrEqual(2);

@@ -1,6 +1,10 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
-import { PrismaService } from '../../../core/prisma/prisma.service';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { UserRole } from "@prisma/client";
+import { PrismaService } from "../../../core/prisma/prisma.service";
 
 export interface ResolvedUser {
   id: string;
@@ -9,7 +13,12 @@ export interface ResolvedUser {
   appRole?: string;
 }
 
-export type UserContextInput = { id?: string; role?: string; appRole?: string; organizationId?: string } | null;
+export type UserContextInput = {
+  id?: string;
+  role?: string;
+  appRole?: string;
+  organizationId?: string;
+} | null;
 
 @Injectable()
 export class UserContextService {
@@ -25,9 +34,11 @@ export class UserContextService {
    * @throws UnauthorizedException if user not found
    * @throws ForbiddenException if user account not found in database
    */
-  async resolveCurrentUser(userContext: UserContextInput): Promise<ResolvedUser> {
+  async resolveCurrentUser(
+    userContext: UserContextInput
+  ): Promise<ResolvedUser> {
     if (!userContext?.id) {
-      throw new UnauthorizedException('Authenticated user context is missing');
+      throw new UnauthorizedException("Authenticated user context is missing");
     }
 
     // If user already has organizationId and role in context, return it
@@ -51,7 +62,7 @@ export class UserContextService {
     });
 
     if (!dbUser || !dbUser.organizationId) {
-      throw new ForbiddenException('User account not found or incomplete');
+      throw new ForbiddenException("User account not found or incomplete");
     }
 
     return {
@@ -73,17 +84,17 @@ export class UserContextService {
     const role = user.appRole ?? user.role;
 
     if (!role) {
-      throw new ForbiddenException('User role is missing');
+      throw new ForbiddenException("User role is missing");
     }
 
     const normalizedRole = String(role);
     const isAdminRole =
-      normalizedRole === 'admin' ||
+      normalizedRole === "admin" ||
       normalizedRole === UserRole.org_admin ||
       normalizedRole === UserRole.super_admin;
 
     if (!isAdminRole) {
-      throw new ForbiddenException('Admin access required');
+      throw new ForbiddenException("Admin access required");
     }
   }
 
@@ -97,7 +108,7 @@ export class UserContextService {
    */
   validateUserBelongsToOrg(user: ResolvedUser, organizationId: string): void {
     const role = user.appRole ?? user.role;
-    const normalizedRole = String(role ?? '');
+    const normalizedRole = String(role ?? "");
 
     // Super admins can access any organization
     if (
@@ -109,7 +120,7 @@ export class UserContextService {
 
     // For non-super-admins, check organization membership
     if (user.organizationId !== organizationId) {
-      throw new ForbiddenException('Access denied to organization');
+      throw new ForbiddenException("Access denied to organization");
     }
   }
 

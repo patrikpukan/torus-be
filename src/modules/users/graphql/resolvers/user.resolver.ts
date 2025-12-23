@@ -1,5 +1,13 @@
 import { UseGuards } from "@nestjs/common";
-import { Args, ID, Mutation, Query, Resolver, ResolveField, Parent } from "@nestjs/graphql";
+import {
+  Args,
+  ID,
+  Mutation,
+  Query,
+  Resolver,
+  ResolveField,
+  Parent,
+} from "@nestjs/graphql";
 import { User } from "src/shared/auth/decorators/user.decorator";
 import type { Identity } from "src/shared/auth/domain/identity";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";

@@ -3,12 +3,12 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
-} from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { GqlExecutionContext } from '@nestjs/graphql';
-import { CaslAbilityFactory, AppAbility } from '../casl/casl-ability.factory';
-import { Identity } from '../domain/identity';
-import { CHECK_POLICIES_KEY } from '../decorators/check-policies.decorator';
+} from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { GqlExecutionContext } from "@nestjs/graphql";
+import { CaslAbilityFactory, AppAbility } from "../casl/casl-ability.factory";
+import { Identity } from "../domain/identity";
+import { CHECK_POLICIES_KEY } from "../decorators/check-policies.decorator";
 
 /**
  * Type for policy checker function.
@@ -73,7 +73,7 @@ export class PoliciesGuard implements CanActivate {
 
     // If no policies defined, deny access (fail-safe)
     if (!policyHandlers || policyHandlers.length === 0) {
-      throw new ForbiddenException('No policies defined for this resource');
+      throw new ForbiddenException("No policies defined for this resource");
     }
 
     // Get GraphQL execution context
@@ -85,7 +85,7 @@ export class PoliciesGuard implements CanActivate {
     const identity: Identity | null = req.user;
 
     if (!identity) {
-      throw new ForbiddenException('User context not found');
+      throw new ForbiddenException("User context not found");
     }
 
     // Build ability for current user based on their role
@@ -99,7 +99,7 @@ export class PoliciesGuard implements CanActivate {
 
     if (!hasAccess) {
       throw new ForbiddenException(
-        'You do not have permission to perform this action'
+        "You do not have permission to perform this action"
       );
     }
 

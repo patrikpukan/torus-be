@@ -1,11 +1,11 @@
-import { SetMetadata } from '@nestjs/common';
-import { PolicyHandler } from '../guards/policies.guard';
+import { SetMetadata } from "@nestjs/common";
+import { PolicyHandler } from "../guards/policies.guard";
 
 /**
  * Metadata key for storing policy handlers on resolver methods.
  * Used by PoliciesGuard to retrieve the handlers to check.
  */
-export const CHECK_POLICIES_KEY = 'check_policies';
+export const CHECK_POLICIES_KEY = "check_policies";
 
 /**
  * Check Policies Decorator

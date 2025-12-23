@@ -1,5 +1,10 @@
-import { MutationResponseType, DataResponseType, PaginatedResponseType, ValidatedResponseType } from './response.types';
-import { DeleteResponseType } from './delete-response.type';
+import {
+  MutationResponseType,
+  DataResponseType,
+  PaginatedResponseType,
+  ValidatedResponseType,
+} from "./response.types";
+import { DeleteResponseType } from "./delete-response.type";
 
 /**
  * RESPONSE TYPE EXPORTS AND USAGE GUIDE

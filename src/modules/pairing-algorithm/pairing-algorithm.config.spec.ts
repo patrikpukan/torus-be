@@ -1,6 +1,6 @@
-import type { PairingAlgorithmConfig as PairingAlgorithmConfigType } from './pairing-algorithm.config';
+import type { PairingAlgorithmConfig as PairingAlgorithmConfigType } from "./pairing-algorithm.config";
 
-describe('PairingAlgorithmConfig', () => {
+describe("PairingAlgorithmConfig", () => {
   const originalEnv = process.env;
 
   const resetEnv = () => {
@@ -15,7 +15,7 @@ describe('PairingAlgorithmConfig', () => {
   const loadConfig = () => {
     jest.resetModules();
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const module = require('./pairing-algorithm.config') as {
+    const module = require("./pairing-algorithm.config") as {
       PairingAlgorithmConfig: new () => PairingAlgorithmConfigType;
     };
     return module.PairingAlgorithmConfig;
@@ -29,18 +29,18 @@ describe('PairingAlgorithmConfig', () => {
     process.env = originalEnv;
   });
 
-  it('should use default values', () => {
+  it("should use default values", () => {
     const PairingAlgorithmConfig = loadConfig();
     const config = new PairingAlgorithmConfig();
 
     expect(config.cronEnabled).toBe(true);
-    expect(config.cronSchedule).toBe('0 0 * * 1');
+    expect(config.cronSchedule).toBe("0 0 * * 1");
     expect(config.defaultPeriodDays).toBe(21);
     expect(config.minPeriodDays).toBe(7);
     expect(config.maxPeriodDays).toBe(365);
   });
 
-  it('should validate period constraints', () => {
+  it("should validate period constraints", () => {
     const PairingAlgorithmConfig = loadConfig();
     const config = new PairingAlgorithmConfig();
 

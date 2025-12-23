@@ -5,12 +5,12 @@ import { UserRole } from "../services/authorization.service";
 
 /**
  * Decorator to restrict access to endpoints based on user roles.
- * 
+ *
  * Usage:
  * @RequireRole(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
  * @Query()
  * async someQuery() { ... }
- * 
+ *
  * @RequireRole(UserRole.SUPER_ADMIN)
  * @Mutation()
  * async someAdminMutation() { ... }

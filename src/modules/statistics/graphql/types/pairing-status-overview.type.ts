@@ -8,4 +8,3 @@ export class PairingStatusOverviewType {
   @Field(() => Int)
   count: number;
 }
-

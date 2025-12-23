@@ -6,7 +6,11 @@ import { PairingPeriodRepository } from "./pairing-period.repository";
 
 @Module({
   imports: [PrismaModule],
-  providers: [PairingPeriodResolver, PairingPeriodService, PairingPeriodRepository],
+  providers: [
+    PairingPeriodResolver,
+    PairingPeriodService,
+    PairingPeriodRepository,
+  ],
   exports: [PairingPeriodService],
 })
 export class PairingPeriodModule {}

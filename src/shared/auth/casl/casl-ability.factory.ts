@@ -4,10 +4,10 @@ import {
   AbilityClass,
   ExtractSubjectType,
   InferSubjects,
-} from '@casl/ability';
-import { Injectable } from '@nestjs/common';
-import { Identity } from '../domain/identity';
-import { UserRoleEnum } from 'src/modules/users/domain/user';
+} from "@casl/ability";
+import { Injectable } from "@nestjs/common";
+import { Identity } from "../domain/identity";
+import { UserRoleEnum } from "src/modules/users/domain/user";
 
 /**
  * Subject types that can be managed through CASL.
@@ -15,23 +15,24 @@ import { UserRoleEnum } from 'src/modules/users/domain/user';
  */
 type Subjects =
   | InferSubjects<typeof Object>
-  | 'Organization'
-  | 'User'
-  | 'Pairing'
-  | 'PairingPeriod'
-  | 'AlgorithmSettings'
-  | 'CalendarEvent'
-  | 'MeetingEvent'
-  | 'InviteCode'
-  | 'Report'
-  | 'Department'
-  | 'all';
+  | "Organization"
+  | "User"
+  | "Pairing"
+  | "PairingPeriod"
+  | "AlgorithmSettings"
+  | "CalendarEvent"
+  | "MeetingEvent"
+  | "Rating"
+  | "InviteCode"
+  | "Report"
+  | "Department"
+  | "all";
 
 /**
  * Action types that can be performed on subjects.
  * manage = full control, read = view only, create, update, delete as needed.
  */
-export type Actions = 'manage' | 'create' | 'read' | 'update' | 'delete';
+export type Actions = "manage" | "create" | "read" | "update" | "delete";
 
 /**
  * CASL Ability type for this application.
@@ -100,7 +101,7 @@ export class CaslAbilityFactory {
     build: any
   ): AppAbility {
     // Full access to everything
-    can('manage', 'all');
+    can("manage", "all");
 
     return build({
       detectSubjectType: (item) =>
@@ -126,34 +127,41 @@ export class CaslAbilityFactory {
     identity: Identity
   ): AppAbility {
     // Can manage own organization
-    can('manage', 'Organization', { id: identity.organizationId });
-    can('read', 'Organization');
+    can("manage", "Organization", { id: identity.organizationId });
+    can("read", "Organization");
 
     // Can manage users in their organization
-    can('read', 'User', { organizationId: identity.organizationId });
-    can('update', 'User', { organizationId: identity.organizationId });
-    can('delete', 'User', { organizationId: identity.organizationId });
-    cannot('create', 'User'); // Users sign up themselves
+    can("read", "User", { organizationId: identity.organizationId });
+    can("update", "User", { organizationId: identity.organizationId });
+    can("delete", "User", { organizationId: identity.organizationId });
+    cannot("create", "User"); // Users sign up themselves
 
     // Can manage algorithm settings for their organization
-    can('manage', 'AlgorithmSettings', { organizationId: identity.organizationId });
+    can("manage", "AlgorithmSettings", {
+      organizationId: identity.organizationId,
+    });
 
     // Can manage pairing periods for their organization
-    can('manage', 'PairingPeriod', { organizationId: identity.organizationId });
+    can("manage", "PairingPeriod", { organizationId: identity.organizationId });
 
     // Can manage pairings within their organization
-    can('manage', 'Pairing', { organizationId: identity.organizationId });
+    can("manage", "Pairing", { organizationId: identity.organizationId });
 
     // Can manage invite codes for their organization
-    can('manage', 'InviteCode', { organizationId: identity.organizationId });
+    can("manage", "InviteCode", { organizationId: identity.organizationId });
 
     // Can create and read reports for their organization
-    can('create', 'Report', { organizationId: identity.organizationId });
-    can('read', 'Report', { organizationId: identity.organizationId });
-    can('update', 'Report', { organizationId: identity.organizationId });
+    can("create", "Report", { organizationId: identity.organizationId });
+    can("read", "Report", { organizationId: identity.organizationId });
+    can("update", "Report", { organizationId: identity.organizationId });
 
     // Can manage departments for their organization
-    can('manage', 'Department', { organizationId: identity.organizationId });
+    can("manage", "Department", { organizationId: identity.organizationId });
+
+    // Can read all ratings in their organization
+    can("read", "Rating", {
+      "meetingEvent.pairing.organizationId": identity.organizationId,
+    });
 
     return build({
       detectSubjectType: (item) =>
@@ -178,31 +186,35 @@ export class CaslAbilityFactory {
     identity: Identity
   ): AppAbility {
     // Can read own user profile
-    can('read', 'User', { id: identity.id });
-    can('update', 'User', { id: identity.id });
+    can("read", "User", { id: identity.id });
+    can("update", "User", { id: identity.id });
 
     // Can manage own calendar events
-    can('create', 'CalendarEvent', { userId: identity.id });
-    can('read', 'CalendarEvent', { userId: identity.id });
-    can('update', 'CalendarEvent', { userId: identity.id });
-    can('delete', 'CalendarEvent', { userId: identity.id });
+    can("create", "CalendarEvent", { userId: identity.id });
+    can("read", "CalendarEvent", { userId: identity.id });
+    can("update", "CalendarEvent", { userId: identity.id });
+    can("delete", "CalendarEvent", { userId: identity.id });
 
     // Can manage own meeting events (meetings they're part of)
     // Note: MeetingEvent access should be checked via userAId or userBId
-    can('read', 'MeetingEvent', { userAId: identity.id });
-    can('read', 'MeetingEvent', { userBId: identity.id });
-    can('update', 'MeetingEvent', { userAId: identity.id });
-    can('update', 'MeetingEvent', { userBId: identity.id });
+    can("read", "MeetingEvent", { userAId: identity.id });
+    can("read", "MeetingEvent", { userBId: identity.id });
+    can("update", "MeetingEvent", { userAId: identity.id });
+    can("update", "MeetingEvent", { userBId: identity.id });
 
     // Can read their own organization (basic info)
-    can('read', 'Organization', { id: identity.organizationId });
+    can("read", "Organization", { id: identity.organizationId });
 
     // Cannot perform admin actions
-    cannot('manage', 'AlgorithmSettings');
-    cannot('manage', 'PairingPeriod');
-    cannot('manage', 'Report');
-    cannot('manage', 'InviteCode');
-    cannot('manage', 'Department');
+    cannot("manage", "AlgorithmSettings");
+    cannot("manage", "PairingPeriod");
+    cannot("manage", "Report");
+    cannot("manage", "InviteCode");
+    cannot("manage", "Department");
+
+    // Can create and read own ratings
+    can("create", "Rating", { userId: identity.id });
+    can("read", "Rating", { userId: identity.id });
 
     return build({
       detectSubjectType: (item) =>

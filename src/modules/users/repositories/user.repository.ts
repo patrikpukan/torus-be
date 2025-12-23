@@ -20,15 +20,26 @@ export type PrismaUserWithOrganizationEntity = Prisma.UserGetPayload<{
   supabaseUserId?: string | null;
 };
 
-export const mapPrismaUserToDomainUser = (
-  user: PrismaUserEntity
-): UserType => {
+export const mapPrismaUserToDomainUser = (user: PrismaUserEntity): UserType => {
   const profileStatus =
     (user as unknown as { profileStatus?: ProfileStatusEnum })?.profileStatus ??
     ProfileStatusEnum.pending;
 
   // Extract hobbies and interests from userTags if available
-  const userTags = (user as unknown as { userTags?: Array<{ tag: { id: string; name: string; category: string; createdAt: Date; updatedAt: Date } }> })?.userTags ?? [];
+  const userTags =
+    (
+      user as unknown as {
+        userTags?: Array<{
+          tag: {
+            id: string;
+            name: string;
+            category: string;
+            createdAt: Date;
+            updatedAt: Date;
+          };
+        }>;
+      }
+    )?.userTags ?? [];
   const hobbies = userTags
     .filter((ut) => ut.tag.category === "HOBBY")
     .map((ut) => ({
@@ -91,7 +102,7 @@ export class UserRepository {
     tx?: Prisma.TransactionClient
   ): Promise<UserType | null> {
     const client = this.getClient(tx);
-    const user = await client.user.findUnique({ 
+    const user = await client.user.findUnique({
       where: { id },
       include: {
         userTags: {
@@ -112,7 +123,7 @@ export class UserRepository {
     const client = this.getClient(tx);
     const user = await client.user.findUnique({
       where: { id },
-      include: { 
+      include: {
         organization: true,
         userTags: {
           include: {
@@ -130,7 +141,7 @@ export class UserRepository {
     tx?: Prisma.TransactionClient
   ): Promise<UserType | null> {
     const client = this.getClient(tx);
-    const user = await client.user.findUnique({ 
+    const user = await client.user.findUnique({
       where: { email },
       include: {
         userTags: {
@@ -180,8 +191,8 @@ export class UserRepository {
     const users = await client.user.findMany({
       where: filters?.organizationId
         ? {
-          organizationId: filters.organizationId,
-        }
+            organizationId: filters.organizationId,
+          }
         : undefined,
       include: {
         userTags: {

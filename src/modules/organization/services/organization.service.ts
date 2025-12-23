@@ -83,17 +83,16 @@ export class OrganizationService {
 
       // Use inviteUserByEmail - this automatically sends an invitation email
       // with a link for the user to set their password
-      const supabaseResult =
-        await this.supabaseAdminService.inviteUserByEmail(
-          data.adminEmail,
-          {
-            data: {
-              organization_id: organization.id,
-              organization_name: organization.name,
-              role: UserRoleEnum.org_admin,
-            },
-          }
-        );
+      const supabaseResult = await this.supabaseAdminService.inviteUserByEmail(
+        data.adminEmail,
+        {
+          data: {
+            organization_id: organization.id,
+            organization_name: organization.name,
+            role: UserRoleEnum.org_admin,
+          },
+        }
+      );
 
       if (supabaseResult.error) {
         this.logger.error(
@@ -126,9 +125,7 @@ export class OrganizationService {
 
       if (!adminUser) {
         // If trigger didn't create user (no default org), create manually
-        this.logger.warn(
-          "Trigger did not create user, creating manually"
-        );
+        this.logger.warn("Trigger did not create user, creating manually");
         adminUser = await tx.user.create({
           data: {
             id: supabaseAuthId,
@@ -374,7 +371,6 @@ export class OrganizationService {
     }
 
     try {
-
       const supabaseResult = await this.supabaseAdminService.inviteUserByEmail(
         email,
         {

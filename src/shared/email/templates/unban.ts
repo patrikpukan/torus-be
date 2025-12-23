@@ -5,7 +5,9 @@ import {
   escapeHtml,
 } from "./layout";
 
-export function buildUnbanEmail(params: { siteUrl?: string; greeting?: string } = {}) {
+export function buildUnbanEmail(
+  params: { siteUrl?: string; greeting?: string } = {}
+) {
   const title = "Access to Torus restored";
   const greetingBlock = params.greeting
     ? renderMjText(escapeHtml(params.greeting))

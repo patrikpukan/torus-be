@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../core/prisma/prisma.service';
-import { CalendarEventType } from '@prisma/client';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../../core/prisma/prisma.service";
+import { CalendarEventType } from "@prisma/client";
 
 /**
  * Repository for Google Calendar data access.
@@ -49,7 +49,7 @@ export class GoogleCalendarRepository {
    */
   async findEventByExternalId(
     userId: string,
-    externalId: string,
+    externalId: string
   ): Promise<{
     id: string;
     externalId: string | null;
@@ -72,14 +72,16 @@ export class GoogleCalendarRepository {
   async getEventsByDateRange(
     userId: string,
     startDate: Date,
-    endDate: Date,
-  ): Promise<Array<{
-    id: string;
-    title: string | null;
-    startDateTime: Date;
-    endDateTime: Date;
-    externalId: string | null;
-  }>> {
+    endDate: Date
+  ): Promise<
+    Array<{
+      id: string;
+      title: string | null;
+      startDateTime: Date;
+      endDateTime: Date;
+      externalId: string | null;
+    }>
+  > {
     return this.prisma.calendarEvent.findMany({
       where: {
         userId,
@@ -152,7 +154,7 @@ export class GoogleCalendarRepository {
       startDateTime?: Date;
       endDateTime?: Date;
       rrule?: string;
-    },
+    }
   ): Promise<{ id: string }> {
     return this.prisma.calendarEvent.update({
       where: { id: eventId },
@@ -164,7 +166,10 @@ export class GoogleCalendarRepository {
   /**
    * Mark event as synced from external source
    */
-  async markEventSynced(eventId: string, externalSource: string): Promise<{ id: string }> {
+  async markEventSynced(
+    eventId: string,
+    externalSource: string
+  ): Promise<{ id: string }> {
     return this.prisma.calendarEvent.update({
       where: { id: eventId },
       data: { externalSource },
@@ -175,10 +180,12 @@ export class GoogleCalendarRepository {
   /**
    * Get organization users for calendar sync
    */
-  async getOrganizationUsers(organizationId: string): Promise<Array<{
-    id: string;
-    email: string;
-  }>> {
+  async getOrganizationUsers(organizationId: string): Promise<
+    Array<{
+      id: string;
+      email: string;
+    }>
+  > {
     return this.prisma.user.findMany({
       where: {
         organizationId,
@@ -205,7 +212,11 @@ export class GoogleCalendarRepository {
   /**
    * Get imported events count for user
    */
-  async getImportedEventCount(userId: string, startDate: Date, endDate: Date): Promise<number> {
+  async getImportedEventCount(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<number> {
     return this.prisma.calendarEvent.count({
       where: {
         userId,

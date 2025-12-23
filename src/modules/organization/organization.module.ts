@@ -21,6 +21,11 @@ import { AuthModule } from "../../shared/auth/auth.module";
     DepartmentResolver,
     SupabaseAdminService,
   ],
-  exports: [OrganizationService, OrganizationRepository, InviteCodeService, DepartmentService],
+  exports: [
+    OrganizationService,
+    OrganizationRepository,
+    InviteCodeService,
+    DepartmentService,
+  ],
 })
 export class OrganizationModule {}

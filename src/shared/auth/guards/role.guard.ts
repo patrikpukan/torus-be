@@ -6,7 +6,10 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { GqlExecutionContext } from "@nestjs/graphql";
-import { AuthorizationService, UserRole } from "../services/authorization.service";
+import {
+  AuthorizationService,
+  UserRole,
+} from "../services/authorization.service";
 import { Identity } from "../domain/identity";
 
 @Injectable()

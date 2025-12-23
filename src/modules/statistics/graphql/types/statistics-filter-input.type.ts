@@ -17,4 +17,3 @@ export class StatisticsFilterInputType {
   @Field(() => String, { nullable: true })
   organizationId?: string;
 }
-

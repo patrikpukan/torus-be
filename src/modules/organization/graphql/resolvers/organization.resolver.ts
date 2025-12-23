@@ -1,4 +1,12 @@
-import { Args, ID, Mutation, Query, Resolver, ResolveField, Parent } from "@nestjs/graphql";
+import {
+  Args,
+  ID,
+  Mutation,
+  Query,
+  Resolver,
+  ResolveField,
+  Parent,
+} from "@nestjs/graphql";
 import { OrganizationService } from "../../services/organization.service";
 import { InviteCodeService } from "../../services/invite-code.service";
 import { DepartmentService } from "../../services/department.service";
@@ -32,14 +40,14 @@ export class OrganizationResolver {
   ) {}
 
   @UseGuards(AuthenticatedUserGuard, PoliciesGuard)
-  @CheckPolicies((ability) => ability.can('read', 'Organization'))
+  @CheckPolicies((ability) => ability.can("read", "Organization"))
   @Query(() => [OrganizationType])
   async organizations(): Promise<OrganizationType[]> {
     return this.organizationService.listOrganizations();
   }
 
   @UseGuards(AuthenticatedUserGuard, PoliciesGuard)
-  @CheckPolicies((ability) => ability.can('read', 'Organization'))
+  @CheckPolicies((ability) => ability.can("read", "Organization"))
   @Query(() => OrganizationType, { nullable: true })
   async organizationById(
     @Args("id", { type: () => ID }) id: string
@@ -48,7 +56,7 @@ export class OrganizationResolver {
   }
 
   @UseGuards(AuthenticatedUserGuard, PoliciesGuard)
-  @CheckPolicies((ability) => ability.can('read', 'Organization'))
+  @CheckPolicies((ability) => ability.can("read", "Organization"))
   @Query(() => OrganizationType, { nullable: true })
   async myOrganization(
     @User() identity: Identity
@@ -57,7 +65,7 @@ export class OrganizationResolver {
   }
 
   @UseGuards(AuthenticatedUserGuard, PoliciesGuard)
-  @CheckPolicies((ability) => ability.can('manage', 'Organization'))
+  @CheckPolicies((ability) => ability.can("manage", "Organization"))
   @Mutation(() => OrganizationType)
   async updateOrganization(
     @Args("input") input: UpdateOrganizationInputType
@@ -71,7 +79,7 @@ export class OrganizationResolver {
   }
 
   @UseGuards(AuthenticatedUserGuard, PoliciesGuard)
-  @CheckPolicies((ability) => ability.can('manage', 'InviteCode'))
+  @CheckPolicies((ability) => ability.can("manage", "InviteCode"))
   @Mutation(() => InviteUserResponseType)
   async inviteUserToOrganization(
     @Args("input") input: InviteUserInputType

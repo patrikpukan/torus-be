@@ -116,7 +116,10 @@ export class StatisticsService {
       // Group pairings by user and status
       const pairingsByUserMap = new Map<
         string,
-        Map<string, { user: { id: string; email: string; name: string }; count: number }>
+        Map<
+          string,
+          { user: { id: string; email: string; name: string }; count: number }
+        >
       >();
 
       for (const pairing of pairings) {
@@ -130,9 +133,10 @@ export class StatisticsService {
             user: {
               id: pairing.userA.id,
               email: pairing.userA.email,
-              name: [pairing.userA.firstName, pairing.userA.lastName]
-                .filter(Boolean)
-                .join(" ") || pairing.userA.email,
+              name:
+                [pairing.userA.firstName, pairing.userA.lastName]
+                  .filter(Boolean)
+                  .join(" ") || pairing.userA.email,
             },
             count: 0,
           });
@@ -149,9 +153,10 @@ export class StatisticsService {
             user: {
               id: pairing.userB.id,
               email: pairing.userB.email,
-              name: [pairing.userB.firstName, pairing.userB.lastName]
-                .filter(Boolean)
-                .join(" ") || pairing.userB.email,
+              name:
+                [pairing.userB.firstName, pairing.userB.lastName]
+                  .filter(Boolean)
+                  .join(" ") || pairing.userB.email,
             },
             count: 0,
           });
@@ -244,7 +249,7 @@ export class StatisticsService {
         },
       },
       orderBy: {
-        name: 'asc',
+        name: "asc",
       },
     });
 
@@ -253,7 +258,10 @@ export class StatisticsService {
       userCount: dept._count.users,
     }));
 
-    const totalUsers = departments.reduce((sum, dept) => sum + dept.userCount, 0);
+    const totalUsers = departments.reduce(
+      (sum, dept) => sum + dept.userCount,
+      0
+    );
 
     return {
       departments,
@@ -261,4 +269,3 @@ export class StatisticsService {
     };
   }
 }
-

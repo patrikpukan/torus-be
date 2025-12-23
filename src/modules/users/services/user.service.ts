@@ -13,11 +13,7 @@ import {
   forwardRef,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import {
-  CurrentUser,
-  ProfileStatusEnum,
-  UserRoleEnum,
-} from "../domain/user";
+import { CurrentUser, ProfileStatusEnum, UserRoleEnum } from "../domain/user";
 import { computeDerivedPairingStatus } from "../../calendar/domain/pairing-status.machine";
 import { UserRepository } from "../repositories/user.repository";
 import { Identity } from "src/shared/auth/domain/identity";
@@ -103,11 +99,10 @@ export class UserService {
 
   async getCurrentUser(identity: Identity): Promise<CurrentUser | null> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
-      const user =
-        await this.userRepository.getUserWithOrganizationById(
-          identity.id,
-          tx
-        );
+      const user = await this.userRepository.getUserWithOrganizationById(
+        identity.id,
+        tx
+      );
 
       if (!user) {
         return null;
@@ -125,7 +120,10 @@ export class UserService {
     });
   }
 
-  async listUsers(identity: Identity, organizationId?: string): Promise<UserType[]> {
+  async listUsers(
+    identity: Identity,
+    organizationId?: string
+  ): Promise<UserType[]> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const role = identity.appRole as UserRoleEnum | undefined;
       const isSuperAdmin = role === UserRoleEnum.super_admin;
@@ -176,8 +174,7 @@ export class UserService {
       );
 
       return users.filter(
-        (user) =>
-          user.id !== identity.id && !blockedUserIds.has(user.id ?? "")
+        (user) => user.id !== identity.id && !blockedUserIds.has(user.id ?? "")
       );
     });
   }
@@ -260,7 +257,9 @@ export class UserService {
           profileImageUrl:
             typeof data.avatarUrl !== "undefined" ? data.avatarUrl : undefined,
           departmentId:
-            typeof data.departmentId !== "undefined" ? data.departmentId : undefined,
+            typeof data.departmentId !== "undefined"
+              ? data.departmentId
+              : undefined,
         },
         tx
       );
@@ -1070,7 +1069,7 @@ export class UserService {
       reason,
       expiresAt: normalizedExpiry,
       siteUrl: this.config.frontendBaseUrl ?? this.config.baseUrl,
-      greeting: (`Hello ${user.firstName ?? ""}`).trim() || "Hello",
+      greeting: `Hello ${user.firstName ?? ""}`.trim() || "Hello",
     });
 
     await this.emailService.sendMail({
@@ -1081,16 +1080,17 @@ export class UserService {
     });
   }
 
-  private async sendUnbanEmail(
-    user: { email?: string | null; firstName?: string | null }
-  ): Promise<void> {
+  private async sendUnbanEmail(user: {
+    email?: string | null;
+    firstName?: string | null;
+  }): Promise<void> {
     if (!user.email) {
       return;
     }
 
     const template = buildUnbanEmail({
       siteUrl: this.config.frontendBaseUrl ?? this.config.baseUrl,
-      greeting: (`Hello ${user.firstName ?? ""}`).trim() || "Hello",
+      greeting: `Hello ${user.firstName ?? ""}`.trim() || "Hello",
     });
 
     await this.emailService.sendMail({
