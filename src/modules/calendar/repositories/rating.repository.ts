@@ -89,12 +89,23 @@ export class RatingRepository {
   }
 
   async findReceivedRatings(receivedByUserId: string): Promise<any[]> {
-    // Find all ratings received by a user (where they are one of the meeting participants)
+    // Find all ratings received by a user (ratings given by others for meetings where this user participated)
     const results = await this.prisma.rating.findMany({
       where: {
-        meetingEvent: {
-          OR: [{ userAId: receivedByUserId }, { userBId: receivedByUserId }],
-        },
+        AND: [
+          // User must be a participant in the meeting
+          {
+            meetingEvent: {
+              OR: [{ userAId: receivedByUserId }, { userBId: receivedByUserId }],
+            },
+          },
+          // But the rating must be given BY someone else (not the user themselves)
+          {
+            userId: {
+              not: receivedByUserId,
+            },
+          },
+        ],
       },
       include: {
         meetingEvent: {

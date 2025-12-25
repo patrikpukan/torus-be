@@ -810,17 +810,10 @@ async function createMeetingEventForPairing(
       return;
     }
 
-    // Check if meeting already exists for this pairing
-    const existingMeeting = await prisma.meetingEvent.findFirst({
-      where: { pairingId: pairing.id },
-    });
-
-    if (existingMeeting) {
-      console.log(`    ⚠️  Meeting already exists for pairing, skipping...`);
-      return;
-    }
-
     const isPast = pairing.status === "met";
+
+    // For met pairings, create 2-3 past meetings to accumulate more ratings
+    const numMeetings = isPast ? 2 + Math.floor(Math.random() * 2) : 1;
 
     // Helper to get random weekday, moving weekends to Monday
     function getRandomWeekday(daysOffset: number): Date {
@@ -831,64 +824,82 @@ async function createMeetingEventForPairing(
       return date;
     }
 
-    // Calculate meeting date based on pairing status
-    const daysOffset = isPast
-      ? -(3 + Math.floor(Math.random() * 5)) // Past: -3 to -7 days
-      : 2 + Math.floor(Math.random() * 4); // Future: +2 to +5 days
+    for (let meetingNum = 0; meetingNum < numMeetings; meetingNum++) {
+      // Check if meeting already exists for this pairing at a different time
+      const existingMeetings = await prisma.meetingEvent.findMany({
+        where: { pairingId: pairing.id },
+      });
 
-    const meetingDate = getRandomWeekday(daysOffset);
+      // For future meetings, only create one. For past meetings, allow multiple.
+      if (!isPast && existingMeetings.length > 0) {
+        console.log(`    ⚠️  Meeting already exists for pairing, skipping...`);
+        return;
+      }
 
-    // Set random business hour (10am, 11am, 2pm, 3pm are common slots)
-    const hours = [10, 11, 14, 15];
-    const hour = hours[Math.floor(Math.random() * hours.length)];
-    meetingDate.setHours(hour, 0, 0, 0);
+      // Calculate meeting date based on pairing status
+      let daysOffset: number;
+      if (isPast) {
+        // Space out multiple past meetings: first is -3 to -7 days, second is -10 to -21 days, etc.
+        const baseOffset = -(3 + meetingNum * 7);
+        daysOffset = baseOffset - Math.floor(Math.random() * 5);
+      } else {
+        daysOffset = 2 + Math.floor(Math.random() * 4);
+      }
 
-    // End time is 1 hour later
-    const endDate = new Date(meetingDate);
-    endDate.setHours(hour + 1, 0, 0, 0);
+      const meetingDate = getRandomWeekday(daysOffset);
 
-    // Confirmation status: past meetings are fully confirmed
-    // Future meetings: 60% both confirmed, 40% userB pending
-    const userBConfirmed = isPast || Math.random() > 0.4;
+      // Set random business hour (10am, 11am, 2pm, 3pm are common slots)
+      const hours = [10, 11, 14, 15];
+      const hour = hours[Math.floor(Math.random() * hours.length)];
+      meetingDate.setHours(hour, 0, 0, 0);
 
-    // Notes: past meetings have specific topics, future meetings may have intent
-    const topics = ["technology", "hobbies", "career goals", "work projects"];
-    const userANote = isPast
-      ? `Great conversation about ${topics[Math.floor(Math.random() * topics.length)]}!`
-      : Math.random() > 0.5
-        ? "Looking forward to this"
-        : null;
+      // End time is 1 hour later
+      const endDate = new Date(meetingDate);
+      endDate.setHours(hour + 1, 0, 0, 0);
 
-    // Randomly choose who created the meeting
-    const createdByUserId =
-      Math.random() > 0.5 ? pairing.userAId : pairing.userBId;
+      // Confirmation status: past meetings are fully confirmed
+      // Future meetings: 60% both confirmed, 40% userB pending
+      const userBConfirmed = isPast || Math.random() > 0.4;
 
-    await prisma.meetingEvent.create({
-      data: {
-        pairingId: pairing.id,
-        userAId: pairing.userAId,
-        userBId: pairing.userBId,
-        startDateTime: meetingDate,
-        endDateTime: endDate,
-        userAConfirmationStatus: "confirmed",
-        userBConfirmationStatus: userBConfirmed ? "confirmed" : "pending",
-        createdByUserId,
-        userANote,
-      },
-    });
+      // Notes: past meetings have specific topics, future meetings may have intent
+      const topics = ["technology", "hobbies", "career goals", "work projects"];
+      const userANote = isPast
+        ? `Great conversation about ${topics[Math.floor(Math.random() * topics.length)]}!`
+        : Math.random() > 0.5
+          ? "Looking forward to this"
+          : null;
 
-    const dateStr = meetingDate.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-    const timeStr = meetingDate.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-    console.log(
-      `    ✓ Created meeting event (${dateStr} @ ${timeStr}, ${pairing.status})`
-    );
+      // Randomly choose who created the meeting
+      const createdByUserId =
+        Math.random() > 0.5 ? pairing.userAId : pairing.userBId;
+
+      await prisma.meetingEvent.create({
+        data: {
+          pairingId: pairing.id,
+          userAId: pairing.userAId,
+          userBId: pairing.userBId,
+          startDateTime: meetingDate,
+          endDateTime: endDate,
+          userAConfirmationStatus: "confirmed",
+          userBConfirmationStatus: userBConfirmed ? "confirmed" : "pending",
+          createdByUserId,
+          userANote,
+        },
+      });
+
+      const dateStr = meetingDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+      const timeStr = meetingDate.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      console.log(
+        `    ✓ Created meeting event (${dateStr} @ ${timeStr}, ${pairing.status})`
+      );
+    }
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
     console.error(
@@ -896,6 +907,118 @@ async function createMeetingEventForPairing(
       err
     );
     // Don't throw - meeting events are optional for demo
+  }
+}
+
+/**
+ * Creates ratings for past meeting events
+ * Generates realistic 1-5 star ratings with optional feedback
+ * Only creates ratings for meetings that have already occurred
+ * Both participants in a meeting will rate each other
+ * @param prisma - Prisma client instance
+ * @returns Promise<void>
+ */
+async function createRatingsForPastMeetings(prisma: PrismaClient): Promise<void> {
+  try {
+    // Find all past meetings (endDateTime is in the past)
+    const pastMeetings = await prisma.meetingEvent.findMany({
+      where: {
+        endDateTime: {
+          lt: new Date(),
+        },
+        cancelledAt: null,
+      },
+    });
+
+    if (pastMeetings.length === 0) {
+      console.log("    ℹ️  No past meetings found");
+      return;
+    }
+
+    // Sample feedback messages
+    const feedbackOptions = [
+      "Great conversation and very insightful!",
+      "Really enjoyed meeting and learning about their perspective.",
+      "Excellent communicator and very approachable.",
+      "Had meaningful discussion, looking forward to next meeting.",
+      "Very professional and collaborative.",
+      "Interesting ideas and good chemistry.",
+      "Productive meeting with lots to discuss.",
+      "Could tell they put thought into our conversation.",
+      "Would definitely like to pair again!",
+      "Appreciated their unique insights and perspective.",
+      "Great energy and enthusiasm throughout the meeting.",
+      "Looking forward to our next pairing session.",
+      "Very thoughtful and considerate in our discussion.",
+      "Made me think differently about the topic.",
+      "Excellent listener and really engaged.",
+    ];
+
+    let ratingsCreated = 0;
+
+    for (const meeting of pastMeetings) {
+      // Check if ratings already exist for this meeting
+      const existingRatings = await prisma.rating.findMany({
+        where: { meetingEventId: meeting.id },
+      });
+
+      if (existingRatings.length >= 2) {
+        continue; // Both users already rated
+      }
+
+      // Create ratings from both users
+      // userA rates userB
+      const ratingAExists = existingRatings.some(
+        (r) => r.userId === meeting.userAId
+      );
+      if (!ratingAExists) {
+        const starsA = Math.floor(Math.random() * 4) + 2; // 2-5 stars
+        const feedbackA =
+          feedbackOptions[
+            Math.floor(Math.random() * feedbackOptions.length)
+          ];
+
+        await prisma.rating.create({
+          data: {
+            meetingEventId: meeting.id,
+            userId: meeting.userAId,
+            stars: starsA,
+            feedback: feedbackA,
+          },
+        });
+        ratingsCreated++;
+      }
+
+      // userB rates userA
+      const ratingBExists = existingRatings.some(
+        (r) => r.userId === meeting.userBId
+      );
+      if (!ratingBExists) {
+        const starsB = Math.floor(Math.random() * 4) + 2; // 2-5 stars
+        const feedbackB =
+          feedbackOptions[
+            Math.floor(Math.random() * feedbackOptions.length)
+          ];
+
+        await prisma.rating.create({
+          data: {
+            meetingEventId: meeting.id,
+            userId: meeting.userBId,
+            stars: starsB,
+            feedback: feedbackB,
+          },
+        });
+        ratingsCreated++;
+      }
+    }
+
+    console.log(
+      `    ✓ Created ${ratingsCreated} ratings for ${pastMeetings.length} past meetings`
+    );
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Error creating ratings for past meetings:`, err);
+    // Don't throw - ratings are optional for demo
   }
 }
 
@@ -1697,6 +1820,7 @@ async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
       pairings: await prisma.pairing.count(),
       calendarEvents: await prisma.calendarEvent.count(),
       meetingEvents: await prisma.meetingEvent.count(),
+      ratings: await prisma.rating.count(),
     };
 
     // Get status breakdowns
@@ -1737,6 +1861,7 @@ async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
     console.log(`🤝 Pairings:          ${stats.pairings}`);
     console.log(`📅 Calendar Events:   ${stats.calendarEvents}`);
     console.log(`📆 Meeting Events:    ${stats.meetingEvents}`);
+    console.log(`⭐ Ratings:           ${stats.ratings}`);
 
     // Display period status breakdown
     console.log("\n🗓️  Pairing Period Status:");
@@ -2047,11 +2172,15 @@ async function main(): Promise<void> {
         }
       }
 
-      // 2g. Create user reports for some pairings
+      // 2g. Create ratings for past meetings
+      console.log("\n⭐ Creating meeting ratings...");
+      await createRatingsForPastMeetings(prisma);
+
+      // 2h. Create user reports for some pairings
       console.log("\n📋 Creating user reports...");
       await createUserReportsForPairings(prisma, pairings, users);
 
-      // 2h. Create user bans for organization
+      // 2i. Create user bans for organization
       console.log("\n🚫 Creating user bans...");
       await createUserBansForOrg(prisma, orgId, users);
     }
