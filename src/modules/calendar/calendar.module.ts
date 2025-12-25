@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../core/prisma/prisma.module";
+import { AuthModule } from "../../shared/auth/auth.module";
 import { CalendarEventRepository } from "./repositories/calendar-event.repository";
 import { MeetingEventRepository } from "./repositories/meeting-event.repository";
 import { RatingRepository } from "./repositories/rating.repository";
@@ -12,7 +13,7 @@ import { RatingResolver } from "./graphql/resolvers/rating.resolver";
 import { PairingAlgorithmModule } from "../pairing-algorithm/pairing-algorithm.module";
 
 @Module({
-  imports: [PrismaModule, PairingAlgorithmModule],
+  imports: [PrismaModule, AuthModule, PairingAlgorithmModule],
   providers: [
     CalendarEventRepository,
     MeetingEventRepository,

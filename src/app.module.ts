@@ -25,15 +25,15 @@ const imports = [
   }),
   AuthModule,
   SeedModule,
-  UsersModule,
   OrganizationModule,
-  CalendarModule,
-  GoogleCalendarModule,
-  GraphqlSetupModule,
   PairingAlgorithmModule,
   PairingPeriodModule,
+  CalendarModule,
+  GoogleCalendarModule,
+  UsersModule,
   StatisticsModule,
   ChatModule,
+  GraphqlSetupModule,
 ];
 
 @Module({

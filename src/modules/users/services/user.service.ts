@@ -6,11 +6,9 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
-  Inject,
   Injectable,
   Logger,
   NotFoundException,
-  forwardRef,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { CurrentUser, ProfileStatusEnum, UserRoleEnum } from "../domain/user";
@@ -55,7 +53,6 @@ export class UserService {
     private readonly authorizationService: AuthorizationService,
     private readonly config: Config,
     private readonly emailService: EmailService,
-    @Inject(forwardRef(() => InviteCodeService))
     private readonly inviteCodeService: InviteCodeService
   ) {}
 

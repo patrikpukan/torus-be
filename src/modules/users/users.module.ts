@@ -1,4 +1,4 @@
-import { Module, forwardRef } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import { ConfigModule } from "@applifting-io/nestjs-decorated-config";
 import { PrismaModule } from "../../core/prisma/prisma.module";
 import { UserResolver } from "./graphql/resolvers/user.resolver";
@@ -14,13 +14,15 @@ import { AuthModule } from "../../shared/auth/auth.module";
 import { EmailService } from "../../shared/email/email.service";
 import { ReportRepository } from "./repositories/report.repository";
 import { ReportResolver } from "./graphql/resolvers/report.resolver";
+import { CalendarModule } from "../calendar/calendar.module";
 
 @Module({
   imports: [
     ConfigModule,
     PrismaModule,
     AuthModule,
-    forwardRef(() => OrganizationModule),
+    OrganizationModule,
+    CalendarModule,
   ],
   providers: [
     UserRepository,
