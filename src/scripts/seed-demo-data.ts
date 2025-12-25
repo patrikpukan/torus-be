@@ -1308,8 +1308,13 @@ async function createDemoUser(
       });
 
     if (authError) {
-      // Check if user already exists in Supabase Auth
-      if (authError.message?.includes("already exists")) {
+      // Check if user already exists in Supabase Auth (by error code or message)
+      const isEmailExists =
+        (authError as any).code === "email_exists" ||
+        authError.message?.includes("already exists") ||
+        authError.message?.includes("already been registered");
+
+      if (isEmailExists) {
         console.log(`⚠️  Supabase user already exists: ${email}`);
 
         // Try to get the existing user
@@ -1869,66 +1874,8 @@ async function cleanupSupabaseAuthUsers(): Promise<void> {
  * @returns void
  * @throws Error if required environment variables are missing or database operations fail
  */
-/**
- * Cleanup Supabase Auth demo users before seeding
- * Prevents "user already exists" errors when re-running seed
- */
-async function cleanupSupabaseAuthDemoUsers(): Promise<void> {
-  try {
-    if (!supabaseUrl || !supabaseSecretKey) {
-      return; // Skip if credentials not available
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-
-    // Get all users from Supabase Auth
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers();
-
-    if (error || !data?.users) {
-      return; // Skip on error
-    }
-
-    // Find demo users (those with @torus.com emails)
-    const demoUsers = data.users.filter(
-      (user) => user.email && user.email.includes("@torus.com")
-    );
-
-    if (demoUsers.length === 0) {
-      return; // No demo users to clean
-    }
-
-    console.log(
-      `🧹 Cleaning up ${demoUsers.length} existing demo users from Supabase Auth...`
-    );
-
-    let deletedCount = 0;
-    for (const user of demoUsers) {
-      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
-        user.id
-      );
-      if (!deleteError) {
-        deletedCount++;
-      }
-    }
-
-    console.log(`  ✓ Deleted ${deletedCount} demo users from Supabase Auth\n`);
-  } catch (error) {
-    const err = error instanceof Error ? error.message : String(error);
-    console.warn(`⚠️  Warning: Could not cleanup Supabase Auth users: ${err}`);
-    console.warn("  Continuing with seed...\n");
-  }
-}
-
 async function main(): Promise<void> {
   console.log("🚀 Starting Torus demo data seeding...\n");
-
-  // Clean up any existing demo users from Supabase Auth first
-  await cleanupSupabaseAuthDemoUsers();
 
   // Check required environment variables
   if (!supabaseUrl || !supabaseSecretKey) {
