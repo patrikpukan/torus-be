@@ -16,7 +16,10 @@ import {
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
 } from "../domain/calendar-event";
-import { PauseActivityInput, PauseDurationType } from "../dto/pause-activity.input";
+import {
+  PauseActivityInput,
+  PauseDurationType,
+} from "../dto/pause-activity.input";
 import { PairingAlgorithmService } from "../../pairing-algorithm/pairing-algorithm.service";
 
 @Injectable()
@@ -696,7 +699,7 @@ export class CalendarEventService {
    */
   async pauseActivity(
     identity: Identity,
-    input: PauseActivityInput,
+    input: PauseActivityInput
   ): Promise<CalendarEvent> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const userId = identity.id;
@@ -708,12 +711,12 @@ export class CalendarEventService {
       });
 
       if (!user?.organizationId) {
-        throw new Error('User organization not found');
+        throw new Error("User organization not found");
       }
 
       // Calculate start time (next period start)
       const startTime = await this.pairingAlgorithmService.getNextPeriodStart(
-        user.organizationId,
+        user.organizationId
       );
 
       // Calculate end time based on duration type
@@ -725,39 +728,41 @@ export class CalendarEventService {
           endTime = await this.pairingAlgorithmService.calculatePeriodEnd(
             user.organizationId,
             startTime,
-            1,
+            1
           );
-          description = 'Paused for 1 period';
+          description = "Paused for 1 period";
           break;
 
         case PauseDurationType.N_PERIODS:
           if (!input.periodsCount || input.periodsCount < 1) {
-            throw new Error('periodsCount must be at least 1');
+            throw new Error("periodsCount must be at least 1");
           }
           endTime = await this.pairingAlgorithmService.calculatePeriodEnd(
             user.organizationId,
             startTime,
-            input.periodsCount,
+            input.periodsCount
           );
           description = `Paused for ${input.periodsCount} periods`;
           break;
 
         case PauseDurationType.UNTIL_DATE:
           if (!input.untilDate) {
-            throw new Error('untilDate is required for UNTIL_DATE duration type');
+            throw new Error(
+              "untilDate is required for UNTIL_DATE duration type"
+            );
           }
           endTime = new Date(input.untilDate);
-          description = `Paused until ${endTime.toLocaleDateString('en-US')}`;
+          description = `Paused until ${endTime.toLocaleDateString("en-US")}`;
           break;
 
         case PauseDurationType.INDEFINITE:
           endTime = new Date();
           endTime.setFullYear(endTime.getFullYear() + 100);
-          description = 'Paused indefinitely';
+          description = "Paused indefinitely";
           break;
 
         default:
-          throw new Error('Invalid duration type');
+          throw new Error("Invalid duration type");
       }
 
       // Create calendar event
@@ -765,7 +770,7 @@ export class CalendarEventService {
         {
           user: { connect: { id: userId } },
           type: CalendarEventType.unavailability,
-          title: 'Activity Paused',
+          title: "Activity Paused",
           description,
           startDateTime: startTime,
           endDateTime: endTime,
@@ -793,19 +798,20 @@ export class CalendarEventService {
       const farFuture = new Date();
       farFuture.setFullYear(farFuture.getFullYear() + 100);
 
-      const pauseEvents = await this.calendarEventRepository.findByUserIdAndDateRange(
-        userId,
-        now,
-        farFuture,
-        tx,
-      );
+      const pauseEvents =
+        await this.calendarEventRepository.findByUserIdAndDateRange(
+          userId,
+          now,
+          farFuture,
+          tx
+        );
 
       // Filter for pause events (title = 'Activity Paused')
       const activePauseEvents = pauseEvents.filter(
         (event) =>
           event.type === CalendarEventType.unavailability &&
-          event.title === 'Activity Paused' &&
-          !event.deletedAt,
+          event.title === "Activity Paused" &&
+          !event.deletedAt
       );
 
       // Soft delete each pause event

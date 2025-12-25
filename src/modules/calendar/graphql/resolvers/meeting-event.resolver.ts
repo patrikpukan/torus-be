@@ -25,10 +25,7 @@ export class MeetingEventResolver {
     @User() identity: Identity,
     @Args("id", { type: () => ID }) id: string
   ): Promise<MeetingEventType | null> {
-    const event = await this.meetingEventService.getMeetingEvent(
-      identity,
-      id
-    );
+    const event = await this.meetingEventService.getMeetingEvent(identity, id);
     return event ? mapMeetingEventToGraphQL(event) : null;
   }
 
@@ -52,9 +49,7 @@ export class MeetingEventResolver {
   async upcomingMeetings(
     @User() identity: Identity
   ): Promise<MeetingEventType[]> {
-    const events = await this.meetingEventService.getUpcomingMeetings(
-      identity
-    );
+    const events = await this.meetingEventService.getUpcomingMeetings(identity);
     return mapMeetingEventsToGraphQL(events);
   }
 
@@ -63,9 +58,8 @@ export class MeetingEventResolver {
   async pendingMeetingConfirmations(
     @User() identity: Identity
   ): Promise<MeetingEventType[]> {
-    const events = await this.meetingEventService.getPendingConfirmations(
-      identity
-    );
+    const events =
+      await this.meetingEventService.getPendingConfirmations(identity);
     return mapMeetingEventsToGraphQL(events);
   }
 

@@ -25,9 +25,7 @@ export function buildBanEmail(params: {
     ${renderMjText(
       `Your access to <strong>Torus</strong> has been suspended by your organization administrator.`
     )}
-    ${renderMjText(
-      `<strong>Reason:</strong> ${escapeHtml(params.reason)}`
-    )}
+    ${renderMjText(`<strong>Reason:</strong> ${escapeHtml(params.reason)}`)}
     ${expiry}
     ${renderMutedMjText(
       "If you believe this was a mistake, please contact your administrator."
@@ -37,7 +35,9 @@ export function buildBanEmail(params: {
     params.greeting ?? null,
     "Your access to Torus has been suspended by your organization administrator.",
     `Reason: ${params.reason}`,
-    params.expiresAt ? `The ban is currently set to expire on ${params.expiresAt.toLocaleString()}.` : null,
+    params.expiresAt
+      ? `The ban is currently set to expire on ${params.expiresAt.toLocaleString()}.`
+      : null,
     "",
     "If you believe this was a mistake, please contact your administrator.",
   ].filter((part): part is string => Boolean(part && part.length));

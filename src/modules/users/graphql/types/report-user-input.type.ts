@@ -8,4 +8,3 @@ export class ReportUserInputType {
   @Field()
   reason!: string;
 }
-

@@ -113,6 +113,12 @@ input CreateMeetingEventInput {
   userBId: ID!
 }
 
+input CreateRatingInputType {
+  feedback: String
+  meetingEventId: ID!
+  stars: Int!
+}
+
 type CurrentUser {
   about: String
   activeBan: UserBan
@@ -288,6 +294,9 @@ type Mutation {
   createDepartment(input: CreateDepartmentInput!): Department!
   createInviteCode(input: CreateInviteCodeInputType): CreateInviteCodeResponseType!
   createMeetingEvent(input: CreateMeetingEventInput!): MeetingEvent!
+
+  """Rate a meeting you participated in"""
+  createRating(input: CreateRatingInputType!): RatingType!
   deleteCalendarEvent(input: DeleteCalendarEventInput!): Boolean!
   deleteDepartment(input: DeleteDepartmentInput!): Boolean!
   deleteUser(id: ID!): User!
@@ -430,22 +439,43 @@ type Query {
   getPairedUsers: [User!]!
   getPairingHistory: [PairingHistory!]!
   getTagsByCategory(category: TagCategory!): [Tag!]!
+  getUserReceivedRatings(userId: ID!): UserReceivedRatingsType
   getUsersByDepartment(departmentId: String!): [AnonUser!]!
   googleCalendarList(accessToken: String): [GoogleCalendar!]!
   latestMeetingForPairing(pairingId: ID!): MeetingEvent
   meetingEventById(id: ID!): MeetingEvent
   meetingEventsByDateRange(endDate: DateTime!, startDate: DateTime!): [MeetingEvent!]!
+
+  """Get all ratings for a specific meeting (admin only)"""
+  meetingRatings(meetingEventId: ID!): [RatingType!]!
   myOrganization: OrganizationType
+
+  """Get all ratings created by the current user"""
+  myRatings: [RatingType!]!
   organizationById(id: ID!): OrganizationType
   organizations: [OrganizationType!]!
   pendingMeetingConfirmations: [MeetingEvent!]!
   reportById(id: ID!): UserReport
   reports: [UserReport!]!
   statistics(filter: StatisticsFilterInputType): StatisticsResponseType!
+
+  """Get meetings that can still be rated by the current user"""
+  unratedMeetings: [UnratedMeetingType!]!
   upcomingMeetings: [MeetingEvent!]!
   userById(id: ID!): User
   users(organizationId: ID): [User!]!
   validateInviteCode(code: String!): InviteCodeValidationResponseType!
+}
+
+type RatingType {
+  createdAt: DateTime!
+  feedback: String
+  id: ID!
+  meetingEvent: MeetingEvent!
+  meetingEventId: ID!
+  stars: Int!
+  updatedAt: DateTime!
+  userId: ID!
 }
 
 input RegisterOrganizationInputType {
@@ -544,6 +574,16 @@ type TypingStatus {
   isTyping: Boolean!
   pairingId: ID!
   userId: ID!
+}
+
+type UnratedMeetingType {
+  endDateTime: DateTime!
+  id: ID!
+  startDateTime: DateTime!
+  userA: UserSummary!
+  userAId: ID!
+  userB: UserSummary!
+  userBId: ID!
 }
 
 input UpdateAlgorithmSettingsInput {
@@ -648,6 +688,13 @@ type UserBan {
   userId: ID!
 }
 
+type UserReceivedRatingsType {
+  averageRating: Float
+  ratings: [RatingType!]!
+  totalRatings: Int!
+  userId: ID!
+}
+
 type UserReport {
   createdAt: DateTime!
   id: ID!
@@ -668,4 +715,10 @@ enum UserRoleEnum {
   org_admin
   super_admin
   user
+}
+
+type UserSummary {
+  firstName: String
+  id: ID!
+  lastName: String
 }

@@ -79,7 +79,11 @@ export class AuthorizationService {
       }
 
       // Can view users in same organization
-      if (requestorOrgId && targetOrgToCheck && requestorOrgId === targetOrgToCheck) {
+      if (
+        requestorOrgId &&
+        targetOrgToCheck &&
+        requestorOrgId === targetOrgToCheck
+      ) {
         return true;
       }
 
@@ -201,7 +205,9 @@ export class AuthorizationService {
    */
   throwIfNoPermission(hasPermission: boolean): void {
     if (!hasPermission) {
-      throw new ForbiddenException("You do not have permission to perform this action");
+      throw new ForbiddenException(
+        "You do not have permission to perform this action"
+      );
     }
   }
 }

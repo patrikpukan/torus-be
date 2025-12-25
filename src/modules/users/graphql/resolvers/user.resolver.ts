@@ -1,5 +1,13 @@
-import { UseGuards } from "@nestjs/common";
-import { Args, ID, Mutation, Query, Resolver, ResolveField, Parent } from "@nestjs/graphql";
+import { UseGuards, ForbiddenException } from "@nestjs/common";
+import {
+  Args,
+  ID,
+  Mutation,
+  Query,
+  Resolver,
+  ResolveField,
+  Parent,
+} from "@nestjs/graphql";
 import { User } from "src/shared/auth/decorators/user.decorator";
 import type { Identity } from "src/shared/auth/domain/identity";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
@@ -18,14 +26,17 @@ import { AnonUserType } from "../types/anon-user.type";
 import { ReportUserInputType } from "../types/report-user-input.type";
 import { UserReportType } from "../types/user-report.type";
 import { DepartmentService } from "src/modules/organization/services/department.service";
+import { RatingService } from "src/modules/calendar/services/rating.service";
 import { TagType } from "../types/tag.type";
+import { UserReceivedRatingsType } from "../types/user-received-ratings.type";
 
 @Resolver(() => UserType)
 export class UserResolver {
   constructor(
     private userService: UserService,
     private tagService: TagService,
-    private departmentService: DepartmentService
+    private departmentService: DepartmentService,
+    private ratingService: RatingService
   ) {}
 
   @UseGuards(AuthenticatedUserGuard)
@@ -65,6 +76,54 @@ export class UserResolver {
     @User() identity: Identity
   ): Promise<PairingHistoryType[]> {
     return this.userService.getPairingHistory(identity);
+  }
+
+  @RequireRole(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
+  @Query(() => UserReceivedRatingsType, { nullable: true })
+  async getUserReceivedRatings(
+    @User() identity: Identity,
+    @Args("userId", { type: () => ID }) userId: string
+  ): Promise<UserReceivedRatingsType | null> {
+    // Verify the user exists and is in the same org (for org_admin)
+    const targetUser = await this.userService.getUserById(identity, userId);
+
+    if (!targetUser) {
+      return null;
+    }
+
+    // Check authorization: org_admin can only view users in their org
+    if (
+      identity.role === UserRole.ORG_ADMIN &&
+      targetUser.organizationId !== identity.organizationId
+    ) {
+      throw new ForbiddenException(
+        "You can only view ratings for users in your organization"
+      );
+    }
+
+    // Get all received ratings
+    const ratings = await this.ratingService.getReceivedRatings(userId);
+
+    // Calculate average
+    const averageRating = this.ratingService.calculateAverageRating(
+      ratings.map((r) => ({ stars: r.stars }))
+    );
+
+    return {
+      userId,
+      averageRating,
+      totalRatings: ratings.length,
+      ratings: ratings.map((r) => ({
+        id: r.id,
+        meetingEventId: r.meetingEventId,
+        meetingEvent: r.meetingEvent,
+        userId: r.userId,
+        stars: r.stars,
+        feedback: r.feedback,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })),
+    };
   }
 
   @UseGuards(AuthenticatedUserGuard)

@@ -13,8 +13,8 @@ import { AppLoggerService } from "./shared/logger/logger.service";
  */
 async function main(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
-    bufferLogs: true, // Buffer logs until we set up our custom logger
-    logger: false, // Disable default logger initially
+    bufferLogs: true,
+    logger: false,
   });
 
   const logger = app.get(AppLoggerService);

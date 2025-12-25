@@ -143,9 +143,7 @@ export class CalendarEventResolver {
 
   @UseGuards(AuthenticatedUserGuard)
   @Mutation(() => Boolean)
-  async resumeActivity(
-    @User() identity: Identity
-  ): Promise<boolean> {
+  async resumeActivity(@User() identity: Identity): Promise<boolean> {
     return this.calendarEventService.resumeActivity(identity);
   }
 }

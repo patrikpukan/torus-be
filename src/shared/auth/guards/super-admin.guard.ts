@@ -5,12 +5,15 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { GqlExecutionContext } from "@nestjs/graphql";
-import { AuthorizationService, UserRole } from "../services/authorization.service";
+import {
+  AuthorizationService,
+  UserRole,
+} from "../services/authorization.service";
 import { Identity } from "../domain/identity";
 
 /**
  * Guard to ensure user has super_admin role
- * 
+ *
  * Usage: @UseGuards(SuperAdminGuard)
  */
 @Injectable()

@@ -17,7 +17,11 @@ export const escapeHtml = (value: string): string =>
 const LOGO_URL =
   "https://rlbvvbartyiakhiosxrx.supabase.co/storage/v1/object/public/public-files/torus-logo.png";
 
-export const renderEmailLayout = ({ title, body, siteUrl }: LayoutOptions): string => {
+export const renderEmailLayout = ({
+  title,
+  body,
+  siteUrl,
+}: LayoutOptions): string => {
   const safeTitle = escapeHtml(title);
   const href = escapeHtml(siteUrl ?? "https://torus.app");
   const mjml = `

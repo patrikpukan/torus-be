@@ -59,9 +59,7 @@ export const seedDatabase = async (
     process.env.SUPERADMIN_EMAIL ||
     "admin@example.com";
   const password =
-    config.superadminPassword ||
-    process.env.SUPERADMIN_PASSWORD ||
-    "admin";
+    config.superadminPassword || process.env.SUPERADMIN_PASSWORD || "admin";
 
   console.log("Debug - Using email:", email);
   console.log("Debug - Using password:", password ? "[HIDDEN]" : undefined);

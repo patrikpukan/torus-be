@@ -108,8 +108,7 @@ const DEPARTMENTS_BY_ORG: Record<
     },
     {
       name: "Product",
-      description:
-        "Product strategy, roadmap, and user experience design team",
+      description: "Product strategy, roadmap, and user experience design team",
     },
     {
       name: "DevOps",
@@ -123,8 +122,7 @@ const DEPARTMENTS_BY_ORG: Record<
     },
     {
       name: "Data Science",
-      description:
-        "Analytics, machine learning, and data-driven insights team",
+      description: "Analytics, machine learning, and data-driven insights team",
     },
   ],
   "StartupHub Ventures": [
@@ -135,13 +133,11 @@ const DEPARTMENTS_BY_ORG: Record<
     },
     {
       name: "Customer Success",
-      description:
-        "Client onboarding, support, and retention team",
+      description: "Client onboarding, support, and retention team",
     },
     {
       name: "Marketing",
-      description:
-        "Brand management, campaigns, and market research team",
+      description: "Brand management, campaigns, and market research team",
     },
     {
       name: "Operations",
@@ -150,25 +146,21 @@ const DEPARTMENTS_BY_ORG: Record<
     },
     {
       name: "Finance",
-      description:
-        "Accounting, budgeting, and financial planning team",
+      description: "Accounting, budgeting, and financial planning team",
     },
   ],
   "Digital Minds Collective": [
     {
       name: "Design",
-      description:
-        "UI/UX design, visual design, and design systems team",
+      description: "UI/UX design, visual design, and design systems team",
     },
     {
       name: "Content",
-      description:
-        "Content creation, copywriting, and editorial team",
+      description: "Content creation, copywriting, and editorial team",
     },
     {
       name: "Production",
-      description:
-        "Project management, production coordination, and timelines",
+      description: "Project management, production coordination, and timelines",
     },
     {
       name: "Creative Strategy",
@@ -236,7 +228,8 @@ async function seedTags(prisma: PrismaClient) {
   console.log("🏷️  Seeding predefined tags...");
 
   const hobbyTags: Array<{ id: string; name: string; category: string }> = [];
-  const interestTags: Array<{ id: string; name: string; category: string }> = [];
+  const interestTags: Array<{ id: string; name: string; category: string }> =
+    [];
 
   // Create hobby tags (idempotent)
   for (const name of HOBBY_TAGS) {
@@ -752,8 +745,7 @@ async function createCalendarEventsForUser(
               new Date(eventDate),
               startHour + duration
             ),
-            rrule:
-              Math.random() < 0.3 ? "FREQ=WEEKLY;BYDAY=MO,WE,FR" : null,
+            rrule: Math.random() < 0.3 ? "FREQ=WEEKLY;BYDAY=MO,WE,FR" : null,
           },
         });
         availabilityCount++;
@@ -818,17 +810,10 @@ async function createMeetingEventForPairing(
       return;
     }
 
-    // Check if meeting already exists for this pairing
-    const existingMeeting = await prisma.meetingEvent.findFirst({
-      where: { pairingId: pairing.id },
-    });
-
-    if (existingMeeting) {
-      console.log(`    ⚠️  Meeting already exists for pairing, skipping...`);
-      return;
-    }
-
     const isPast = pairing.status === "met";
+
+    // For met pairings, create 2-3 past meetings to accumulate more ratings
+    const numMeetings = isPast ? 2 + Math.floor(Math.random() * 2) : 1;
 
     // Helper to get random weekday, moving weekends to Monday
     function getRandomWeekday(daysOffset: number): Date {
@@ -839,64 +824,82 @@ async function createMeetingEventForPairing(
       return date;
     }
 
-    // Calculate meeting date based on pairing status
-    const daysOffset = isPast
-      ? -(3 + Math.floor(Math.random() * 5)) // Past: -3 to -7 days
-      : 2 + Math.floor(Math.random() * 4); // Future: +2 to +5 days
+    for (let meetingNum = 0; meetingNum < numMeetings; meetingNum++) {
+      // Check if meeting already exists for this pairing at a different time
+      const existingMeetings = await prisma.meetingEvent.findMany({
+        where: { pairingId: pairing.id },
+      });
 
-    const meetingDate = getRandomWeekday(daysOffset);
+      // For future meetings, only create one. For past meetings, allow multiple.
+      if (!isPast && existingMeetings.length > 0) {
+        console.log(`    ⚠️  Meeting already exists for pairing, skipping...`);
+        return;
+      }
 
-    // Set random business hour (10am, 11am, 2pm, 3pm are common slots)
-    const hours = [10, 11, 14, 15];
-    const hour = hours[Math.floor(Math.random() * hours.length)];
-    meetingDate.setHours(hour, 0, 0, 0);
+      // Calculate meeting date based on pairing status
+      let daysOffset: number;
+      if (isPast) {
+        // Space out multiple past meetings: first is -3 to -7 days, second is -10 to -21 days, etc.
+        const baseOffset = -(3 + meetingNum * 7);
+        daysOffset = baseOffset - Math.floor(Math.random() * 5);
+      } else {
+        daysOffset = 2 + Math.floor(Math.random() * 4);
+      }
 
-    // End time is 1 hour later
-    const endDate = new Date(meetingDate);
-    endDate.setHours(hour + 1, 0, 0, 0);
+      const meetingDate = getRandomWeekday(daysOffset);
 
-    // Confirmation status: past meetings are fully confirmed
-    // Future meetings: 60% both confirmed, 40% userB pending
-    const userBConfirmed = isPast || Math.random() > 0.4;
+      // Set random business hour (10am, 11am, 2pm, 3pm are common slots)
+      const hours = [10, 11, 14, 15];
+      const hour = hours[Math.floor(Math.random() * hours.length)];
+      meetingDate.setHours(hour, 0, 0, 0);
 
-    // Notes: past meetings have specific topics, future meetings may have intent
-    const topics = ["technology", "hobbies", "career goals", "work projects"];
-    const userANote = isPast
-      ? `Great conversation about ${topics[Math.floor(Math.random() * topics.length)]}!`
-      : Math.random() > 0.5
-        ? "Looking forward to this"
-        : null;
+      // End time is 1 hour later
+      const endDate = new Date(meetingDate);
+      endDate.setHours(hour + 1, 0, 0, 0);
 
-    // Randomly choose who created the meeting
-    const createdByUserId =
-      Math.random() > 0.5 ? pairing.userAId : pairing.userBId;
+      // Confirmation status: past meetings are fully confirmed
+      // Future meetings: 60% both confirmed, 40% userB pending
+      const userBConfirmed = isPast || Math.random() > 0.4;
 
-    await prisma.meetingEvent.create({
-      data: {
-        pairingId: pairing.id,
-        userAId: pairing.userAId,
-        userBId: pairing.userBId,
-        startDateTime: meetingDate,
-        endDateTime: endDate,
-        userAConfirmationStatus: "confirmed",
-        userBConfirmationStatus: userBConfirmed ? "confirmed" : "pending",
-        createdByUserId,
-        userANote,
-      },
-    });
+      // Notes: past meetings have specific topics, future meetings may have intent
+      const topics = ["technology", "hobbies", "career goals", "work projects"];
+      const userANote = isPast
+        ? `Great conversation about ${topics[Math.floor(Math.random() * topics.length)]}!`
+        : Math.random() > 0.5
+          ? "Looking forward to this"
+          : null;
 
-    const dateStr = meetingDate.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-    const timeStr = meetingDate.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-    console.log(
-      `    ✓ Created meeting event (${dateStr} @ ${timeStr}, ${pairing.status})`
-    );
+      // Randomly choose who created the meeting
+      const createdByUserId =
+        Math.random() > 0.5 ? pairing.userAId : pairing.userBId;
+
+      await prisma.meetingEvent.create({
+        data: {
+          pairingId: pairing.id,
+          userAId: pairing.userAId,
+          userBId: pairing.userBId,
+          startDateTime: meetingDate,
+          endDateTime: endDate,
+          userAConfirmationStatus: "confirmed",
+          userBConfirmationStatus: userBConfirmed ? "confirmed" : "pending",
+          createdByUserId,
+          userANote,
+        },
+      });
+
+      const dateStr = meetingDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+      const timeStr = meetingDate.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      console.log(
+        `    ✓ Created meeting event (${dateStr} @ ${timeStr}, ${pairing.status})`
+      );
+    }
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
     console.error(
@@ -904,6 +907,118 @@ async function createMeetingEventForPairing(
       err
     );
     // Don't throw - meeting events are optional for demo
+  }
+}
+
+/**
+ * Creates ratings for past meeting events
+ * Generates realistic 1-5 star ratings with optional feedback
+ * Only creates ratings for meetings that have already occurred
+ * Both participants in a meeting will rate each other
+ * @param prisma - Prisma client instance
+ * @returns Promise<void>
+ */
+async function createRatingsForPastMeetings(prisma: PrismaClient): Promise<void> {
+  try {
+    // Find all past meetings (endDateTime is in the past)
+    const pastMeetings = await prisma.meetingEvent.findMany({
+      where: {
+        endDateTime: {
+          lt: new Date(),
+        },
+        cancelledAt: null,
+      },
+    });
+
+    if (pastMeetings.length === 0) {
+      console.log("    ℹ️  No past meetings found");
+      return;
+    }
+
+    // Sample feedback messages
+    const feedbackOptions = [
+      "Great conversation and very insightful!",
+      "Really enjoyed meeting and learning about their perspective.",
+      "Excellent communicator and very approachable.",
+      "Had meaningful discussion, looking forward to next meeting.",
+      "Very professional and collaborative.",
+      "Interesting ideas and good chemistry.",
+      "Productive meeting with lots to discuss.",
+      "Could tell they put thought into our conversation.",
+      "Would definitely like to pair again!",
+      "Appreciated their unique insights and perspective.",
+      "Great energy and enthusiasm throughout the meeting.",
+      "Looking forward to our next pairing session.",
+      "Very thoughtful and considerate in our discussion.",
+      "Made me think differently about the topic.",
+      "Excellent listener and really engaged.",
+    ];
+
+    let ratingsCreated = 0;
+
+    for (const meeting of pastMeetings) {
+      // Check if ratings already exist for this meeting
+      const existingRatings = await prisma.rating.findMany({
+        where: { meetingEventId: meeting.id },
+      });
+
+      if (existingRatings.length >= 2) {
+        continue; // Both users already rated
+      }
+
+      // Create ratings from both users
+      // userA rates userB
+      const ratingAExists = existingRatings.some(
+        (r) => r.userId === meeting.userAId
+      );
+      if (!ratingAExists) {
+        const starsA = Math.floor(Math.random() * 4) + 2; // 2-5 stars
+        const feedbackA =
+          feedbackOptions[
+            Math.floor(Math.random() * feedbackOptions.length)
+          ];
+
+        await prisma.rating.create({
+          data: {
+            meetingEventId: meeting.id,
+            userId: meeting.userAId,
+            stars: starsA,
+            feedback: feedbackA,
+          },
+        });
+        ratingsCreated++;
+      }
+
+      // userB rates userA
+      const ratingBExists = existingRatings.some(
+        (r) => r.userId === meeting.userBId
+      );
+      if (!ratingBExists) {
+        const starsB = Math.floor(Math.random() * 4) + 2; // 2-5 stars
+        const feedbackB =
+          feedbackOptions[
+            Math.floor(Math.random() * feedbackOptions.length)
+          ];
+
+        await prisma.rating.create({
+          data: {
+            meetingEventId: meeting.id,
+            userId: meeting.userBId,
+            stars: starsB,
+            feedback: feedbackB,
+          },
+        });
+        ratingsCreated++;
+      }
+    }
+
+    console.log(
+      `    ✓ Created ${ratingsCreated} ratings for ${pastMeetings.length} past meetings`
+    );
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Error creating ratings for past meetings:`, err);
+    // Don't throw - ratings are optional for demo
   }
 }
 
@@ -944,7 +1059,7 @@ async function createUserReportsForPairings(
 
     for (let i = 0; i < reportsToCreate; i++) {
       const pairing = pairings[Math.floor(Math.random() * pairings.length)];
-      
+
       // Check if report already exists for this pairing
       const existingReport = await prisma.report.findFirst({
         where: { pairingId: pairing.id },
@@ -957,7 +1072,9 @@ async function createUserReportsForPairings(
       // Randomly choose reporter and reported user
       const reporterIsUserA = Math.random() > 0.5;
       const reporterId = reporterIsUserA ? pairing.userAId : pairing.userBId;
-      const reportedUserId = reporterIsUserA ? pairing.userBId : pairing.userAId;
+      const reportedUserId = reporterIsUserA
+        ? pairing.userBId
+        : pairing.userAId;
 
       const reason =
         reportReasons[Math.floor(Math.random() * reportReasons.length)];
@@ -976,9 +1093,7 @@ async function createUserReportsForPairings(
     console.log(`    ✓ Created user reports`);
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `⚠️  Warning: Could not create user reports: ${err}`
-    );
+    console.warn(`⚠️  Warning: Could not create user reports: ${err}`);
     // Don't throw - reports are optional for demo
   }
 }
@@ -1055,9 +1170,7 @@ async function createUserBansForOrg(
     console.log(`    ✓ Created user bans`);
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `⚠️  Warning: Could not create user bans: ${err}`
-    );
+    console.warn(`⚠️  Warning: Could not create user bans: ${err}`);
     // Don't throw - bans are optional for demo
   }
 }
@@ -1124,9 +1237,7 @@ async function uploadAvatarToSupabase(
 
     // Check if file exists
     if (!fs.existsSync(avatarPath)) {
-      console.log(
-        `  ⚠️  Avatar not found: ${avatarFileName}, skipping upload`
-      );
+      console.log(`  ⚠️  Avatar not found: ${avatarFileName}, skipping upload`);
       return null;
     }
 
@@ -1190,9 +1301,7 @@ async function uploadAvatarToSupabase(
     return publicUrlData.publicUrl;
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `  ⚠️  Error uploading avatar ${avatarFileName}: ${err}`
-    );
+    console.warn(`  ⚠️  Error uploading avatar ${avatarFileName}: ${err}`);
     return null;
   }
 }
@@ -1322,8 +1431,13 @@ async function createDemoUser(
       });
 
     if (authError) {
-      // Check if user already exists in Supabase Auth
-      if (authError.message?.includes("already exists")) {
+      // Check if user already exists in Supabase Auth (by error code or message)
+      const isEmailExists =
+        (authError as any).code === "email_exists" ||
+        authError.message?.includes("already exists") ||
+        authError.message?.includes("already been registered");
+
+      if (isEmailExists) {
         console.log(`⚠️  Supabase user already exists: ${email}`);
 
         // Try to get the existing user
@@ -1706,6 +1820,7 @@ async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
       pairings: await prisma.pairing.count(),
       calendarEvents: await prisma.calendarEvent.count(),
       meetingEvents: await prisma.meetingEvent.count(),
+      ratings: await prisma.rating.count(),
     };
 
     // Get status breakdowns
@@ -1746,6 +1861,7 @@ async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
     console.log(`🤝 Pairings:          ${stats.pairings}`);
     console.log(`📅 Calendar Events:   ${stats.calendarEvents}`);
     console.log(`📆 Meeting Events:    ${stats.meetingEvents}`);
+    console.log(`⭐ Ratings:           ${stats.ratings}`);
 
     // Display period status breakdown
     console.log("\n🗓️  Pairing Period Status:");
@@ -1786,7 +1902,9 @@ async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
     console.log("   - Pairing periods: 3-week cycles (active + upcoming)");
     console.log("   - Active period: 1 week in, 2 weeks remaining");
     console.log("   - Mixed pairing statuses for realistic scenarios");
-    console.log("   - Calendar events show availability/unavailability patterns");
+    console.log(
+      "   - Calendar events show availability/unavailability patterns"
+    );
     console.log("   - Meeting events scheduled for matched/met pairings");
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
@@ -1832,9 +1950,7 @@ async function cleanupSupabaseAuthUsers(): Promise<void> {
 
     const demoUsers = allUsers.users.filter((user) => {
       if (!user.email) return false;
-      return demoEmailPatterns.some((pattern) =>
-        user.email?.includes(pattern)
-      );
+      return demoEmailPatterns.some((pattern) => user.email?.includes(pattern));
     });
 
     if (demoUsers.length === 0) {
@@ -1863,7 +1979,9 @@ async function cleanupSupabaseAuthUsers(): Promise<void> {
       }
     }
 
-    console.log(`\n✅ Cleaned up ${deletedCount} demo users from Supabase Auth\n`);
+    console.log(
+      `\n✅ Cleaned up ${deletedCount} demo users from Supabase Auth\n`
+    );
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
     console.warn(`⚠️  Warning: Supabase cleanup incomplete: ${err}`);
@@ -1881,64 +1999,8 @@ async function cleanupSupabaseAuthUsers(): Promise<void> {
  * @returns void
  * @throws Error if required environment variables are missing or database operations fail
  */
-/**
- * Cleanup Supabase Auth demo users before seeding
- * Prevents "user already exists" errors when re-running seed
- */
-async function cleanupSupabaseAuthDemoUsers(): Promise<void> {
-  try {
-    if (!supabaseUrl || !supabaseSecretKey) {
-      return; // Skip if credentials not available
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-
-    // Get all users from Supabase Auth
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers();
-
-    if (error || !data?.users) {
-      return; // Skip on error
-    }
-
-    // Find demo users (those with @torus.com emails)
-    const demoUsers = data.users.filter(
-      (user) => user.email && user.email.includes("@torus.com")
-    );
-
-    if (demoUsers.length === 0) {
-      return; // No demo users to clean
-    }
-
-    console.log(`🧹 Cleaning up ${demoUsers.length} existing demo users from Supabase Auth...`);
-
-    let deletedCount = 0;
-    for (const user of demoUsers) {
-      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
-        user.id
-      );
-      if (!deleteError) {
-        deletedCount++;
-      }
-    }
-
-    console.log(`  ✓ Deleted ${deletedCount} demo users from Supabase Auth\n`);
-  } catch (error) {
-    const err = error instanceof Error ? error.message : String(error);
-    console.warn(`⚠️  Warning: Could not cleanup Supabase Auth users: ${err}`);
-    console.warn("  Continuing with seed...\n");
-  }
-}
-
 async function main(): Promise<void> {
   console.log("🚀 Starting Torus demo data seeding...\n");
-
-  // Clean up any existing demo users from Supabase Auth first
-  await cleanupSupabaseAuthDemoUsers();
 
   // Check required environment variables
   if (!supabaseUrl || !supabaseSecretKey) {
@@ -2066,10 +2128,10 @@ async function main(): Promise<void> {
         const user = await createDemoUser(prisma, userKey, orgId, email);
         if (user) {
           users.push(user);
-          
+
           // Assign random tags (hobbies and interests) to all users
           await assignTagsToUser(prisma, user.id, hobbyTags, interestTags);
-          
+
           // Assign all users to a random department (if departments exist)
           if (departmentIds.length > 0) {
             const randomDepartmentId = getRandomItem(departmentIds);
@@ -2110,11 +2172,15 @@ async function main(): Promise<void> {
         }
       }
 
-      // 2g. Create user reports for some pairings
+      // 2g. Create ratings for past meetings
+      console.log("\n⭐ Creating meeting ratings...");
+      await createRatingsForPastMeetings(prisma);
+
+      // 2h. Create user reports for some pairings
       console.log("\n📋 Creating user reports...");
       await createUserReportsForPairings(prisma, pairings, users);
 
-      // 2h. Create user bans for organization
+      // 2i. Create user bans for organization
       console.log("\n🚫 Creating user bans...");
       await createUserBansForOrg(prisma, orgId, users);
     }
@@ -2142,4 +2208,3 @@ main().catch((error) => {
   console.error("Fatal error:", error);
   process.exit(1);
 });
-

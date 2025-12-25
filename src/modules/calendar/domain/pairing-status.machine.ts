@@ -55,4 +55,3 @@ export function computeDerivedPairingStatus(args: {
   // Default for active pairing without a concluded result
   return "matched";
 }
-

@@ -1,5 +1,12 @@
 import { Field, ID, InputType } from "@nestjs/graphql";
-import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from "class-validator";
 
 @InputType()
 export class CreateDepartmentInput {

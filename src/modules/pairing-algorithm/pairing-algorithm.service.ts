@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
-import { PairingPeriodStatus, PairingStatus, User, CalendarEventType } from '@prisma/client';
-import { randomInt } from 'crypto';
-import { PrismaService } from '../../core/prisma/prisma.service';
-import { AppLoggerService } from '../../shared/logger/logger.service';
-import { PairingAlgorithmConfig } from './pairing-algorithm.config';
+import { Injectable } from "@nestjs/common";
+import { Cron } from "@nestjs/schedule";
+import {
+  PairingPeriodStatus,
+  PairingStatus,
+  User,
+  CalendarEventType,
+} from "@prisma/client";
+import { randomInt } from "crypto";
+import { PrismaService } from "../../core/prisma/prisma.service";
+import { AppLoggerService } from "../../shared/logger/logger.service";
+import { PairingAlgorithmConfig } from "./pairing-algorithm.config";
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -30,9 +35,7 @@ class SeededRandom {
 }
 
 const buildPairKey = (userAId: string, userBId: string): string => {
-  return userAId < userBId
-    ? `${userAId}:${userBId}`
-    : `${userBId}:${userAId}`;
+  return userAId < userBId ? `${userAId}:${userBId}` : `${userBId}:${userAId}`;
 };
 
 const pairingDefaults = new PairingAlgorithmConfig();
@@ -47,14 +50,22 @@ export class AlgorithmSettingsNotFoundException extends Error {
 }
 
 export class InsufficientUsersException extends Error {
-  constructor(public readonly organizationId: string, public readonly userCount: number) {
-    super(`Not enough users to create pairings for organization ${organizationId}`);
+  constructor(
+    public readonly organizationId: string,
+    public readonly userCount: number
+  ) {
+    super(
+      `Not enough users to create pairings for organization ${organizationId}`
+    );
     this.name = InsufficientUsersException.name;
   }
 }
 
 export class PairingConstraintException extends Error {
-  constructor(message: string, public readonly metadata?: Record<string, unknown>) {
+  constructor(
+    message: string,
+    public readonly metadata?: Record<string, unknown>
+  ) {
     super(message);
     this.name = PairingConstraintException.name;
   }
@@ -65,7 +76,7 @@ export class PairingAlgorithmService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
-    private readonly config: PairingAlgorithmConfig,
+    private readonly config: PairingAlgorithmConfig
   ) {}
 
   /**
@@ -75,16 +86,18 @@ export class PairingAlgorithmService {
    * @returns Promise<void>
    */
   @Cron(pairingCronSchedule, {
-    name: 'executeScheduledPairing',
+    name: "executeScheduledPairing",
     disabled: pairingCronDisabled,
   })
   async executeScheduledPairing(): Promise<void> {
-    const configuredOrganizations = await this.prisma.algorithmSetting.findMany({
-      select: { organizationId: true },
-    });
+    const configuredOrganizations = await this.prisma.algorithmSetting.findMany(
+      {
+        select: { organizationId: true },
+      }
+    );
 
     const organizationIds = Array.from(
-      new Set(configuredOrganizations.map((setting) => setting.organizationId)),
+      new Set(configuredOrganizations.map((setting) => setting.organizationId))
     );
 
     const summary = {
@@ -97,12 +110,12 @@ export class PairingAlgorithmService {
 
     if (organizationIds.length === 0) {
       this.logger.debug(
-        'Scheduled pairing cron found no organizations with configured algorithm settings',
-        PairingAlgorithmService.name,
+        "Scheduled pairing cron found no organizations with configured algorithm settings",
+        PairingAlgorithmService.name
       );
       this.logger.log(
         `Scheduled pairing summary | processed=${summary.processed} successes=${summary.successes} skipped=${summary.skipped} failures=${summary.failures} pairsCreated=${summary.totalPairs}`,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
       return;
     }
@@ -113,7 +126,7 @@ export class PairingAlgorithmService {
       try {
         const activePeriod = await this.prisma.pairingPeriod.findFirst({
           where: { organizationId, status: PairingPeriodStatus.active },
-          orderBy: { startDate: 'desc' },
+          orderBy: { startDate: "desc" },
         });
 
         const now = new Date();
@@ -121,12 +134,12 @@ export class PairingAlgorithmService {
         if (!activePeriod) {
           this.logger.debug(
             `No active pairing period for organization ${organizationId}; executing pairing to bootstrap`,
-            PairingAlgorithmService.name,
+            PairingAlgorithmService.name
           );
         } else if (!activePeriod.endDate) {
           this.logger.warn(
             `Active pairing period ${activePeriod.id} for organization ${organizationId} has no end date; skipping`,
-            PairingAlgorithmService.name,
+            PairingAlgorithmService.name
           );
           summary.skipped += 1;
           continue;
@@ -137,12 +150,12 @@ export class PairingAlgorithmService {
           });
           this.logger.debug(
             `Closed pairing period ${activePeriod.id} for organization ${organizationId}; generating new pairings`,
-            PairingAlgorithmService.name,
+            PairingAlgorithmService.name
           );
         } else {
           this.logger.debug(
             `Active pairing period ${activePeriod.id} for organization ${organizationId} still in progress; skipping`,
-            PairingAlgorithmService.name,
+            PairingAlgorithmService.name
           );
           summary.skipped += 1;
           continue;
@@ -168,23 +181,23 @@ export class PairingAlgorithmService {
         this.logger.error(
           `Scheduled pairing failed for organization ${organizationId}: ${err.message}`,
           err.stack,
-          PairingAlgorithmService.name,
+          PairingAlgorithmService.name
         );
       }
     }
 
     this.logger.log(
       `Scheduled pairing summary | processed=${summary.processed} successes=${summary.successes} skipped=${summary.skipped} failures=${summary.failures} pairsCreated=${summary.totalPairs}`,
-      PairingAlgorithmService.name,
+      PairingAlgorithmService.name
     );
 
     if (failures.length > 0) {
       const details = failures
         .map((failure) => `${failure.organizationId}: ${failure.reason}`)
-        .join('; ');
+        .join("; ");
       this.logger.warn(
         `Scheduled pairing encountered failures: ${details}`,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
     }
   }
@@ -207,7 +220,7 @@ export class PairingAlgorithmService {
     try {
       this.logger.log(
         `Pairing algorithm started for organization: ${organizationId}`,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
 
       const organization = await this.prisma.organization.findUnique({
@@ -216,7 +229,9 @@ export class PairingAlgorithmService {
       });
 
       if (!organization) {
-        throw new PairingConstraintException('Organization not found', { organizationId });
+        throw new PairingConstraintException("Organization not found", {
+          organizationId,
+        });
       }
 
       let algorithmSettings = await this.prisma.algorithmSetting.findUnique({
@@ -226,7 +241,7 @@ export class PairingAlgorithmService {
       if (!algorithmSettings) {
         this.logger.warn(
           `Algorithm settings missing for organization ${organizationId}, creating defaults`,
-          PairingAlgorithmService.name,
+          PairingAlgorithmService.name
         );
 
         algorithmSettings = await this.prisma.algorithmSetting.create({
@@ -239,16 +254,25 @@ export class PairingAlgorithmService {
       }
 
       if (!algorithmSettings) {
-        throw new PairingConstraintException('Failed to initialize algorithm settings', {
-          organizationId,
-        });
+        throw new PairingConstraintException(
+          "Failed to initialize algorithm settings",
+          {
+            organizationId,
+          }
+        );
       }
 
-      if (!algorithmSettings.periodLengthDays || algorithmSettings.periodLengthDays <= 0) {
-        throw new PairingConstraintException('Pairing period length must be positive', {
-          organizationId,
-          periodLengthDays: algorithmSettings.periodLengthDays,
-        });
+      if (
+        !algorithmSettings.periodLengthDays ||
+        algorithmSettings.periodLengthDays <= 0
+      ) {
+        throw new PairingConstraintException(
+          "Pairing period length must be positive",
+          {
+            organizationId,
+            periodLengthDays: algorithmSettings.periodLengthDays,
+          }
+        );
       }
 
       if (!algorithmSettings.randomSeed || algorithmSettings.randomSeed <= 0) {
@@ -271,17 +295,19 @@ export class PairingAlgorithmService {
           organizationId,
           status: PairingPeriodStatus.active,
         },
-        orderBy: { startDate: 'desc' },
+        orderBy: { startDate: "desc" },
       });
 
       if (!pairingPeriod) {
         const startDate = new Date();
-        const endDate = new Date(startDate.getTime() + periodLengthDays * MILLISECONDS_PER_DAY);
+        const endDate = new Date(
+          startDate.getTime() + periodLengthDays * MILLISECONDS_PER_DAY
+        );
 
         if (endDate <= startDate) {
           throw new PairingConstraintException(
-            'Invalid pairing period configuration',
-            { organizationId, periodLengthDays },
+            "Invalid pairing period configuration",
+            { organizationId, periodLengthDays }
           );
         }
 
@@ -297,7 +323,10 @@ export class PairingAlgorithmService {
 
       pairingPeriodId = pairingPeriod.id;
 
-      const eligibleUsers = await this.getEligibleUsers(organizationId, pairingPeriod.id);
+      const eligibleUsers = await this.getEligibleUsers(
+        organizationId,
+        pairingPeriod.id
+      );
 
       totalEligibleUsers = eligibleUsers.length;
 
@@ -306,24 +335,35 @@ export class PairingAlgorithmService {
         this.getUnpairedFromLastPeriod(organizationId, pairingPeriod.id),
       ]);
 
-      guaranteedUserIds = Array.from(new Set<string>([...newUserIds, ...unpairedUserIds]));
+      guaranteedUserIds = Array.from(
+        new Set<string>([...newUserIds, ...unpairedUserIds])
+      );
 
-      const random = new SeededRandom(algorithmSettings.randomSeed ?? Date.now());
+      const random = new SeededRandom(
+        algorithmSettings.randomSeed ?? Date.now()
+      );
 
       if (totalEligibleUsers < 2) {
-        throw new InsufficientUsersException(organizationId, totalEligibleUsers);
+        throw new InsufficientUsersException(
+          organizationId,
+          totalEligibleUsers
+        );
       }
 
       if (totalEligibleUsers % 2 !== 0) {
         this.logger.warn(
           `Odd number of users, one will remain unpaired (eligible count: ${totalEligibleUsers})`,
-          PairingAlgorithmService.name,
+          PairingAlgorithmService.name
         );
       }
 
       const guaranteedSet = new Set(guaranteedUserIds);
-      const guaranteedUsers = eligibleUsers.filter((user) => guaranteedSet.has(user.id));
-      const regularUsers = eligibleUsers.filter((user) => !guaranteedSet.has(user.id));
+      const guaranteedUsers = eligibleUsers.filter((user) =>
+        guaranteedSet.has(user.id)
+      );
+      const regularUsers = eligibleUsers.filter(
+        (user) => !guaranteedSet.has(user.id)
+      );
 
       this.shuffleInPlace(guaranteedUsers, random);
       this.shuffleInPlace(regularUsers, random);
@@ -340,7 +380,7 @@ export class PairingAlgorithmService {
 
           userHistories.set(user.id, history);
           userBlocks.set(user.id, blocks);
-        }),
+        })
       );
 
       const previousPeriods = await this.prisma.pairingPeriod.findMany({
@@ -348,7 +388,7 @@ export class PairingAlgorithmService {
           organizationId,
           id: { not: pairingPeriod.id },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         take: 2,
       });
 
@@ -371,10 +411,12 @@ export class PairingAlgorithmService {
       ]);
 
       const lastPeriodPairKeys = new Set(
-        lastPeriodPairs.map((pair) => buildPairKey(pair.userAId, pair.userBId)),
+        lastPeriodPairs.map((pair) => buildPairKey(pair.userAId, pair.userBId))
       );
       const secondLastPeriodPairKeys = new Set(
-        secondLastPeriodPairs.map((pair) => buildPairKey(pair.userAId, pair.userBId)),
+        secondLastPeriodPairs.map((pair) =>
+          buildPairKey(pair.userAId, pair.userBId)
+        )
       );
 
       const availableUsers = new Set(eligibleUsers.map((user) => user.id));
@@ -390,18 +432,18 @@ export class PairingAlgorithmService {
         const historyA = userHistories.get(userId) ?? new Map<string, number>();
 
         const potentialPartners = Array.from(availableUsers).filter(
-          (candidateId) => candidateId !== userId,
+          (candidateId) => candidateId !== userId
         );
 
         this.logger.debug(
-          `Evaluating partners for ${userId}. Available: ${potentialPartners.join(', ')}`,
-          PairingAlgorithmService.name,
+          `Evaluating partners for ${userId}. Available: ${potentialPartners.join(", ")}`,
+          PairingAlgorithmService.name
         );
 
         if (potentialPartners.length === 0) {
           this.logger.warn(
             `No partners available for ${userId}; marking as unpaired`,
-            PairingAlgorithmService.name,
+            PairingAlgorithmService.name
           );
           unpairedUsers.add(userId);
           availableUsers.delete(userId);
@@ -410,7 +452,8 @@ export class PairingAlgorithmService {
 
         const candidateInfos = potentialPartners
           .map((candidateId) => {
-            const partnerBlocks = userBlocks.get(candidateId) ?? new Set<string>();
+            const partnerBlocks =
+              userBlocks.get(candidateId) ?? new Set<string>();
             const partnerHistory =
               userHistories.get(candidateId) ?? new Map<string, number>();
 
@@ -429,7 +472,7 @@ export class PairingAlgorithmService {
         if (candidateInfos.length === 0) {
           this.logger.error(
             `No available partners for user ${userId} due to blocking relationships`,
-            PairingAlgorithmService.name,
+            PairingAlgorithmService.name
           );
           unpairedUsers.add(userId);
           availableUsers.delete(userId);
@@ -444,8 +487,8 @@ export class PairingAlgorithmService {
             info.partnerBlocks,
             historyA,
             info.partnerHistory,
-            totalEligibleUsers,
-          ),
+            totalEligibleUsers
+          )
         );
 
         const selectionPool =
@@ -458,7 +501,7 @@ export class PairingAlgorithmService {
         if (!selected) {
           this.logger.warn(
             `Unable to select partner for ${userId}; marking as unpaired`,
-            PairingAlgorithmService.name,
+            PairingAlgorithmService.name
           );
           unpairedUsers.add(userId);
           availableUsers.delete(userId);
@@ -470,7 +513,7 @@ export class PairingAlgorithmService {
 
         this.logger.debug(
           `Pairing ${userId} with ${selected.candidateId}`,
-          PairingAlgorithmService.name,
+          PairingAlgorithmService.name
         );
 
         pairs.push({ userAId: userId, userBId: selected.candidateId });
@@ -483,13 +526,23 @@ export class PairingAlgorithmService {
         unpairedUsers.add(remainingUserId);
       });
 
-      const avoidLastPeriod = (pair: { userAId: string; userBId: string }): boolean => {
-        return !lastPeriodPairKeys.has(buildPairKey(pair.userAId, pair.userBId));
+      const avoidLastPeriod = (pair: {
+        userAId: string;
+        userBId: string;
+      }): boolean => {
+        return !lastPeriodPairKeys.has(
+          buildPairKey(pair.userAId, pair.userBId)
+        );
       };
 
-      const avoidThreePeat = (pair: { userAId: string; userBId: string }): boolean => {
+      const avoidThreePeat = (pair: {
+        userAId: string;
+        userBId: string;
+      }): boolean => {
         const key = buildPairKey(pair.userAId, pair.userBId);
-        return !(lastPeriodPairKeys.has(key) && secondLastPeriodPairKeys.has(key));
+        return !(
+          lastPeriodPairKeys.has(key) && secondLastPeriodPairKeys.has(key)
+        );
       };
 
       pairs.forEach((pair, index) => {
@@ -497,20 +550,22 @@ export class PairingAlgorithmService {
         if (lastPeriodPairKeys.has(key)) {
           this.logger.warn(
             `Pair (${pair.userAId}, ${pair.userBId}) was also paired in last period`,
-            PairingAlgorithmService.name,
+            PairingAlgorithmService.name
           );
 
-          if (!this.trySwapPairs(
-            pairs,
-            index,
-            userBlocks,
-            userHistories,
-            totalEligibleUsers,
-            avoidLastPeriod,
-          )) {
+          if (
+            !this.trySwapPairs(
+              pairs,
+              index,
+              userBlocks,
+              userHistories,
+              totalEligibleUsers,
+              avoidLastPeriod
+            )
+          ) {
             this.logger.warn(
               `Unable to swap pair (${pair.userAId}, ${pair.userBId}) to avoid repeat`,
-              PairingAlgorithmService.name,
+              PairingAlgorithmService.name
             );
           }
         }
@@ -523,17 +578,19 @@ export class PairingAlgorithmService {
             lastPeriodPairKeys.has(key) &&
             secondLastPeriodPairKeys.has(key)
           ) {
-            if (!this.trySwapPairs(
-              pairs,
-              index,
-              userBlocks,
-              userHistories,
-              totalEligibleUsers,
-              avoidThreePeat,
-            )) {
+            if (
+              !this.trySwapPairs(
+                pairs,
+                index,
+                userBlocks,
+                userHistories,
+                totalEligibleUsers,
+                avoidThreePeat
+              )
+            ) {
               throw new PairingConstraintException(
-                'Unable to avoid three consecutive pairings',
-                { userAId: pair.userAId, userBId: pair.userBId },
+                "Unable to avoid three consecutive pairings",
+                { userAId: pair.userAId, userBId: pair.userBId }
               );
             }
           }
@@ -575,38 +632,38 @@ export class PairingAlgorithmService {
 
       this.logger.log(
         `Created ${pairs.length} pairs for organization ${organizationId}`,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
       this.logger.log(
         `Guaranteed users paired: ${guaranteedPairedUsers.size}`,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
       this.logger.log(
         `Regular users paired: ${regularPairedUsers.size}`,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
       this.logger.log(
         `Unpaired users: ${unpairedUsers.size}`,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
 
       if (unpairedUsers.size > 0) {
         this.logger.debug(
-          `Unpaired user IDs: ${Array.from(unpairedUsers).join(', ')}`,
-          PairingAlgorithmService.name,
+          `Unpaired user IDs: ${Array.from(unpairedUsers).join(", ")}`,
+          PairingAlgorithmService.name
         );
       }
 
       if (pairs.length === 0) {
         this.logger.warn(
-          'No pairs were created during this run',
-          PairingAlgorithmService.name,
+          "No pairs were created during this run",
+          PairingAlgorithmService.name
         );
       }
 
       this.logger.log(
         `Pairing algorithm completed for organization ${organizationId}`,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
     } catch (error) {
       const context = {
@@ -619,7 +676,7 @@ export class PairingAlgorithmService {
       this.logger.error(
         `Pairing algorithm failed: ${(error as Error).message}. Context: ${JSON.stringify(context)}`,
         (error as Error).stack,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
 
       throw error;
@@ -636,7 +693,7 @@ export class PairingAlgorithmService {
    */
   async executePairingWithStats(
     organizationId: string,
-    executedByUserId: string,
+    executedByUserId: string
   ): Promise<any> {
     try {
       const beforeCount = await this.prisma.pairing.count({
@@ -655,11 +712,11 @@ export class PairingAlgorithmService {
       const message =
         pairingsCreated > 0
           ? `Pairing algorithm executed successfully: ${pairingsCreated} new pairings created.`
-          : 'Pairing algorithm executed successfully with no new pairings.';
+          : "Pairing algorithm executed successfully with no new pairings.";
 
       this.logger.log(
         `Pairing algorithm executed by user ${executedByUserId} for organization ${organizationId}. New pairings: ${pairingsCreated}`,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
 
       return {
@@ -673,7 +730,7 @@ export class PairingAlgorithmService {
       this.logger.error(
         `Failed to execute pairing algorithm for organization ${organizationId}: ${err.message}`,
         err.stack,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
 
       // Re-throw to let resolver handle it
@@ -687,10 +744,12 @@ export class PairingAlgorithmService {
    * @param organizationId - UUID of the organization
    * @returns Promise<number | undefined> Count of unpaired users, or undefined if no active period
    */
-  private async calculateUnpairedUsers(organizationId: string): Promise<number | undefined> {
+  private async calculateUnpairedUsers(
+    organizationId: string
+  ): Promise<number | undefined> {
     const activePeriod = await this.prisma.pairingPeriod.findFirst({
       where: { organizationId, status: PairingPeriodStatus.active },
-      orderBy: { startDate: 'desc' },
+      orderBy: { startDate: "desc" },
       select: { id: true },
     });
 
@@ -741,7 +800,7 @@ export class PairingAlgorithmService {
     userBlocks: Map<string, Set<string>>,
     userHistories: Map<string, Map<string, number>>,
     totalEligibleUsers: number,
-    avoidPredicate: (pair: { userAId: string; userBId: string }) => boolean,
+    avoidPredicate: (pair: { userAId: string; userBId: string }) => boolean
   ): boolean {
     const targetPair = pairs[targetIndex];
 
@@ -800,13 +859,13 @@ export class PairingAlgorithmService {
             proposedFirst,
             userBlocks,
             userHistories,
-            totalEligibleUsers,
+            totalEligibleUsers
           ) ||
           !this.isPairValid(
             proposedSecond,
             userBlocks,
             userHistories,
-            totalEligibleUsers,
+            totalEligibleUsers
           )
         ) {
           continue;
@@ -825,7 +884,7 @@ export class PairingAlgorithmService {
     pair: { userAId: string; userBId: string },
     userBlocks: Map<string, Set<string>>,
     userHistories: Map<string, Map<string, number>>,
-    totalEligibleUsers: number,
+    totalEligibleUsers: number
   ): boolean {
     const blocksA = userBlocks.get(pair.userAId) ?? new Set<string>();
     const blocksB = userBlocks.get(pair.userBId) ?? new Set<string>();
@@ -841,13 +900,13 @@ export class PairingAlgorithmService {
       blocksB,
       userHistories.get(pair.userAId) ?? new Map<string, number>(),
       userHistories.get(pair.userBId) ?? new Map<string, number>(),
-      totalEligibleUsers,
+      totalEligibleUsers
     );
   }
 
   private async getEligibleUsers(
     organizationId: string,
-    periodId: string,
+    periodId: string
   ): Promise<User[]> {
     // Get the period being created
     const period = await this.prisma.pairingPeriod.findUnique({
@@ -860,18 +919,17 @@ export class PairingAlgorithmService {
     }
 
     // If no end date, use start date + 21 days (typical pairing period)
-    const periodEndDate = period.endDate || new Date(period.startDate.getTime() + 21 * 24 * 60 * 60 * 1000);
+    const periodEndDate =
+      period.endDate ||
+      new Date(period.startDate.getTime() + 21 * 24 * 60 * 60 * 1000);
 
     // Fetch users with calendar events included
     const users = await this.prisma.user.findMany({
       where: {
         organizationId,
         isActive: true,
-        role: 'user',
-        OR: [
-          { suspendedUntil: null },
-          { suspendedUntil: { lt: new Date() } },
-        ],
+        role: "user",
+        OR: [{ suspendedUntil: null }, { suspendedUntil: { lt: new Date() } }],
         pairingsAsUserA: {
           none: { periodId },
         },
@@ -883,7 +941,7 @@ export class PairingAlgorithmService {
         calendarEvents: {
           where: {
             type: CalendarEventType.unavailability,
-            title: 'Activity Paused',
+            title: "Activity Paused",
             deletedAt: null,
             // Check if pause event overlaps with the entire pairing period
             // Pause overlaps if: pauseStart <= periodEnd AND pauseEnd >= periodStart
@@ -895,14 +953,16 @@ export class PairingAlgorithmService {
     });
 
     // Filter out users with overlapping pause events
-    const eligibleUsers = users.filter((user) => user.calendarEvents.length === 0);
+    const eligibleUsers = users.filter(
+      (user) => user.calendarEvents.length === 0
+    );
 
     // Log exclusions for debugging
     const excludedCount = users.length - eligibleUsers.length;
     if (excludedCount > 0) {
       this.logger.log(
         `Calendar filtering: ${excludedCount} users excluded due to activity pause (org=${organizationId}, period=${periodId}, periodStart=${period.startDate}, total=${users.length}, eligible=${eligibleUsers.length})`,
-        PairingAlgorithmService.name,
+        PairingAlgorithmService.name
       );
     }
 
@@ -924,7 +984,7 @@ export class PairingAlgorithmService {
 
   private async getUnpairedFromLastPeriod(
     organizationId: string,
-    currentPeriodId: string,
+    currentPeriodId: string
   ): Promise<string[]> {
     const currentPeriod = await this.prisma.pairingPeriod.findUnique({
       select: { startDate: true },
@@ -941,7 +1001,7 @@ export class PairingAlgorithmService {
         organizationId,
         startDate: { lt: currentPeriod.startDate },
       },
-      orderBy: { startDate: 'desc' },
+      orderBy: { startDate: "desc" },
     });
 
     if (!previousPeriod) {
@@ -950,7 +1010,7 @@ export class PairingAlgorithmService {
 
     const eligibleUsers = await this.getEligibleUsers(
       organizationId,
-      previousPeriod.id,
+      previousPeriod.id
     );
 
     const pairedUsers = await this.prisma.pairing.findMany({
@@ -978,14 +1038,14 @@ export class PairingAlgorithmService {
   private async getUserPairingHistory(
     userId: string,
     organizationId: string,
-    limitPeriods: number = 2,
+    limitPeriods: number = 2
   ): Promise<Map<string, number>> {
     const recentPeriods = await this.prisma.pairingPeriod.findMany({
       select: { id: true },
       where: {
         organizationId,
       },
-      orderBy: { startDate: 'desc' },
+      orderBy: { startDate: "desc" },
       take: limitPeriods,
     });
 
@@ -1010,7 +1070,8 @@ export class PairingAlgorithmService {
     const history = new Map<string, number>();
 
     pairings.forEach((pairing) => {
-      const partnerId = pairing.userAId === userId ? pairing.userBId : pairing.userAId;
+      const partnerId =
+        pairing.userAId === userId ? pairing.userBId : pairing.userAId;
       history.set(partnerId, (history.get(partnerId) ?? 0) + 1);
     });
 
@@ -1048,7 +1109,7 @@ export class PairingAlgorithmService {
     blocksB: Set<string>,
     historyA: Map<string, number>,
     historyB: Map<string, number>,
-    totalEligibleUsers: number,
+    totalEligibleUsers: number
   ): boolean {
     if (blocksA.has(userB) || blocksB.has(userA)) {
       return false;
@@ -1100,7 +1161,7 @@ export class PairingAlgorithmService {
   async calculatePeriodEnd(
     organizationId: string,
     startDate: Date,
-    periodsCount: number,
+    periodsCount: number
   ): Promise<Date> {
     const algorithmSettings = await this.prisma.algorithmSetting.findUnique({
       where: { organizationId },
@@ -1111,7 +1172,7 @@ export class PairingAlgorithmService {
 
     const totalDays = periodLengthDays * periodsCount;
     const endDate = new Date(
-      startDate.getTime() + totalDays * MILLISECONDS_PER_DAY,
+      startDate.getTime() + totalDays * MILLISECONDS_PER_DAY
     );
 
     return endDate;

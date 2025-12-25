@@ -19,4 +19,3 @@ export class StatisticsResponseType {
   @Field(() => Int)
   inactiveUsersCount: number;
 }
-

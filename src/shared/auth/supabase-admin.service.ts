@@ -74,11 +74,10 @@ export class SupabaseAdminService {
     }
 
     try {
-      const { data, error } =
-        await this.client.auth.admin.generateLink({
-          type: "recovery",
-          email: email,
-        });
+      const { data, error } = await this.client.auth.admin.generateLink({
+        type: "recovery",
+        email: email,
+      });
 
       if (error) {
         this.logger.error(

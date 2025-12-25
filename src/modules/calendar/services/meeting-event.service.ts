@@ -81,14 +81,12 @@ export class MeetingEventService {
           createdByUserId: input.createdByUserId,
           startDateTime: input.startDateTime,
           endDateTime: input.endDateTime,
-          userAConfirmationStatus:
-            creatorIsA
-              ? MeetingConfirmationStatus.confirmed
-              : MeetingConfirmationStatus.pending,
-          userBConfirmationStatus:
-            !creatorIsA
-              ? MeetingConfirmationStatus.confirmed
-              : MeetingConfirmationStatus.pending,
+          userAConfirmationStatus: creatorIsA
+            ? MeetingConfirmationStatus.confirmed
+            : MeetingConfirmationStatus.pending,
+          userBConfirmationStatus: !creatorIsA
+            ? MeetingConfirmationStatus.confirmed
+            : MeetingConfirmationStatus.pending,
           ...(input.note
             ? creatorIsA
               ? { userANote: input.note }

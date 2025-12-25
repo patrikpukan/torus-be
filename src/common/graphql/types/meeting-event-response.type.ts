@@ -1,11 +1,11 @@
-import { Field, ObjectType } from '@nestjs/graphql';
-import { MeetingEventType } from '../../../modules/calendar/graphql/types/meeting-event.type';
+import { Field, ObjectType } from "@nestjs/graphql";
+import { MeetingEventType } from "../../../modules/calendar/graphql/types/meeting-event.type";
 
 /**
  * Response wrapper for MeetingEvent mutations.
  * Provides consistent structure with success indicator and the resulting event.
  */
-@ObjectType('MeetingEventResponse')
+@ObjectType("MeetingEventResponse")
 export class MeetingEventResponseType {
   @Field()
   success!: boolean;

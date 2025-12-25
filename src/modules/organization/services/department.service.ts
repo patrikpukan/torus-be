@@ -1,6 +1,14 @@
-import { Injectable, ConflictException, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 import { PrismaService } from "src/core/prisma/prisma.service";
-import { CreateDepartmentInput, UpdateDepartmentInput, DeleteDepartmentInput } from "../graphql/types/department-input.type";
+import {
+  CreateDepartmentInput,
+  UpdateDepartmentInput,
+  DeleteDepartmentInput,
+} from "../graphql/types/department-input.type";
 
 @Injectable()
 export class DepartmentService {

@@ -5,12 +5,15 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { GqlExecutionContext } from "@nestjs/graphql";
-import { AuthorizationService, UserRole } from "../services/authorization.service";
+import {
+  AuthorizationService,
+  UserRole,
+} from "../services/authorization.service";
 import { Identity } from "../domain/identity";
 
 /**
  * Guard to ensure user has org_admin role
- * 
+ *
  * Usage: @UseGuards(OrgAdminGuard)
  */
 @Injectable()
@@ -30,7 +33,10 @@ export class OrgAdminGuard implements CanActivate {
       throw new ForbiddenException("Authentication required");
     }
 
-    this.authService.checkRole(identity, [UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN]);
+    this.authService.checkRole(identity, [
+      UserRole.ORG_ADMIN,
+      UserRole.SUPER_ADMIN,
+    ]);
     return true;
   }
 }

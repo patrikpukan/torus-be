@@ -40,10 +40,9 @@ async function confirmCleanup(): Promise<boolean> {
 
 /**
  * Clean up Supabase Auth users for demo accounts
+ * Directly finds and deletes all users with @torus.com emails
  */
-async function cleanupSupabaseAuthUsers(
-  demoUserEmails: string[]
-): Promise<void> {
+async function cleanupSupabaseAuthUsers(): Promise<void> {
   console.log("\n🔐 Cleaning up Supabase Auth users...");
 
   if (!supabaseUrl || !supabaseSecretKey) {
@@ -60,22 +59,37 @@ async function cleanupSupabaseAuthUsers(
     },
   });
 
-  // Get all users from Supabase Auth
-  const { data, error } = await supabaseAdmin.auth.admin.listUsers();
+  // Get all users from Supabase Auth with pagination
+  console.log("  📋 Fetching Supabase Auth users...");
+  const allUsers: any[] = [];
+  let pageNum = 0;
+  const pageSize = 1000;
 
-  if (error) {
-    console.log(`  ⚠️  Error listing Supabase users: ${error.message}`);
-    return;
+  // Fetch all users (handle pagination)
+  while (true) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      perPage: pageSize,
+      page: pageNum,
+    });
+
+    if (error) {
+      console.log(`  ⚠️  Error listing Supabase users: ${error.message}`);
+      return;
+    }
+
+    if (!data?.users || data.users.length === 0) {
+      break;
+    }
+
+    allUsers.push(...data.users);
+    pageNum++;
   }
 
-  if (!data?.users) {
-    console.log("  ⚠️  No users found in Supabase Auth");
-    return;
-  }
+  console.log(`  Found ${allUsers.length} total Supabase Auth users`);
 
-  // Filter for demo users (by email pattern)
-  const demoAuthUsers = data.users.filter(
-    (user) => user.email && demoUserEmails.includes(user.email)
+  // Filter for demo users (those with @torus.com emails)
+  const demoAuthUsers = allUsers.filter(
+    (user) => user.email && user.email.includes("@torus.com")
   );
 
   console.log(`  Found ${demoAuthUsers.length} demo users in Supabase Auth`);
@@ -89,14 +103,15 @@ async function cleanupSupabaseAuthUsers(
 
     if (deleteError) {
       console.log(
-        `  ⚠️  Failed to delete ${user.email}: ${deleteError.message}`
+        `    ⚠️  Failed to delete ${user.email}: ${deleteError.message}`
       );
     } else {
       deletedCount++;
+      console.log(`    ✓ Deleted ${user.email}`);
     }
   }
 
-  console.log(`  ✓ Deleted ${deletedCount} users from Supabase Auth`);
+  console.log(`  ✓ Deleted ${deletedCount} demo users from Supabase Auth`);
 }
 
 /**
@@ -309,7 +324,7 @@ async function cleanupDemoDataOnly(prisma: PrismaClient): Promise<void> {
   console.log(`   ✓ Deleted ${deletedOrgs.count} organizations`);
 
   // Step 4: Clean up Supabase Auth users
-  await cleanupSupabaseAuthUsers(demoUserEmails);
+  await cleanupSupabaseAuthUsers();
 
   // Step 5: Clean up Supabase Storage avatars
   await cleanupSupabaseAvatars(demoUserIds);

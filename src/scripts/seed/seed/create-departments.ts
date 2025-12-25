@@ -18,8 +18,7 @@ const DEPARTMENT_DEFINITIONS: DepartmentDefinition[] = [
   },
   {
     name: "Marketing",
-    description:
-      "Marketing, communications, and brand management initiatives",
+    description: "Marketing, communications, and brand management initiatives",
   },
   {
     name: "Sales",
@@ -39,8 +38,7 @@ const DEPARTMENT_DEFINITIONS: DepartmentDefinition[] = [
   },
   {
     name: "Customer Support",
-    description:
-      "Customer service, technical support, and success management",
+    description: "Customer service, technical support, and success management",
   },
 ];
 
@@ -85,16 +83,11 @@ export async function createDepartments(
         departmentIds.push(newDept.id);
       }
     } catch (error) {
-      console.error(
-        `  ✗ Error processing department ${deptDef.name}:`,
-        error
-      );
+      console.error(`  ✗ Error processing department ${deptDef.name}:`, error);
       throw error;
     }
   }
 
-  console.log(
-    `Successfully processed ${departmentIds.length} departments.\n`
-  );
+  console.log(`Successfully processed ${departmentIds.length} departments.\n`);
   return departmentIds;
 }

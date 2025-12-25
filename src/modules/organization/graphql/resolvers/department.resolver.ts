@@ -10,7 +10,11 @@ import {
 import { UseGuards, ForbiddenException } from "@nestjs/common";
 import { DepartmentType } from "../types/department.type";
 import { DepartmentService } from "../../services/department.service";
-import { CreateDepartmentInput, UpdateDepartmentInput, DeleteDepartmentInput } from "../types/department-input.type";
+import {
+  CreateDepartmentInput,
+  UpdateDepartmentInput,
+  DeleteDepartmentInput,
+} from "../types/department-input.type";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
 import { PrismaService } from "src/core/prisma/prisma.service";
 import { AnonUserType } from "../../../users/graphql/types/anon-user.type";

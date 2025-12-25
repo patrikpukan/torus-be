@@ -12,4 +12,3 @@ import { StatisticsRepository } from "./repositories/statistics.repository";
   exports: [StatisticsService],
 })
 export class StatisticsModule {}
-

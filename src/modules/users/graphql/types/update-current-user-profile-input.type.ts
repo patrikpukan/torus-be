@@ -53,5 +53,4 @@ export class UpdateCurrentUserProfileInputType {
   @IsOptional()
   @IsUUID()
   departmentId?: string | null;
-
 }
