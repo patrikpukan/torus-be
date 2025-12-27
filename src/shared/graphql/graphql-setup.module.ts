@@ -119,6 +119,51 @@ const buildIdentity = async (
           appRole = fallbackUser.role ?? undefined;
           organizationId = fallbackUser.organizationId ?? undefined;
           banCheckUserId = fallbackUser.id;
+        } else {
+          // User doesn't exist in database - create them with first available organization
+          try {
+            const firstOrg = await prisma.organization.findFirst({
+              select: { id: true },
+            });
+
+            if (firstOrg) {
+              const newUser = await prisma.user.create({
+                data: {
+                  id: supabaseUserId,
+                  email: claims.email,
+                  supabaseUserId,
+                  organizationId: firstOrg.id,
+                  emailVerified: Boolean(claims.email_verified),
+                  firstName:
+                    (claims.user_metadata as any)?.given_name ||
+                    (claims.user_metadata as any)?.first_name,
+                  lastName:
+                    (claims.user_metadata as any)?.family_name ||
+                    (claims.user_metadata as any)?.last_name,
+                  profileImageUrl: (claims.user_metadata as any)?.picture,
+                  role: "user",
+                  profileStatus: "pending",
+                  isActive: true,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                },
+              });
+
+              resolvedUserId = newUser.id;
+              appRole = newUser.role ?? undefined;
+              organizationId = newUser.organizationId ?? undefined;
+              banCheckUserId = newUser.id;
+
+              logger.log(
+                `[Auth] Created new user ${claims.email} in organization ${firstOrg.id}`
+              );
+            }
+          } catch (createError) {
+            const err = createError as Error;
+            logger.warn(
+              `Failed to auto-create user for ${claims.email}: ${err.message}`
+            );
+          }
         }
       }
     } catch (error) {

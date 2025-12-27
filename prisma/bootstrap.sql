@@ -16,22 +16,17 @@ BEGIN
   
   -- If no organization_id in metadata, get the first organization as default
   IF org_id IS NULL THEN
-    SELECT id INTO org_id FROM public.organizations LIMIT 1;
+    SELECT id INTO org_id FROM public."organizations" LIMIT 1;
   END IF;
   
-  -- If still no organization exists, skip creating the user in public.user
-  -- This allows auth to succeed, but user won't be in your app until they have an org
+  -- If still no organization exists, skip user creation
   IF org_id IS NULL THEN
-    RAISE WARNING 'No organization found in metadata or database. User created in auth.users but not in public.user table.';
+    RAISE WARNING 'No organization found in metadata or database. User created in auth.users but not in public.user table for email: %', NEW.email;
     RETURN NEW;
   END IF;
 
   -- Extract first and last name from metadata
   -- Google OAuth provides: given_name, family_name, or full_name
-  -- Try multiple locations for first name:
-  -- 1. raw_user_meta_data.given_name (Google OAuth)
-  -- 2. raw_user_meta_data.first_name (fallback)
-  -- 3. Extract from raw_user_meta_data.full_name if available
   first_name := COALESCE(
     NEW.raw_user_meta_data->>'given_name',
     NEW.raw_user_meta_data->>'first_name',
@@ -42,10 +37,7 @@ BEGIN
     END
   );
   
-  -- Try multiple locations for last name:
-  -- 1. raw_user_meta_data.family_name (Google OAuth)
-  -- 2. raw_user_meta_data.last_name (fallback)
-  -- 3. Extract from raw_user_meta_data.full_name if available
+  -- Try multiple locations for last name
   last_name := COALESCE(
     NEW.raw_user_meta_data->>'family_name',
     NEW.raw_user_meta_data->>'last_name',
@@ -63,37 +55,42 @@ BEGIN
   -- Extract picture from Google OAuth metadata
   avatar_picture := NEW.raw_user_meta_data->>'picture';
 
-  -- Insert into public.user table with snake_case column names
-  INSERT INTO public."user" (
-    id,
-    organization_id,
-    email,
-    "supabaseUserId",
-    first_name,
-    last_name,
-    avatar_url,
-    "emailVerified",
-    "createdAt",
-    "updatedAt",
-    is_active,
-    role,
-    "profileStatus"
-  ) VALUES (
-    NEW.id,
-    org_id,
-    NEW.email,
-    NEW.id,
-    first_name,
-    last_name,
-    avatar_picture,
-    COALESCE(NEW.email_confirmed_at IS NOT NULL, false),
-    COALESCE(NEW.created_at, NOW()),
-    COALESCE(NEW.updated_at, NOW()),
-    true,
-    'user',
-    'pending'
-  )
-  ON CONFLICT (id) DO NOTHING; -- Prevent duplicate if user already exists
+  -- Insert into public.user table with correct column mappings
+  BEGIN
+    INSERT INTO public."user" (
+      id,
+      organization_id,
+      email,
+      "supabaseUserId",
+      first_name,
+      last_name,
+      avatar_url,
+      emailVerified,
+      "createdAt",
+      "updatedAt",
+      is_active,
+      role,
+      profileStatus
+    ) VALUES (
+      NEW.id,
+      org_id,
+      NEW.email,
+      NEW.id,
+      first_name,
+      last_name,
+      avatar_picture,
+      COALESCE(NEW.email_confirmed_at IS NOT NULL, false),
+      COALESCE(NEW.created_at, NOW()),
+      COALESCE(NEW.updated_at, NOW()),
+      true,
+      'user'::user_role,
+      'pending'::profile_status
+    )
+    ON CONFLICT (id) DO NOTHING;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'Error creating user in public.user for email %: % %', NEW.email, SQLSTATE, SQLERRM;
+    RETURN NEW;
+  END;
 
   RETURN NEW;
 END;

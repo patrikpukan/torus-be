@@ -1336,49 +1336,56 @@ async function createDemoUser(
     // Use override email if provided, otherwise use profile email
     const email = emailOverride || profile.email;
 
-    // First, get or create the Supabase Auth user to get their actual ID
-    // Check if user already exists in Supabase Auth
-    const { data: existingAuthData, error: listError } =
-      await supabaseAdmin.auth.admin.listUsers();
+    // Create user in Supabase Auth (or handle if already exists)
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: profile.password,
+        email_confirm: true,
+        user_metadata: {
+          role: profile.role,
+          organizationId: orgId,
+        },
+      });
 
     let authUserId: string | null = null;
 
-    if (!listError && existingAuthData?.users) {
-      const existingAuthUser = existingAuthData.users.find(
-        (u) => u.email === email
-      );
-      if (existingAuthUser) {
-        authUserId = existingAuthUser.id;
-      }
-    }
+    if (authError) {
+      // Check if user already exists in Supabase Auth (by error code or message)
+      const isEmailExists =
+        (authError as any).code === "email_exists" ||
+        authError.message?.includes("already exists") ||
+        authError.message?.includes("already been registered");
 
-    // If auth user doesn't exist, create it
-    if (!authUserId) {
-      const { data: authData, error: authError } =
-        await supabaseAdmin.auth.admin.createUser({
-          email,
-          password: profile.password,
-          email_confirm: true,
-          user_metadata: {
-            role: profile.role,
-            organizationId: orgId,
-          },
-        });
+      if (isEmailExists) {
+        console.log(`⚠️  Supabase user already exists: ${email}`);
 
-      if (authError) {
+        // Try to get the existing user
+        const { data, error: listError } =
+          await supabaseAdmin.auth.admin.listUsers();
+        if (!listError && data?.users) {
+          const existingAuthUser = data.users.find((u) => u.email === email);
+          if (existingAuthUser) {
+            authUserId = existingAuthUser.id;
+          }
+        }
+      } else {
         console.error(`❌ Failed to create Supabase user ${email}:`, authError);
         return null;
       }
-
-      if (authData?.user) {
-        authUserId = authData.user.id;
-      } else {
-        console.error(`❌ No Supabase user ID returned for ${email}`);
-        return null;
-      }
+    } else if (authData?.user) {
+      authUserId = authData.user.id;
+    } else {
+      console.error(`❌ No Supabase user ID returned for ${email}`);
+      return null;
     }
 
-    // Now upload avatar using the actual auth user ID
+    if (!authUserId) {
+      console.error(`❌ Could not obtain auth user ID for ${email}`);
+      return null;
+    }
+
+    // Upload avatar using the actual auth user ID
     const avatarUrl = await uploadAvatarToSupabase(
       profile.avatarFileName,
       authUserId
@@ -1418,150 +1425,11 @@ async function createDemoUser(
       };
     }
 
-    // Create user in Supabase Auth
-    const { data: authData, error: authError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email,
-        password: profile.password,
-        email_confirm: true,
-        user_metadata: {
-          role: profile.role,
-          organizationId: orgId,
-        },
-      });
-
-    if (authError) {
-      // Check if user already exists in Supabase Auth (by error code or message)
-      const isEmailExists =
-        (authError as any).code === "email_exists" ||
-        authError.message?.includes("already exists") ||
-        authError.message?.includes("already been registered");
-
-      if (isEmailExists) {
-        console.log(`⚠️  Supabase user already exists: ${email}`);
-
-        // Try to get the existing user
-        const { data, error: listError } =
-          await supabaseAdmin.auth.admin.listUsers();
-        if (!listError && data?.users) {
-          const existingAuthUser = data.users.find((u) => u.email === email);
-          if (existingAuthUser) {
-            // Check if database user exists by Supabase user ID
-            const dbUserByAuth = await prisma.user.findUnique({
-              where: { id: existingAuthUser.id },
-            });
-            if (!dbUserByAuth) {
-              // Database user doesn't exist, create it with the existing Auth user ID
-              const createdUser = await prisma.user.create({
-                data: {
-                  id: existingAuthUser.id,
-                  supabaseUserId: existingAuthUser.id,
-                  email,
-                  emailVerified: true,
-                  firstName: profile.firstName,
-                  lastName: profile.lastName,
-                  role: profile.role,
-                  organizationId: orgId,
-                  about: profile.about,
-                  preferredActivity: profile.preferredActivity,
-                  location: profile.location,
-                  position: profile.position,
-                  profileImageUrl: avatarUrl ?? null,
-                  isActive: true,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                },
-              });
-              console.log(
-                `✅ Created database user: ${profile.firstName} ${profile.lastName} (${profile.role})`
-              );
-              return {
-                id: createdUser.id,
-                firstName: createdUser.firstName,
-                lastName: createdUser.lastName,
-                role: createdUser.role,
-                isActive: createdUser.isActive,
-              };
-            } else {
-              // Update existing database user
-              const updatedUser = await prisma.user.update({
-                where: { id: existingAuthUser.id },
-                data: {
-                  firstName: profile.firstName,
-                  lastName: profile.lastName,
-                  about: profile.about,
-                  preferredActivity: profile.preferredActivity,
-                  location: profile.location,
-                  position: profile.position,
-                  profileImageUrl: avatarUrl ?? null,
-                  role: profile.role,
-                  organizationId: orgId,
-                  updatedAt: new Date(),
-                },
-              });
-              console.log(
-                `✅ Updated database user: ${profile.firstName} ${profile.lastName} (${profile.role})`
-              );
-              return {
-                id: updatedUser.id,
-                firstName: updatedUser.firstName,
-                lastName: updatedUser.lastName,
-                role: updatedUser.role,
-                isActive: updatedUser.isActive,
-              };
-            }
-          }
-        }
-      } else {
-        console.error(`❌ Failed to create Supabase user ${email}:`, authError);
-      }
-      return null;
-    }
-
-    if (!authData.user) {
-      console.error(`❌ No Supabase user returned for ${email}`);
-      return null;
-    }
-
-    // Check if database user already exists with this Supabase user ID
-    const existingDbUserByAuth = await prisma.user.findUnique({
-      where: { id: authData.user.id },
-    });
-
-    if (existingDbUserByAuth) {
-      // Database user already exists, just update it
-      const updatedUser = await prisma.user.update({
-        where: { id: authData.user.id },
-        data: {
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          about: profile.about,
-          preferredActivity: profile.preferredActivity,
-          location: profile.location,
-          position: profile.position,
-          profileImageUrl: avatarUrl ?? null,
-          role: profile.role,
-          organizationId: orgId,
-          updatedAt: new Date(),
-        },
-      });
-      console.log(
-        `✅ Updated user: ${profile.firstName} ${profile.lastName} (${profile.role}) - ${email}`
-      );
-      return {
-        id: updatedUser.id,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
-        role: updatedUser.role,
-        isActive: updatedUser.isActive,
-      };
-    }
-
     // Create user in database with Supabase user ID
     const createdUser = await prisma.user.create({
       data: {
-        id: authData.user.id, // Use Supabase auth user ID
-        supabaseUserId: authData.user.id,
+        id: authUserId,
+        supabaseUserId: authUserId,
         email,
         emailVerified: true,
         firstName: profile.firstName,

@@ -6,6 +6,9 @@ import * as dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 
+// Allow self-signed certificates
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 async function bootstrapDatabase() {
   const databaseUrl = process.env.DATABASE_URL;
 
