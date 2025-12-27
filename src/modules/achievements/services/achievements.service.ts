@@ -111,7 +111,10 @@ export class AchievementsService {
       return {
         achievementId: progress.achievementId,
         achievementName: achievement?.name || "",
+        achievementDescription: achievement?.description || "",
+        achievementImageIdentifier: achievement?.imageIdentifier || "",
         achievementType: achievement?.type || "",
+        pointValue: achievement?.pointValue || 0,
         currentProgress: progress.currentProgress,
         targetProgress: progress.targetProgress,
         isUnlocked: progress.isUnlocked || !!unlockedAt,
@@ -119,6 +122,42 @@ export class AchievementsService {
         percentComplete: progress.percentComplete,
       } as AchievementProgressView;
     });
+  }
+
+  /**
+   * Calculate total points earned by a user from unlocked achievements
+   * @param userId - User ID
+   * @returns Total points from all unlocked achievements
+   */
+  async getTotalEarnedPoints(userId: string): Promise<number> {
+    const unlockedAchievements = await this.prisma.userAchievement.findMany({
+      where: {
+        userId,
+        unlockedAt: { not: null },
+      },
+      include: {
+        achievement: {
+          select: {
+            pointValue: true,
+          },
+        },
+      },
+    });
+
+    return unlockedAchievements.reduce(
+      (total, ua) => total + (ua.achievement.pointValue || 0),
+      0
+    );
+  }
+
+  /**
+   * Get total possible points from all achievements in an organization
+   * @param organizationId - Organization ID
+   * @returns Total possible points
+   */
+  async getTotalPossiblePoints(): Promise<number> {
+    const achievements = await this.achievementRepository.getAllAchievements();
+    return achievements.reduce((total, a) => total + (a.pointValue || 0), 0);
   }
 
   /**

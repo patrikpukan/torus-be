@@ -193,6 +193,8 @@ model User {
   ratings           Rating[]           @relation("UserRatings")
   userAchievements  UserAchievement[]
   cycleParticipations CycleParticipation[]
+
+  @@map("user")
 }
 
 model PairingPeriod {

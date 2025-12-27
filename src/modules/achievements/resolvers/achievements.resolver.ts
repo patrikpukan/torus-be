@@ -6,6 +6,7 @@ import {
   UserAchievementType,
   AchievementWithProgressType,
   AchievementStatisticsType,
+  AchievementPointsStatisticsType,
 } from "../graphql/types/achievement.type";
 import { AchievementsService } from "../services/achievements.service";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
@@ -56,10 +57,10 @@ export class AchievementsResolver {
     return progress.map((p) => ({
       achievementId: p.achievementId,
       name: p.achievementName,
-      description: "", // Will be populated via ResolveField
-      imageIdentifier: "", // Will be populated via ResolveField
+      description: p.achievementDescription,
+      imageIdentifier: p.achievementImageIdentifier,
       type: p.achievementType as any,
-      pointValue: 0, // Will be populated via ResolveField
+      pointValue: p.pointValue,
       isUnlocked: p.isUnlocked,
       unlockedAt: p.unlockedAt,
       currentProgress: p.currentProgress,
@@ -221,5 +222,61 @@ export class AchievementsResolver {
       "public"
     );
     return achievements.map((ua) => ua.achievement);
+  }
+
+  /**
+   * Get user achievement points statistics
+   *
+   * Returns the total points earned by a user from unlocked achievements
+   * and the total possible points available.
+   *
+   * Authorization: Users can view their own stats, org admins can view their org members
+   */
+  @Query(() => AchievementPointsStatisticsType, {
+    description: "Get user's earned points from achievements",
+  })
+  @UseGuards(AuthenticatedUserGuard)
+  async userAchievementPoints(
+    @User() identity: Identity,
+    @Args("userId", { nullable: true }) userId?: string
+  ): Promise<AchievementPointsStatisticsType> {
+    const targetUserId = userId || identity.id;
+
+    // Authorization check
+    if (targetUserId !== identity.id && identity.appRole === UserRoleEnum.user) {
+      throw new ForbiddenException(
+        "You can only view your own achievement points"
+      );
+    }
+
+    // If org admin, verify user is in same organization
+    if (identity.appRole === UserRoleEnum.org_admin) {
+      const targetUser = await this.prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { organizationId: true },
+      });
+
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id: identity.id },
+        select: { organizationId: true },
+      });
+
+      if (targetUser?.organizationId !== currentUser?.organizationId) {
+        throw new ForbiddenException(
+          "You can only view points for users in your organization"
+        );
+      }
+    }
+
+    const earnedPoints = await this.achievementsService.getTotalEarnedPoints(
+      targetUserId
+    );
+    const possiblePoints = await this.achievementsService.getTotalPossiblePoints();
+
+    return {
+      earnedPoints,
+      possiblePoints,
+      completionPercentage: possiblePoints > 0 ? Math.round((earnedPoints / possiblePoints) * 100) : 0,
+    };
   }
 }

@@ -26,7 +26,10 @@ export interface UserAchievementView {
 export interface AchievementProgressView {
   achievementId: string;
   achievementName: string;
+  achievementDescription: string;
+  achievementImageIdentifier: string;
   achievementType: string;
+  pointValue: number;
   currentProgress: number;
   targetProgress: number;
   isUnlocked: boolean;

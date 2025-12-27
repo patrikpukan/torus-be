@@ -15,6 +15,7 @@ import { PairingPeriodModule } from "./modules/pairing-period/pairing-period.mod
 import { AuthModule } from "./shared/auth/auth.module";
 import { StatisticsModule } from "./modules/statistics/statistics.module";
 import { ChatModule } from "./modules/chat/chat.module";
+import { AchievementsModule } from "./modules/achievements/achievements.module";
 
 const imports = [
   LoggerModule,
@@ -33,6 +34,7 @@ const imports = [
   UsersModule,
   StatisticsModule,
   ChatModule,
+  AchievementsModule,
   GraphqlSetupModule,
 ];
 

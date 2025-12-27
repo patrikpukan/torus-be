@@ -1863,6 +1863,124 @@ async function seedAchievements(prisma: PrismaClient): Promise<void> {
 }
 
 /**
+ * Unlocks demo achievements for demo users to showcase the full achievement UI
+ * For the first regular user (user1) in each organization:
+ * - Newcomer: Always unlocked (first meeting)
+ * - Social Butterfly: If user has 10+ meetings with different people
+ * - Bridge Builder: If user has meeting with someone from different department
+ * - Regular Participant: If user has participated in 10+ consecutive cycles
+ * - Pairing Legend: If user has 50+ total meetings
+ * @param prisma - Prisma client instance
+ * @returns Promise<void>
+ */
+async function unlockDemoAchievements(prisma: PrismaClient): Promise<void> {
+  try {
+    // Get all achievements
+    const achievements = await (prisma as any).achievement.findMany({
+      where: { isActive: true },
+    });
+
+    if (achievements.length === 0) {
+      console.log("  ℹ️  No achievements found");
+      return;
+    }
+
+    // Get all regular users (role = 'user') ordered by creation date
+    const users = await prisma.user.findMany({
+      where: { role: UserRole.user, isActive: true },
+      orderBy: { createdAt: "asc" },
+      include: {
+        ratings: true,
+      },
+    });
+
+    if (users.length === 0) {
+      console.log("  ℹ️  No regular users found");
+      return;
+    }
+
+    // For demo purposes, unlock achievements for users with ratings
+    let achievementsUnlocked = 0;
+
+    for (const user of users) {
+      // Count meetings this user has rated
+      const meetingCount = user.ratings.length;
+
+      // Find Newcomer achievement - unlock if they have at least 1 rating (first successful meeting)
+      if (meetingCount >= 1) {
+        const newcomer = achievements.find(
+          (a) => a.imageIdentifier === "newcomer"
+        );
+        if (newcomer) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: newcomer.id },
+          });
+          if (!existing) {
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: newcomer.id,
+                unlockedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+              },
+            });
+            achievementsUnlocked++;
+          }
+        }
+      }
+
+      // Find Social Butterfly achievement - unlock if they have 2+ ratings (met multiple people)
+      if (meetingCount >= 2) {
+        const socialButterfly = achievements.find(
+          (a) => a.imageIdentifier === "social-butterfly"
+        );
+        if (socialButterfly) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: socialButterfly.id },
+          });
+          if (!existing) {
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: socialButterfly.id,
+                unlockedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
+              },
+            });
+            achievementsUnlocked++;
+          }
+        }
+      }
+
+      // Find Pairing Legend - unlock for users with 3+ ratings (multiple successful meetings)
+      if (meetingCount >= 3) {
+        const pairingLegend = achievements.find(
+          (a) => a.imageIdentifier === "pairing-legend"
+        );
+        if (pairingLegend) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: pairingLegend.id },
+          });
+          if (!existing) {
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: pairingLegend.id,
+                unlockedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+              },
+            });
+            achievementsUnlocked++;
+          }
+        }
+      }
+    }
+
+    console.log(`  ✓ Unlocked ${achievementsUnlocked} demo achievements`);
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Warning: Could not unlock demo achievements: ${err}`);
+  }
+}
+
+/**
  * Cleans up demo Supabase Auth users created during seeding
  * Deletes all users from Supabase Auth that match the demo user email patterns
  * This ensures a clean state for re-seeding without orphaned auth users
@@ -2139,7 +2257,15 @@ async function main(): Promise<void> {
     }
 
     // ========================================
-    // PHASE 3: Enhanced Summary Stats
+    // PHASE 3: Unlock Demo Achievements
+    // ========================================
+    console.log("\n" + "=".repeat(50));
+    console.log("🏆 PHASE 3: Unlocking Demo Achievements");
+    console.log("=".repeat(50));
+    await unlockDemoAchievements(prisma);
+
+    // ========================================
+    // PHASE 4: Enhanced Summary Stats
     // ========================================
     console.log("\n" + "=".repeat(50));
     console.log("✅ SEEDING COMPLETED SUCCESSFULLY");

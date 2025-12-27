@@ -41,7 +41,7 @@ export class AchievementType {
   @Field()
   isActive: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   unlockCondition?: string | null;
 
   @Field()
@@ -180,4 +180,20 @@ export class AchievementUnlockerType {
 
   @Field({ nullable: true })
   unlockedAt?: Date;
+}
+
+/**
+ * User achievement points statistics
+ * Shows earned vs possible points
+ */
+@ObjectType("AchievementPointsStatistics")
+export class AchievementPointsStatisticsType {
+  @Field(() => Int)
+  earnedPoints: number;
+
+  @Field(() => Int)
+  possiblePoints: number;
+
+  @Field(() => Int)
+  completionPercentage: number;
 }

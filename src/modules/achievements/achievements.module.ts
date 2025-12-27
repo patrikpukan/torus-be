@@ -4,9 +4,11 @@ import { AchievementsService } from "./services/achievements.service";
 import { AchievementProgressService } from "./services/achievement-progress.service";
 import { AchievementsResolver } from "./resolvers/achievements.resolver";
 import { LoggerModule } from "../../shared/logger/logger.module";
+import { PrismaModule } from "../../core/prisma/prisma.module";
+import { AuthModule } from "../../shared/auth/auth.module";
 
 @Module({
-  imports: [LoggerModule],
+  imports: [LoggerModule, PrismaModule, AuthModule],
   providers: [
     AchievementRepository,
     AchievementProgressService,
