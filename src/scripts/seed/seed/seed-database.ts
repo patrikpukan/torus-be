@@ -3,6 +3,7 @@ import { PrismaService } from "../../../core/prisma/prisma.service";
 import { Config } from "../../../shared/config/config.service";
 import { createUser } from "./create-user";
 import { createDepartments } from "./create-departments";
+import { createAchievements } from "./create-achievements";
 
 export const seedDatabase = async (
   prisma: PrismaService,
@@ -22,6 +23,7 @@ export const seedDatabase = async (
     await db.rating.deleteMany({});
     await db.userBlock.deleteMany({});
     await db.ban.deleteMany({});
+    await db.userAchievement.deleteMany({});
     
     // Delete core entities
     await db.pairing.deleteMany({});
@@ -31,6 +33,7 @@ export const seedDatabase = async (
     await db.user.deleteMany({});
     
     // Delete organization data
+    await db.achievement.deleteMany({});
     await db.department.deleteMany({});
     await db.inviteCode.deleteMany({});
     await db.algorithmSetting.deleteMany({});
@@ -194,4 +197,7 @@ export const seedDatabase = async (
         "Checking in: feel free to reach out if you need anything for this pairing cycle.",
     },
   });
+
+  // Create achievements
+  await createAchievements(prisma);
 };

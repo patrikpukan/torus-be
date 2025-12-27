@@ -1781,6 +1781,88 @@ async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
 }
 
 /**
+ * Seeds initial achievements into the database
+ * Idempotent: uses upsert to avoid duplicates
+ * @param prisma - Prisma client instance
+ * @returns Promise<void>
+ */
+async function seedAchievements(prisma: PrismaClient): Promise<void> {
+  const ACHIEVEMENTS = [
+    {
+      name: "Newcomer",
+      description: "Completed your first successful pairing and meeting",
+      imageIdentifier: "newcomer",
+      type: "milestone" as const,
+      pointValue: 10,
+      unlockCondition: "Complete first meeting with pairing",
+    },
+    {
+      name: "Social Butterfly",
+      description: "Met with 10 different people",
+      imageIdentifier: "social-butterfly",
+      type: "social" as const,
+      pointValue: 50,
+      unlockCondition: "Complete 10 meetings with different users",
+    },
+    {
+      name: "Bridge Builder",
+      description: "Connected with someone from a different department",
+      imageIdentifier: "bridge-builder",
+      type: "social" as const,
+      pointValue: 25,
+      unlockCondition: "Complete meeting with user from different department",
+    },
+    {
+      name: "Regular Participant",
+      description: "Participated in 10 consecutive pairing cycles",
+      imageIdentifier: "regular-participant",
+      type: "consistency" as const,
+      pointValue: 40,
+      unlockCondition: "Participate in 10 consecutive pairing cycles",
+    },
+    {
+      name: "Pairing Legend",
+      description: "Completed 50 meetings total",
+      imageIdentifier: "pairing-legend",
+      type: "legendary" as const,
+      pointValue: 100,
+      unlockCondition: "Complete 50 total meetings",
+    },
+  ];
+
+  try {
+    for (const achievement of ACHIEVEMENTS) {
+      await (prisma as any).achievement.upsert({
+        where: { name: achievement.name },
+        update: {
+          description: achievement.description,
+          imageIdentifier: achievement.imageIdentifier,
+          type: achievement.type,
+          pointValue: achievement.pointValue,
+          unlockCondition: achievement.unlockCondition,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+        create: {
+          name: achievement.name,
+          description: achievement.description,
+          imageIdentifier: achievement.imageIdentifier,
+          type: achievement.type,
+          pointValue: achievement.pointValue,
+          unlockCondition: achievement.unlockCondition,
+          isActive: true,
+        },
+      });
+    }
+
+    console.log(`  ✓ Seeded 5 achievements`);
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Warning: Could not seed achievements: ${err}`);
+  }
+}
+
+/**
  * Cleans up demo Supabase Auth users created during seeding
  * Deletes all users from Supabase Auth that match the demo user email patterns
  * This ensures a clean state for re-seeding without orphaned auth users
@@ -1943,11 +2025,14 @@ async function main(): Promise<void> {
     }
 
     // ========================================
-    // PHASE 1.5: Tags
+    // PHASE 1.5: Tags & Achievements
     // ========================================
-    console.log("\n🏷️  PHASE 1.5: Seeding Tags");
+    console.log("\n🏷️  PHASE 1.5: Seeding Tags & Achievements");
     console.log("=".repeat(50));
     const { hobbyTags, interestTags } = await seedTags(prisma);
+
+    console.log("\n🏆 PHASE 1.6: Seeding Achievements");
+    await seedAchievements(prisma);
 
     // ========================================
     // PHASE 2: Users & Related Data
