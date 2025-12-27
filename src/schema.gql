@@ -2,6 +2,61 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type Achievement {
+  createdAt: DateTime!
+  description: String!
+  id: String!
+  imageIdentifier: String!
+  isActive: Boolean!
+  name: String!
+  pointValue: Int!
+  type: AchievementType!
+  unlockCondition: String
+  updatedAt: DateTime!
+}
+
+type AchievementPointsStatistics {
+  completionPercentage: Int!
+  earnedPoints: Int!
+  possiblePoints: Int!
+}
+
+type AchievementStatistics {
+  achievement: Achievement!
+  unlockedByCount: Int!
+  users: [AchievementUnlocker!]!
+}
+
+"""Types of achievements"""
+enum AchievementType {
+  consistency
+  engagement
+  legendary
+  milestone
+  social
+}
+
+type AchievementUnlocker {
+  email: String!
+  name: String!
+  unlockedAt: DateTime
+  userId: String!
+}
+
+type AchievementWithProgress {
+  achievementId: String!
+  currentProgress: Int!
+  description: String!
+  imageIdentifier: String!
+  isUnlocked: Boolean!
+  name: String!
+  percentComplete: Int!
+  pointValue: Int!
+  targetProgress: Int!
+  type: AchievementType!
+  unlockedAt: DateTime
+}
+
 type AlgorithmSettings {
   createdAt: DateTime!
   id: String!
@@ -420,7 +475,12 @@ enum ProfileStatusEnum {
 }
 
 type Query {
+  """Get all achievements with current user's unlock status and progress"""
+  achievements: [AchievementWithProgress!]!
   activePairingPeriod: PairingPeriod
+
+  """Get all available achievements"""
+  allAchievements: [Achievement!]!
   allMeetingsForPairing(pairingId: ID!): [MeetingEvent!]!
   anonUsers: [User!]!
   calendarEventById(id: ID!): CalendarEvent
@@ -452,6 +512,9 @@ type Query {
 
   """Get all ratings created by the current user"""
   myRatings: [RatingType!]!
+
+  """Get organization-wide achievement statistics (org_admin only)"""
+  organizationAchievementStatistics(organizationId: String!): [AchievementStatistics!]!
   organizationById(id: ID!): OrganizationType
   organizations: [OrganizationType!]!
   pendingMeetingConfirmations: [MeetingEvent!]!
@@ -462,6 +525,12 @@ type Query {
   """Get meetings that can still be rated by the current user"""
   unratedMeetings: [UnratedMeetingType!]!
   upcomingMeetings: [MeetingEvent!]!
+
+  """Get user's earned points from achievements"""
+  userAchievementPoints(userId: String): AchievementPointsStatistics!
+
+  """Get a specific user's unlocked achievements"""
+  userAchievements(userId: String!): [UserAchievement!]!
   userById(id: ID!): User
   users(organizationId: ID): [User!]!
   validateInviteCode(code: String!): InviteCodeValidationResponseType!
@@ -675,6 +744,16 @@ type User {
   role: UserRoleEnum!
   supabaseUserId: String
   suspendedUntil: DateTime
+  updatedAt: DateTime!
+}
+
+type UserAchievement {
+  achievement: Achievement!
+  createdAt: DateTime!
+  currentProgress: Int!
+  id: String!
+  notificationSent: Boolean!
+  unlockedAt: DateTime
   updatedAt: DateTime!
 }
 

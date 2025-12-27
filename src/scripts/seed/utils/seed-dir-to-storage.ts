@@ -3,7 +3,6 @@ import {
   mkdir,
   readdir,
   readFile,
-  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -16,17 +15,9 @@ export const seedDirToStorage = async (
   uploadDirectoryPath: string
 ): Promise<Array<{ name: string; size: number }>> => {
   try {
-    // Ensure upload directory exists
+    // Ensure upload directory exists (don't clear existing files)
     if (!existsSync(uploadDirectoryPath)) {
       await mkdir(uploadDirectoryPath, { recursive: true });
-    } else {
-      // Clear the upload directory
-      const existingFiles = await readdir(uploadDirectoryPath);
-      await Promise.all(
-        existingFiles.map(async (file) => {
-          await rm(join(uploadDirectoryPath, file), { force: true });
-        })
-      );
     }
 
     // Get all files in the source folder

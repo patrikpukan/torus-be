@@ -37,7 +37,7 @@ export class OrganizationService {
     organizationAddress: string;
   }): Promise<OrganizationWithAdmin> {
     // Check if email already exists
-    const existingUserByEmail = await this.prisma.user.findUnique({
+    const existingUserByEmail = await this.prisma.user.findFirst({
       where: { email: data.adminEmail },
     });
 
@@ -341,7 +341,7 @@ export class OrganizationService {
     organizationId: string
   ): Promise<{ success: boolean; message: string; userId?: string }> {
     // Check if email already exists
-    const existingUser = await this.prisma.user.findUnique({
+    const existingUser = await this.prisma.user.findFirst({
       where: { email },
     });
 

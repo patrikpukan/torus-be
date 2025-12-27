@@ -76,6 +76,16 @@ enum TagCategory {
   @@map("tag_category")
 }
 
+enum AchievementType {
+  milestone
+  social
+  engagement
+  consistency
+  legendary
+
+  @@map("achievement_type")
+}
+
 model Organization {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -93,6 +103,7 @@ model Organization {
   bans            Ban[]
   algorithmConfig AlgorithmSetting?
 	inviteCodes     InviteCode[]
+  cycleParticipations CycleParticipation[]
 
   @@map("organizations")
 }
@@ -180,8 +191,9 @@ model User {
   userTags          UserTag[]
 	inviteCodesCreated InviteCode[]
   ratings           Rating[]           @relation("UserRatings")
+  userAchievements  UserAchievement[]
+  cycleParticipations CycleParticipation[]
 
-  @@unique([email])
   @@map("user")
 }
 
@@ -423,4 +435,59 @@ model InviteCode {
   @@index([organizationId])
   @@index([createdById])
   @@map("invite_codes")
+}
+
+model Achievement {
+  id                String            @id @default(uuid()) @db.Uuid
+  name              String            @unique
+  description       String            @db.Text
+  imageIdentifier   String            @map("image_identifier")
+  type              AchievementType   @default(milestone)
+  pointValue        Int               @default(10) @map("point_value")
+  isActive          Boolean           @default(true) @map("is_active")
+  unlockCondition   String?           @map("unlock_condition") @db.Text
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  userAchievements  UserAchievement[]
+
+  @@index([type])
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  achievementId     String    @map("achievement_id") @db.Uuid
+  unlockedAt        DateTime? @map("unlocked_at")
+  currentProgress   Int       @default(0) @map("current_progress")
+  notificationSent  Boolean   @default(false) @map("notification_sent")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement       Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([achievementId])
+  @@map("user_achievements")
+}
+model CycleParticipation {
+  id                      String    @id @default(uuid()) @db.Uuid
+  userId                  String    @map("user_id") @db.Uuid
+  organizationId          String    @map("organization_id") @db.Uuid
+  consecutiveCount        Int       @default(1) @map("consecutive_count")
+  lastParticipationCycle  Int?      @map("last_participation_cycle")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([consecutiveCount])
+  @@map("cycle_participations")
 }

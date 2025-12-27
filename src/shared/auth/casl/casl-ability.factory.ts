@@ -26,6 +26,7 @@ type Subjects =
   | "InviteCode"
   | "Report"
   | "Department"
+  | "Achievement"
   | "all";
 
 /**
@@ -163,6 +164,9 @@ export class CaslAbilityFactory {
       "meetingEvent.pairing.organizationId": identity.organizationId,
     });
 
+    // Can read achievements for their organization (statistics and user achievements)
+    can("read", "Achievement");
+
     return build({
       detectSubjectType: (item) =>
         item.constructor as ExtractSubjectType<Subjects>,
@@ -215,6 +219,9 @@ export class CaslAbilityFactory {
     // Can create and read own ratings
     can("create", "Rating", { userId: identity.id });
     can("read", "Rating", { userId: identity.id });
+
+    // Can read achievements (their own progress and all achievements)
+    can("read", "Achievement");
 
     return build({
       detectSubjectType: (item) =>

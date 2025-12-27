@@ -143,25 +143,27 @@ export class StatisticsService {
         }
         userAMap.get(pairing.status)!.count++;
 
-        // Process userB
-        if (!pairingsByUserMap.has(pairing.userBId)) {
-          pairingsByUserMap.set(pairing.userBId, new Map());
+        // Process userB (only if userBId and userB exist)
+        if (pairing.userBId && pairing.userB) {
+          if (!pairingsByUserMap.has(pairing.userBId)) {
+            pairingsByUserMap.set(pairing.userBId, new Map());
+          }
+          const userBMap = pairingsByUserMap.get(pairing.userBId)!;
+          if (!userBMap.has(pairing.status)) {
+            userBMap.set(pairing.status, {
+              user: {
+                id: pairing.userB.id,
+                email: pairing.userB.email,
+                name:
+                  [pairing.userB.firstName, pairing.userB.lastName]
+                    .filter(Boolean)
+                    .join(" ") || pairing.userB.email,
+              },
+              count: 0,
+            });
+          }
+          userBMap.get(pairing.status)!.count++;
         }
-        const userBMap = pairingsByUserMap.get(pairing.userBId)!;
-        if (!userBMap.has(pairing.status)) {
-          userBMap.set(pairing.status, {
-            user: {
-              id: pairing.userB.id,
-              email: pairing.userB.email,
-              name:
-                [pairing.userB.firstName, pairing.userB.lastName]
-                  .filter(Boolean)
-                  .join(" ") || pairing.userB.email,
-            },
-            count: 0,
-          });
-        }
-        userBMap.get(pairing.status)!.count++;
       }
 
       // Convert to array format

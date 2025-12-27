@@ -11,9 +11,10 @@ import { CalendarEventResolver } from "./graphql/resolvers/calendar-event.resolv
 import { MeetingEventResolver } from "./graphql/resolvers/meeting-event.resolver";
 import { RatingResolver } from "./graphql/resolvers/rating.resolver";
 import { PairingAlgorithmModule } from "../pairing-algorithm/pairing-algorithm.module";
+import { AchievementsModule } from "../achievements/achievements.module";
 
 @Module({
-  imports: [PrismaModule, AuthModule, PairingAlgorithmModule],
+  imports: [PrismaModule, AuthModule, PairingAlgorithmModule, AchievementsModule],
   providers: [
     CalendarEventRepository,
     MeetingEventRepository,

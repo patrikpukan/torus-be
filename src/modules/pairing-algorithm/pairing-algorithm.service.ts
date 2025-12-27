@@ -10,6 +10,9 @@ import { randomInt } from "crypto";
 import { PrismaService } from "../../core/prisma/prisma.service";
 import { AppLoggerService } from "../../shared/logger/logger.service";
 import { PairingAlgorithmConfig } from "./pairing-algorithm.config";
+import { CycleParticipationRepository } from "./repositories/cycle-participation.repository";
+import { CycleManagementService } from "./services/cycle-management.service";
+import { AchievementParticipationService } from "./services/achievement-participation.service";
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -76,7 +79,10 @@ export class PairingAlgorithmService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: AppLoggerService,
-    private readonly config: PairingAlgorithmConfig
+    private readonly config: PairingAlgorithmConfig,
+    private readonly cycleParticipation: CycleParticipationRepository,
+    private readonly cycleManagement: CycleManagementService,
+    private readonly achievementParticipation: AchievementParticipationService
   ) {}
 
   /**
@@ -613,6 +619,7 @@ export class PairingAlgorithmService {
         }
       });
 
+      // Build sets of paired users before tracking participation
       const guaranteedPairedUsers = new Set<string>();
       const regularPairedUsers = new Set<string>();
 
@@ -629,6 +636,56 @@ export class PairingAlgorithmService {
           regularPairedUsers.add(pair.userBId);
         }
       });
+
+      // Track cycle participation for achievement checking
+      // Get all active users in the organization
+      const allActiveUsers = await this.prisma.user.findMany({
+        where: {
+          organizationId,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      const allUserIds = allActiveUsers.map((u) => u.id);
+      const participatedUserIds = Array.from(guaranteedPairedUsers).concat(
+        Array.from(regularPairedUsers)
+      );
+
+      // Get current cycle number
+      const cycleNumber = await this.cycleManagement.getCurrentCycleNumber(
+        organizationId
+      );
+
+      this.logger.debug(
+        `Tracking participation for cycle ${cycleNumber} in organization ${organizationId}`,
+        PairingAlgorithmService.name
+      );
+
+      // Mark users as participated in this cycle and increment their consecutive count
+      const updated = await this.cycleParticipation.markParticipated(
+        participatedUserIds,
+        organizationId,
+        cycleNumber
+      );
+
+      this.logger.debug(
+        `Updated participation for ${updated} users in cycle ${cycleNumber}`,
+        PairingAlgorithmService.name
+      );
+
+      // Reset consecutive count for users who didn't participate
+      await this.cycleParticipation.resetNonParticipants(
+        allUserIds,
+        participatedUserIds,
+        organizationId,
+        cycleNumber
+      );
+
+      this.logger.debug(
+        `Reset participation for ${allUserIds.length - participatedUserIds.length} non-participating users`,
+        PairingAlgorithmService.name
+      );
 
       this.logger.log(
         `Created ${pairs.length} pairs for organization ${organizationId}`,
@@ -660,6 +717,24 @@ export class PairingAlgorithmService {
           PairingAlgorithmService.name
         );
       }
+
+      // Check for achievement unlocks based on cycle participation
+      // This is done asynchronously to avoid blocking the pairing process
+      this.logger.debug(
+        `Checking participation achievements for ${participatedUserIds.length} users`,
+        PairingAlgorithmService.name
+      );
+
+      this.achievementParticipation
+        .checkParticipationAchievements(participatedUserIds, organizationId)
+        .catch((error) => {
+          const err = error as Error;
+          this.logger.error(
+            `Failed to check participation achievements: ${err.message}`,
+            err.stack,
+            PairingAlgorithmService.name
+          );
+        });
 
       this.logger.log(
         `Pairing algorithm completed for organization ${organizationId}`,

@@ -10,6 +10,7 @@ import { withRls } from "src/db/withRls";
 import { getRlsClaims } from "src/shared/auth/utils/get-rls-claims";
 import { Identity } from "src/shared/auth/domain/identity";
 import { RatingRepository } from "../repositories/rating.repository";
+import { AchievementsService } from "src/modules/achievements/services/achievements.service";
 import type { Rating, CreateRatingInput } from "../domain/rating";
 
 @Injectable()
@@ -19,7 +20,8 @@ export class RatingService {
 
   constructor(
     private readonly ratingRepository: RatingRepository,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    private readonly achievementsService: AchievementsService
   ) {}
 
   /**
@@ -91,16 +93,54 @@ export class RatingService {
       throw new BadRequestException("Stars must be between 0 and 5");
     }
 
-    return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
+    const rating = await withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       // Check authorization
       await this.canRateMeeting(identity.id, input.meetingEventId, tx);
 
       // Create rating
-      const rating = await this.ratingRepository.create(identity.id, input, tx);
+      const createdRating = await this.ratingRepository.create(identity.id, input, tx);
 
-      this.logger.log(`Rating created - ratingId: ${rating.id}`);
-      return rating;
+      this.logger.log(`Rating created - ratingId: ${createdRating.id}`);
+      return createdRating;
     });
+
+    // Trigger achievement checks asynchronously (don't block rating creation)
+    // This ensures achievement failures don't break the rating submission
+    this.processAchievementsAsync(identity.id, input.meetingEventId);
+
+    return rating;
+  }
+
+  /**
+   * Process achievement unlocks asynchronously after rating submission
+   * Handles multiple achievement types without blocking the rating flow
+   */
+  private async processAchievementsAsync(
+    userId: string,
+    meetingEventId: string
+  ): Promise<void> {
+    try {
+      // Run achievement checks in background without awaiting
+      // This prevents achievement errors from affecting rating submission
+      this.achievementsService
+        .processAchievementUnlock(userId, {
+          type: "rating_submitted",
+          userId,
+          meetingEventId,
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to process achievement unlocks for user ${userId}: ${error.message}`,
+            error.stack
+          );
+        });
+    } catch (error) {
+      // Log any synchronous errors but don't throw
+      this.logger.error(
+        `Error initiating achievement checks for user ${userId}: ${error.message}`,
+        error.stack
+      );
+    }
   }
 
   /**

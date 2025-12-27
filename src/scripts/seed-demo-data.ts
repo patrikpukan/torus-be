@@ -1781,6 +1781,318 @@ async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
 }
 
 /**
+ * Seeds initial achievements into the database
+ * Idempotent: uses upsert to avoid duplicates
+ * @param prisma - Prisma client instance
+ * @returns Promise<void>
+ */
+async function seedAchievements(prisma: PrismaClient): Promise<void> {
+  const ACHIEVEMENTS = [
+    {
+      name: "Newcomer",
+      description: "Completed your first successful pairing and meeting",
+      imageIdentifier: "newcomer",
+      type: "milestone" as const,
+      pointValue: 10,
+      unlockCondition: "Complete first meeting with pairing",
+    },
+    {
+      name: "Social Butterfly",
+      description: "Met with 10 different people",
+      imageIdentifier: "social-butterfly",
+      type: "social" as const,
+      pointValue: 50,
+      unlockCondition: "Complete 10 meetings with different users",
+    },
+    {
+      name: "Bridge Builder",
+      description: "Connected with someone from a different department",
+      imageIdentifier: "bridge-builder",
+      type: "social" as const,
+      pointValue: 25,
+      unlockCondition: "Complete meeting with user from different department",
+    },
+    {
+      name: "Regular Participant",
+      description: "Participated in 10 consecutive pairing cycles",
+      imageIdentifier: "regular-participant",
+      type: "consistency" as const,
+      pointValue: 40,
+      unlockCondition: "Participate in 10 consecutive pairing cycles",
+    },
+    {
+      name: "Pairing Legend",
+      description: "Completed 50 meetings total",
+      imageIdentifier: "pairing-legend",
+      type: "legendary" as const,
+      pointValue: 100,
+      unlockCondition: "Complete 50 total meetings",
+    },
+  ];
+
+  try {
+    for (const achievement of ACHIEVEMENTS) {
+      await (prisma as any).achievement.upsert({
+        where: { name: achievement.name },
+        update: {
+          description: achievement.description,
+          imageIdentifier: achievement.imageIdentifier,
+          type: achievement.type,
+          pointValue: achievement.pointValue,
+          unlockCondition: achievement.unlockCondition,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+        create: {
+          name: achievement.name,
+          description: achievement.description,
+          imageIdentifier: achievement.imageIdentifier,
+          type: achievement.type,
+          pointValue: achievement.pointValue,
+          unlockCondition: achievement.unlockCondition,
+          isActive: true,
+        },
+      });
+    }
+
+    console.log(`  ✓ Seeded 5 achievements`);
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Warning: Could not seed achievements: ${err}`);
+  }
+}
+
+/**
+ * Unlocks demo achievements for demo users to showcase the full achievement UI
+ * For the first regular user (user1) in each organization:
+ * - Newcomer: Always unlocked (first meeting)
+ * - Social Butterfly: If user has 10+ meetings with different people
+ * - Bridge Builder: If user has meeting with someone from different department
+ * - Regular Participant: If user has participated in 10+ consecutive cycles
+ * - Pairing Legend: If user has 50+ total meetings
+ * @param prisma - Prisma client instance
+ * @returns Promise<void>
+ */
+async function unlockDemoAchievements(prisma: PrismaClient): Promise<void> {
+  try {
+    // Get all achievements
+    const achievements = await (prisma as any).achievement.findMany({
+      where: { isActive: true },
+    });
+
+    if (achievements.length === 0) {
+      console.log("  ℹ️  No achievements found");
+      return;
+    }
+
+    // Get all regular users (role = 'user') ordered by creation date
+    const users = await prisma.user.findMany({
+      where: { role: UserRole.user, isActive: true },
+      orderBy: { createdAt: "asc" },
+      include: {
+        ratings: true,
+      },
+    });
+
+    if (users.length === 0) {
+      console.log("  ℹ️  No regular users found");
+      return;
+    }
+
+    // For demo purposes, unlock achievements for users with ratings
+    let achievementsUnlocked = 0;
+    let progressCreated = 0;
+
+    for (const user of users) {
+      // Count meetings this user has rated
+      const meetingCount = user.ratings.length;
+
+      // Newcomer achievement - unlock if they have at least 1 rating
+      if (meetingCount >= 1) {
+        const newcomer = achievements.find(
+          (a) => a.imageIdentifier === "newcomer"
+        );
+        if (newcomer) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: newcomer.id },
+          });
+          if (!existing) {
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: newcomer.id,
+                unlockedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+                currentProgress: 1, // Set to max progress since it's unlocked
+              },
+            });
+            achievementsUnlocked++;
+          }
+        }
+      }
+
+      // Social Butterfly achievement - unlock if they have 2+ ratings
+      if (meetingCount >= 2) {
+        const socialButterfly = achievements.find(
+          (a) => a.imageIdentifier === "social-butterfly"
+        );
+        if (socialButterfly) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: socialButterfly.id },
+          });
+          if (!existing) {
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: socialButterfly.id,
+                unlockedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
+                currentProgress: 2, // Set to max progress since it's unlocked
+              },
+            });
+            achievementsUnlocked++;
+          }
+        }
+      }
+
+      // Pairing Legend - unlock for users with 3+ ratings
+      if (meetingCount >= 3) {
+        const pairingLegend = achievements.find(
+          (a) => a.imageIdentifier === "pairing-legend"
+        );
+        if (pairingLegend) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: pairingLegend.id },
+          });
+          if (!existing) {
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: pairingLegend.id,
+                unlockedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+                currentProgress: 3, // Set to max progress since it's unlocked
+              },
+            });
+            achievementsUnlocked++;
+          }
+        }
+      }
+
+      // Add partial progress for locked achievements
+      const regularParticipant = achievements.find(
+        (a) => a.imageIdentifier === "regular-participant"
+      );
+      if (regularParticipant) {
+        const existing = await (prisma as any).userAchievement.findFirst({
+          where: { userId: user.id, achievementId: regularParticipant.id },
+        });
+        if (!existing) {
+          // Set progress to 1 out of 10 cycles
+          await (prisma as any).userAchievement.create({
+            data: {
+              userId: user.id,
+              achievementId: regularParticipant.id,
+              currentProgress: 1,
+            },
+          });
+          progressCreated++;
+        }
+      }
+
+      const bridgeBuilder = achievements.find(
+        (a) => a.imageIdentifier === "bridge-builder"
+      );
+      if (bridgeBuilder) {
+        const existing = await (prisma as any).userAchievement.findFirst({
+          where: { userId: user.id, achievementId: bridgeBuilder.id },
+        });
+        if (!existing) {
+          // Set progress to 1 out of 20 ratings from different people
+          await (prisma as any).userAchievement.create({
+            data: {
+              userId: user.id,
+              achievementId: bridgeBuilder.id,
+              currentProgress: Math.min(meetingCount, 19), // Show progress based on ratings
+            },
+          });
+          progressCreated++;
+        }
+      }
+    }
+
+    console.log(`  ✓ Unlocked ${achievementsUnlocked} demo achievements`);
+    console.log(`  ✓ Created ${progressCreated} achievement progress entries`);
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Warning: Could not unlock demo achievements: ${err}`);
+  }
+}
+
+async function seedCycleParticipation(prisma: PrismaClient): Promise<void> {
+  try {
+    // Get all regular users and their organizations
+    const users = await prisma.user.findMany({
+      where: { role: UserRole.user, isActive: true },
+      include: { organization: true },
+    });
+
+    if (users.length === 0) {
+      console.log("  ℹ️  No users found");
+      return;
+    }
+
+    let cycleParticipationsCreated = 0;
+
+    for (const user of users) {
+      if (!user.organization) continue;
+
+      // Check if cycle participation already exists
+      const existing = await (prisma as any).cycleParticipation.findFirst({
+        where: {
+          userId: user.id,
+          organizationId: user.organizationId,
+        },
+      });
+
+      if (!existing) {
+        // Generate realistic consecutive cycle counts (1-12 cycles)
+        // Higher numbers are less frequent (more users with fewer cycles)
+        const rand = Math.random();
+        let consecutiveCount = 1;
+        
+        if (rand < 0.2) consecutiveCount = 1; // 20% have 1 cycle
+        else if (rand < 0.35) consecutiveCount = 2; // 15% have 2 cycles
+        else if (rand < 0.48) consecutiveCount = 3; // 13% have 3 cycles
+        else if (rand < 0.58) consecutiveCount = 4; // 10% have 4 cycles
+        else if (rand < 0.66) consecutiveCount = 5; // 8% have 5 cycles
+        else if (rand < 0.72) consecutiveCount = 6; // 6% have 6 cycles
+        else if (rand < 0.78) consecutiveCount = 7; // 6% have 7 cycles
+        else if (rand < 0.82) consecutiveCount = 8; // 4% have 8 cycles
+        else if (rand < 0.86) consecutiveCount = 9; // 4% have 9 cycles
+        else if (rand < 0.89) consecutiveCount = 10; // 3% have 10 cycles
+        else if (rand < 0.94) consecutiveCount = 11; // 5% have 11 cycles
+        else consecutiveCount = 12; // 6% have 12+ cycles (regular participants)
+
+        // Create cycle participation record
+        await (prisma as any).cycleParticipation.create({
+          data: {
+            userId: user.id,
+            organizationId: user.organizationId,
+            consecutiveCount,
+            lastParticipationCycle: consecutiveCount, // Track which cycle they last participated in
+            createdAt: new Date(Date.now() - consecutiveCount * 21 * 24 * 60 * 60 * 1000), // Each cycle is ~3 weeks
+          },
+        });
+        cycleParticipationsCreated++;
+      }
+    }
+
+    console.log(`  ✓ Created ${cycleParticipationsCreated} cycle participation records`);
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Warning: Could not seed cycle participation: ${err}`);
+  }
+}
+
+/**
  * Cleans up demo Supabase Auth users created during seeding
  * Deletes all users from Supabase Auth that match the demo user email patterns
  * This ensures a clean state for re-seeding without orphaned auth users
@@ -1943,11 +2255,14 @@ async function main(): Promise<void> {
     }
 
     // ========================================
-    // PHASE 1.5: Tags
+    // PHASE 1.5: Tags & Achievements
     // ========================================
-    console.log("\n🏷️  PHASE 1.5: Seeding Tags");
+    console.log("\n🏷️  PHASE 1.5: Seeding Tags & Achievements");
     console.log("=".repeat(50));
     const { hobbyTags, interestTags } = await seedTags(prisma);
+
+    console.log("\n🏆 PHASE 1.6: Seeding Achievements");
+    await seedAchievements(prisma);
 
     // ========================================
     // PHASE 2: Users & Related Data
@@ -2054,7 +2369,23 @@ async function main(): Promise<void> {
     }
 
     // ========================================
-    // PHASE 3: Enhanced Summary Stats
+    // PHASE 3: Unlock Demo Achievements
+    // ========================================
+    console.log("\n" + "=".repeat(50));
+    console.log("🏆 PHASE 3: Unlocking Demo Achievements");
+    console.log("=".repeat(50));
+    await unlockDemoAchievements(prisma);
+
+    // ========================================
+    // PHASE 4: Seeding Cycle Participation
+    // ========================================
+    console.log("\n" + "=".repeat(50));
+    console.log("🔄 PHASE 4: Seeding Cycle Participation Data");
+    console.log("=".repeat(50));
+    await seedCycleParticipation(prisma);
+
+    // ========================================
+    // PHASE 5: Enhanced Summary Stats
     // ========================================
     console.log("\n" + "=".repeat(50));
     console.log("✅ SEEDING COMPLETED SUCCESSFULLY");

@@ -141,7 +141,7 @@ export class UserRepository {
     tx?: Prisma.TransactionClient
   ): Promise<UserType | null> {
     const client = this.getClient(tx);
-    const user = await client.user.findUnique({
+    const user = await client.user.findFirst({
       where: { email },
       include: {
         userTags: {
