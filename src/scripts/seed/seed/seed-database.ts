@@ -12,13 +12,30 @@ export const seedDatabase = async (
 
   // Drop existing database data from all tables
   try {
-    // Delete data using Prisma's deleteMany (respects foreign keys automatically)
+    // Delete in order of dependencies (foreign key constraints)
     console.log("Deleting existing data...");
+    
+    // Delete records that reference other tables first
     await db.message.deleteMany({});
+    await db.report.deleteMany({});
+    await db.meetingEvent.deleteMany({});
+    await db.rating.deleteMany({});
+    await db.userBlock.deleteMany({});
+    await db.ban.deleteMany({});
+    
+    // Delete core entities
     await db.pairing.deleteMany({});
     await db.pairingPeriod.deleteMany({});
+    await db.calendarEvent.deleteMany({});
+    await db.userTag.deleteMany({});
     await db.user.deleteMany({});
+    
+    // Delete organization data
+    await db.department.deleteMany({});
+    await db.inviteCode.deleteMany({});
+    await db.algorithmSetting.deleteMany({});
     await db.organization.deleteMany({});
+    
     console.log("All existing data deleted successfully.");
   } catch (error) {
     console.error("Error deleting data:", error);
