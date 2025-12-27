@@ -103,6 +103,7 @@ model Organization {
   bans            Ban[]
   algorithmConfig AlgorithmSetting?
 	inviteCodes     InviteCode[]
+  cycleParticipations CycleParticipation[]
 
   @@map("organizations")
 }
@@ -191,9 +192,7 @@ model User {
 	inviteCodesCreated InviteCode[]
   ratings           Rating[]           @relation("UserRatings")
   userAchievements  UserAchievement[]
-
-  @@unique([email])
-  @@map("user")
+  cycleParticipations CycleParticipation[]
 }
 
 model PairingPeriod {
@@ -471,4 +470,22 @@ model UserAchievement {
   @@index([userId])
   @@index([achievementId])
   @@map("user_achievements")
+}
+model CycleParticipation {
+  id                      String    @id @default(uuid()) @db.Uuid
+  userId                  String    @map("user_id") @db.Uuid
+  organizationId          String    @map("organization_id") @db.Uuid
+  consecutiveCount        Int       @default(1) @map("consecutive_count")
+  lastParticipationCycle  Int?      @map("last_participation_cycle")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([consecutiveCount])
+  @@map("cycle_participations")
 }

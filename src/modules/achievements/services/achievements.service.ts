@@ -11,6 +11,8 @@ import {
 import { AuthorizationService } from "src/shared/auth/services/authorization.service";
 import { Identity } from "src/shared/auth/domain/identity";
 import { UserRoleEnum } from "src/modules/users/domain/user";
+import { AchievementProgressService } from "./achievement-progress.service";
+import { AppLoggerService } from "src/shared/logger/logger.service";
 
 @Injectable()
 export class AchievementsService {
@@ -19,7 +21,9 @@ export class AchievementsService {
   constructor(
     private readonly achievementRepository: AchievementRepository,
     private readonly prisma: PrismaService,
-    private readonly authorizationService: AuthorizationService
+    private readonly authorizationService: AuthorizationService,
+    private readonly progressService: AchievementProgressService,
+    private readonly appLogger: AppLoggerService
   ) {}
 
   /**
@@ -54,7 +58,8 @@ export class AchievementsService {
 
   /**
    * Get achievement progress for all achievements (for dashboard/profile)
-   * Shows both locked and unlocked achievements with progress
+   * Shows both locked and unlocked achievements with real-time progress calculation
+   * Progress is calculated efficiently with caching for expensive queries
    */
   async getUserAchievementProgress(
     identity: Identity,
@@ -66,23 +71,54 @@ export class AchievementsService {
       throw new Error("Unauthorized to view achievement progress");
     }
 
-    const userAchievements = await this.getUserAchievements(identity, userId);
+    // Get user's organization for progress calculations
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { organizationId: true },
+    });
 
-    return userAchievements.map((ua) => ({
-      achievementId: ua.achievement.id,
-      achievementName: ua.achievement.name,
-      achievementType: ua.achievement.type,
-      currentProgress: ua.currentProgress,
-      targetProgress: this.getAchievementTarget(ua.achievement.type),
-      isUnlocked: ua.unlockedAt !== undefined,
-      unlockedAt: ua.unlockedAt,
-      percentComplete: Math.min(
-        100,
-        Math.round(
-          (ua.currentProgress / this.getAchievementTarget(ua.achievement.type)) * 100
-        )
-      ),
-    }));
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Calculate real-time progress for all achievements
+    const progressList = await this.progressService.getUserAchievementProgress(
+      userId,
+      user.organizationId
+    );
+
+    // Get all achievements for detailed mapping
+    const achievements = await this.achievementRepository.getAllAchievements();
+    const achievementMap = new Map(achievements.map((a) => [a.id, a]));
+
+    // Get user's unlocked achievements
+    const userAchievements = await this.prisma.userAchievement.findMany({
+      where: { userId },
+    });
+
+    const unlockedMap = new Map(
+      userAchievements
+        .filter((ua) => ua.unlockedAt)
+        .map((ua) => [ua.achievementId, ua])
+    );
+
+    // Combine progress with achievement details
+    return progressList.map((progress) => {
+      const achievement = achievementMap.get(progress.achievementId);
+      const unlockedAtData = unlockedMap.get(progress.achievementId)?.unlockedAt;
+      const unlockedAt = unlockedAtData ? new Date(unlockedAtData) : undefined;
+
+      return {
+        achievementId: progress.achievementId,
+        achievementName: achievement?.name || "",
+        achievementType: achievement?.type || "",
+        currentProgress: progress.currentProgress,
+        targetProgress: progress.targetProgress,
+        isUnlocked: progress.isUnlocked || !!unlockedAt,
+        unlockedAt,
+        percentComplete: progress.percentComplete,
+      } as AchievementProgressView;
+    });
   }
 
   /**
@@ -420,5 +456,54 @@ export class AchievementsService {
     });
 
     this.logger.log(`Reset achievements for user ${userId}`);
+  }
+
+  /**
+   * Unlock an achievement for a user if not already unlocked
+   * Used by background jobs and async achievement checks (e.g., cycle participation)
+   *
+   * @param userId - User ID
+   * @param achievementId - Achievement ID
+   * @returns Promise<boolean> true if newly unlocked, false if already unlocked
+   */
+  async unlockAchievementIfNotAlready(
+    userId: string,
+    achievementId: string
+  ): Promise<boolean> {
+    const existing = await this.prisma.userAchievement.findUnique({
+      where: {
+        userId_achievementId: { userId, achievementId },
+      },
+    });
+
+    if (existing?.unlockedAt) {
+      this.logger.debug(
+        `Achievement ${achievementId} already unlocked for user ${userId}`
+      );
+      return false;
+    }
+
+    const now = new Date();
+    await this.prisma.userAchievement.upsert({
+      where: {
+        userId_achievementId: { userId, achievementId },
+      },
+      create: {
+        userId,
+        achievementId,
+        unlockedAt: now,
+      },
+      update: {
+        unlockedAt: now,
+      },
+    });
+
+    // Invalidate progress cache for this user
+    this.progressService.clearUserCache(userId);
+
+    this.logger.log(
+      `Unlocked achievement ${achievementId} for user ${userId}`
+    );
+    return true;
   }
 }
