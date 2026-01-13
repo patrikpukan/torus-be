@@ -583,8 +583,20 @@ export class UserService {
           OR: [{ userAId: identity.id }, { userBId: identity.id }],
         },
         include: {
-          userA: true,
-          userB: true,
+          userA: {
+            include: {
+              userTags: {
+                include: { tag: true },
+              },
+            },
+          },
+          userB: {
+            include: {
+              userTags: {
+                include: { tag: true },
+              },
+            },
+          },
         },
         orderBy: {
           createdAt: "desc",

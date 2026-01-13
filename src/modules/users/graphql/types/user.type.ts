@@ -10,6 +10,7 @@ import { ProfileStatusEnum, UserRoleEnum } from "../../domain/user";
 import { UserBanType } from "./user-ban.type";
 import { DepartmentType } from "../../../organization/graphql/types/department.type";
 import { TagType } from "./tag.type";
+import { SimpleOrganizationType } from "./organization.type";
 
 registerEnumType(UserRoleEnum, {
   name: "UserRoleEnum",
@@ -58,6 +59,9 @@ export class UserType {
 
   @Field(() => ID)
   organizationId!: string;
+
+  @Field(() => SimpleOrganizationType, { nullable: true })
+  organization?: SimpleOrganizationType | null;
 
   @Field(() => String, { nullable: true })
   departmentId?: string | null;

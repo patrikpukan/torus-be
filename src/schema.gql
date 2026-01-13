@@ -739,6 +739,7 @@ type User {
   isActive: Boolean!
   lastName: String
   location: String
+    organization: SimpleOrganizationType
   organizationId: ID!
   position: String
   preferredActivity: String
