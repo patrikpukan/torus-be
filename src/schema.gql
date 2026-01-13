@@ -521,7 +521,7 @@ type Query {
   organizations: [OrganizationType!]!
   pendingMeetingConfirmations: [MeetingEvent!]!
   reportById(id: ID!): UserReport
-  reports: [UserReport!]!
+    reports(organizationId: ID): [UserReport!]!
   statistics(filter: StatisticsFilterInputType): StatisticsResponseType!
 
   """Get meetings that can still be rated by the current user"""

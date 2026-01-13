@@ -16,8 +16,17 @@ export class ReportResolver {
   @UseGuards(AuthenticatedUserGuard)
   @RequireRole(UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @Query(() => [UserReportType])
-  async reports(@User() identity: Identity): Promise<UserReportType[]> {
-    return this.userService.listReports(identity);
+  async reports(
+    @User() identity: Identity,
+    @Args("organizationId", { type: () => ID, nullable: true })
+    organizationId?: string
+  ): Promise<UserReportType[]> {
+    const effectiveOrganizationId =
+      identity.appRole === UserRole.ORG_ADMIN && identity.organizationId
+        ? identity.organizationId
+        : organizationId;
+
+    return this.userService.listReports(identity, effectiveOrganizationId);
   }
 
   @UseGuards(AuthenticatedUserGuard)
