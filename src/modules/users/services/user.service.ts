@@ -659,7 +659,10 @@ export class UserService {
     });
   }
 
-  async listReports(identity: Identity): Promise<UserReport[]> {
+  async listReports(
+    identity: Identity,
+    organizationId?: string | null
+  ): Promise<UserReport[]> {
     return withRls(this.prisma, getRlsClaims(identity), async (tx) => {
       const role = identity.appRole as UserRoleEnum | undefined;
       const isSuperAdmin = role === UserRoleEnum.super_admin;
@@ -671,16 +674,16 @@ export class UserService {
         );
       }
 
-      const organizationId = isSuperAdmin
-        ? undefined
+      const effectiveOrganizationId = isSuperAdmin
+        ? (organizationId ?? undefined)
         : await this.getOrganizationIdForIdentity(identity, tx);
 
-      if (!isSuperAdmin && !organizationId) {
+      if (!isSuperAdmin && !effectiveOrganizationId) {
         throw new ForbiddenException("Organization context is missing");
       }
 
       return this.reportRepository.listReports(
-        { organizationId: organizationId },
+        { organizationId: effectiveOrganizationId },
         tx
       );
     });
