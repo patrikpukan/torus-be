@@ -27,17 +27,19 @@ import { AnonUserType } from "../types/anon-user.type";
 import { ReportUserInputType } from "../types/report-user-input.type";
 import { UserReportType } from "../types/user-report.type";
 import { DepartmentService } from "src/modules/organization/services/department.service";
+import { OrganizationService } from "src/modules/organization/services/organization.service";
 import { RatingService } from "src/modules/calendar/services/rating.service";
 import { TagType } from "../types/tag.type";
 import { UserReceivedRatingsType } from "../types/user-received-ratings.type";
+import { SimpleOrganizationType } from "../types/organization.type";
 
 @Resolver(() => UserType)
 export class UserResolver {
   constructor(
     private userService: UserService,
-    private tagService: TagService,
     private idealColleagueService: IdealColleagueService,
     private departmentService: DepartmentService,
+    private organizationService: OrganizationService,
     private ratingService: RatingService
   ) {}
 
@@ -245,5 +247,27 @@ export class UserResolver {
       return null;
     }
     return this.departmentService.getDepartmentById(user.departmentId);
+  }
+
+  @ResolveField(() => SimpleOrganizationType, { nullable: true })
+  async organization(@Parent() user: any): Promise<SimpleOrganizationType | null> {
+    if (!user.organizationId) {
+      return null;
+    }
+
+    const organization =
+      user.organization ??
+      (await this.organizationService.getOrganizationById(user.organizationId));
+
+    if (!organization) {
+      return null;
+    }
+
+    return {
+      id: organization.id,
+      name: organization.name,
+      code: organization.code,
+      imageUrl: organization.imageUrl ?? null,
+    };
   }
 }
