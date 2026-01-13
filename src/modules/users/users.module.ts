@@ -6,6 +6,7 @@ import { TagResolver } from "./resolvers/tag.resolver";
 import { UserRepository } from "./repositories/user.repository";
 import { UserService } from "./services/user.service";
 import { TagService } from "./services/tag.service";
+import { IdealColleagueService } from "./services/ideal-colleague.service";
 import { AuthenticatedUserGuard } from "../../shared/auth/guards/authenticated-user.guard";
 import { SupabaseAdminService } from "../../shared/auth/supabase-admin.service";
 import { OrganizationModule } from "../organization/organization.module";
@@ -29,6 +30,7 @@ import { CalendarModule } from "../calendar/calendar.module";
     UserBanRepository,
     ReportRepository,
     UserService,
+    IdealColleagueService,
     TagService,
     UserResolver,
     TagResolver,

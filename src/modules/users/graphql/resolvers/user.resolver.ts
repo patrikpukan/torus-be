@@ -13,6 +13,7 @@ import type { Identity } from "src/shared/auth/domain/identity";
 import { AuthenticatedUserGuard } from "src/shared/auth/guards/authenticated-user.guard";
 import { UserService } from "../../services/user.service";
 import { TagService } from "../../services/tag.service";
+import { IdealColleagueService } from "../../services/ideal-colleague.service";
 import { SignUpInputType } from "../types/sign-up-input.type";
 import { UpdateUserInputType } from "../types/update-user-input.type";
 import { UserType } from "../types/user.type";
@@ -35,6 +36,7 @@ export class UserResolver {
   constructor(
     private userService: UserService,
     private tagService: TagService,
+    private idealColleagueService: IdealColleagueService,
     private departmentService: DepartmentService,
     private ratingService: RatingService
   ) {}
@@ -202,7 +204,7 @@ export class UserResolver {
   @UseGuards(AuthenticatedUserGuard)
   @Mutation(() => ID)
   async findIdealColleague(@User() identity: Identity): Promise<string> {
-    return this.userService.findIdealColleague(identity);
+    return this.idealColleagueService.findIdealColleague(identity);
   }
 
   @Mutation(() => UserType)
