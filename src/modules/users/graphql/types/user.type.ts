@@ -2,6 +2,7 @@ import {
   Field,
   GraphQLISODateTime,
   ID,
+  Int,
   ObjectType,
   registerEnumType,
 } from "@nestjs/graphql";
@@ -72,6 +73,9 @@ export class UserType {
 
   @Field()
   isActive!: boolean;
+
+  @Field(() => Int)
+  idealColleagueUsesRemaining!: number;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   suspendedUntil?: Date | null;

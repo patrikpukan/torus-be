@@ -64,6 +64,7 @@ export const mapPrismaUserToDomainUser = (user: PrismaUserEntity): UserType => {
     ...user,
     role: user.role as UserRoleEnum,
     profileStatus,
+    idealColleagueUsesRemaining: user.idealColleagueUsesRemaining ?? 0,
     profileImageUrl: user.profileImageUrl ?? undefined,
     supabaseUserId: user.supabaseUserId ?? undefined,
     hobbies: hobbies && hobbies.length > 0 ? hobbies : undefined,

@@ -168,6 +168,7 @@ model User {
   preferredActivity String?            @map("preferred_activity")
   profileImageUrl   String?            @map("avatar_url") @db.Text
   isActive          Boolean            @default(true) @map("is_active")
+  idealColleagueUsesRemaining Int @default(2) @map("ideal_colleague_uses_remaining")
   suspendedUntil    DateTime?          @map("suspended_until") @db.Date
   image             String?            @db.Text
   createdAt         DateTime

@@ -199,6 +199,12 @@ export class UserResolver {
     return user as CurrentUserType;
   }
 
+  @UseGuards(AuthenticatedUserGuard)
+  @Mutation(() => ID)
+  async findIdealColleague(@User() identity: Identity): Promise<string> {
+    return this.userService.findIdealColleague(identity);
+  }
+
   @Mutation(() => UserType)
   async signUp(@Args("data") data: SignUpInputType): Promise<UserType> {
     return this.userService.signUp(

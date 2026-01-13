@@ -183,6 +183,7 @@ type CurrentUser {
   firstName: String
   hobbies: [Tag!]
   id: ID!
+  idealColleagueUsesRemaining: Int!
   interests: [Tag!]
   isActive: Boolean!
   lastName: String
@@ -356,6 +357,7 @@ type Mutation {
   deleteDepartment(input: DeleteDepartmentInput!): Boolean!
   deleteUser(id: ID!): User!
   executePairingAlgorithm(organizationId: String!): PairingExecutionResult!
+  findIdealColleague: ID!
   importGoogleCalendarEvents(input: ImportGoogleCalendarEventsInput!): GoogleCalendarImportResult!
   inviteUserToOrganization(input: InviteUserInputType!): InviteUserResponseType!
 
@@ -732,6 +734,7 @@ type User {
   firstName: String
   hobbies: [Tag!]
   id: ID!
+  idealColleagueUsesRemaining: Int!
   interests: [Tag!]
   isActive: Boolean!
   lastName: String
