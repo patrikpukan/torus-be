@@ -394,12 +394,13 @@ model Ban {
 }
 
 model AlgorithmSetting {
-  id               String   @id @default(uuid()) @db.Uuid
-  organizationId   String   @unique @map("organization_id") @db.Uuid
-  periodLengthDays Int?     @map("period_length_days")
-  randomSeed       Int?     @map("random_seed")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String    @unique @map("organization_id") @db.Uuid
+  startDate        DateTime? @map("start_date")
+  periodLengthDays Int?      @map("period_length_days")
+  randomSeed       Int?      @map("random_seed")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

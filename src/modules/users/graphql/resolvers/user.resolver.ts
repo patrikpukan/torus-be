@@ -122,6 +122,14 @@ export class UserResolver {
         meetingEventId: r.meetingEventId,
         meetingEvent: r.meetingEvent,
         userId: r.userId,
+        user: r.user
+          ? {
+              id: r.user.id,
+              firstName: r.user.firstName,
+              lastName: r.user.lastName,
+              profileImageUrl: r.user.profileImageUrl,
+            }
+          : undefined,
         stars: r.stars,
         feedback: r.feedback,
         createdAt: r.createdAt,

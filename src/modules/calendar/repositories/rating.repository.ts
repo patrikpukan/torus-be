@@ -119,7 +119,7 @@ export class RatingRepository {
           },
         },
         user: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+          select: { id: true, firstName: true, lastName: true, email: true, profileImageUrl: true },
         },
       },
       orderBy: { createdAt: "desc" },

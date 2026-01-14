@@ -8,6 +8,9 @@ export class AlgorithmSettingsType {
   @Field()
   organizationId!: string;
 
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  startDate?: Date | null;
+
   @Field(() => Int)
   periodLengthDays!: number;
 

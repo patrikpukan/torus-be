@@ -32,6 +32,7 @@ export class AlgorithmSettingsService {
       where: { organizationId: input.organizationId },
     });
 
+    const startDate = input.startDate ?? existingSettings?.startDate ?? new Date();
     const periodLengthDays = this.resolvePeriodLengthDays(
       input.periodLengthDays,
       existingSettings?.periodLengthDays
@@ -47,6 +48,7 @@ export class AlgorithmSettingsService {
       ? await this.prisma.algorithmSetting.update({
           where: { organizationId: input.organizationId },
           data: {
+            startDate,
             periodLengthDays,
             randomSeed,
           },
@@ -54,6 +56,7 @@ export class AlgorithmSettingsService {
       : await this.prisma.algorithmSetting.create({
           data: {
             organizationId: input.organizationId,
+            startDate,
             periodLengthDays,
             randomSeed,
           },
@@ -67,6 +70,7 @@ export class AlgorithmSettingsService {
     return {
       id: settings.id,
       organizationId: settings.organizationId,
+      startDate,
       periodLengthDays,
       randomSeed,
       createdAt: settings.createdAt,
@@ -95,6 +99,7 @@ export class AlgorithmSettingsService {
       return {
         id: created.id,
         organizationId: created.organizationId,
+        startDate: created.startDate,
         periodLengthDays: this.pairingConfig.defaultPeriodDays,
         randomSeed,
         createdAt: created.createdAt,
@@ -126,6 +131,7 @@ export class AlgorithmSettingsService {
       return {
         id: updated.id,
         organizationId: updated.organizationId,
+        startDate: updated.startDate,
         periodLengthDays,
         randomSeed,
         createdAt: updated.createdAt,
@@ -136,6 +142,7 @@ export class AlgorithmSettingsService {
     return {
       id: existingSettings.id,
       organizationId: existingSettings.organizationId,
+      startDate: existingSettings.startDate,
       periodLengthDays,
       randomSeed,
       createdAt: existingSettings.createdAt,

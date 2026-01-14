@@ -497,6 +497,66 @@ async function createPairingPeriodsForOrg(
 }
 
 /**
+ * Creates algorithm settings for an organization
+ * Sets up the pairing algorithm configuration with sensible defaults
+ * Idempotent: checks if settings already exist before creating
+ * @param prisma - Prisma client instance
+ * @param orgId - Organization ID
+ * @returns Created AlgorithmSetting record
+ */
+async function createAlgorithmSettingsForOrg(
+  prisma: PrismaClient,
+  orgId: string
+): Promise<{
+  id: string;
+  organizationId: string;
+  startDate: Date | null;
+  periodLengthDays: number | null;
+  randomSeed: number | null;
+}> {
+  try {
+    // Check if algorithm settings already exist for this org
+    const existingSettings = await prisma.algorithmSetting.findUnique({
+      where: { organizationId: orgId },
+    });
+
+    if (existingSettings) {
+      console.log(
+        `  ⚠️  Algorithm settings already exist for this org, skipping creation...`
+      );
+      return existingSettings;
+    }
+
+    // Create with default values
+    const startDate = new Date(); // Start from today
+    const periodLengthDays = 21; // 3-week periods
+    const randomSeed = Math.floor(Math.random() * 2147483647); // Random seed for reproducibility
+
+    const settings = await prisma.algorithmSetting.create({
+      data: {
+        organizationId: orgId,
+        startDate,
+        periodLengthDays,
+        randomSeed,
+      },
+    });
+
+    console.log(
+      `  ✓ Algorithm settings created: Period=${periodLengthDays} days, Start=${startDate.toLocaleDateString()}, Seed=${randomSeed}`
+    );
+
+    return settings;
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error(
+      `❌ Error creating algorithm settings for org ${orgId}:`,
+      err
+    );
+    throw error;
+  }
+}
+
+/**
  * Creates pairings for an active pairing period
  * Simulates what the pairing algorithm would have created by:
  * 1. Filtering eligible users (role: 'user', isActive: true)
@@ -532,22 +592,36 @@ async function createPairingsForOrg(
   }[]
 > {
   try {
-    // Check if pairings already exist for this period
-    const existingPairings = await prisma.pairing.findMany({
+    // Delete existing pairings for this period to ensure fresh data
+    // Must delete related records first due to foreign key constraints
+    const existingCount = await prisma.pairing.count({
       where: { periodId: activePeriodId },
     });
 
-    if (existingPairings.length > 0) {
-      console.log(
-        `  ⚠️  ${existingPairings.length} pairings already exist for this period, skipping creation...`
-      );
-      return existingPairings as {
-        id: string;
-        userAId: string;
-        userBId: string;
-        status: string;
-        createdAt: Date;
-      }[];
+    if (existingCount > 0) {
+      // First, find all pairing IDs for this period
+      const pairingsToDelete = await prisma.pairing.findMany({
+        where: { periodId: activePeriodId },
+        select: { id: true },
+      });
+
+      const pairingIds = pairingsToDelete.map((p) => p.id);
+
+      // Delete related records
+      if (pairingIds.length > 0) {
+        await prisma.report.deleteMany({
+          where: { pairingId: { in: pairingIds } },
+        });
+        await prisma.meetingEvent.deleteMany({
+          where: { pairingId: { in: pairingIds } },
+        });
+      }
+
+      // Now delete the pairings
+      await prisma.pairing.deleteMany({
+        where: { periodId: activePeriodId },
+      });
+      console.log(`  🔄 Cleaned up ${existingCount} existing pairings`);
     }
 
     // Get period dates for calculating realistic createdAt values
@@ -592,6 +666,7 @@ async function createPairingsForOrg(
     }[] = [];
 
     // Pair users sequentially: [0,1], [2,3], [4,5], etc.
+    // All eligible users should be paired (if odd number, last one remains unpaired)
     for (let i = 0; i < shuffled.length - 1; i += 2) {
       const userA = shuffled[i];
       const userB = shuffled[i + 1];
@@ -651,7 +726,12 @@ async function createPairingsForOrg(
       .map(([s, c]) => `${c} ${s}`)
       .join(", ");
 
-    console.log(`  ✓ Created ${pairings.length} pairings (${statusSummary})`);
+    const totalEligible = eligibleUsers.length;
+    const totalPaired = pairings.length * 2;
+
+    console.log(
+      `  ✓ Created ${pairings.length} pairings (${statusSummary}) - ${totalPaired}/${totalEligible} users paired`
+    );
 
     if (shuffled.length % 2 === 1) {
       const unpaired = shuffled[shuffled.length - 1];
@@ -1903,80 +1983,145 @@ async function unlockDemoAchievements(prisma: PrismaClient): Promise<void> {
     let achievementsUnlocked = 0;
     let progressCreated = 0;
 
-    for (const user of users) {
-      // Count meetings this user has rated
-      const meetingCount = user.ratings.length;
-
-      // Newcomer achievement - unlock if they have at least 1 rating
-      if (meetingCount >= 1) {
-        const newcomer = achievements.find(
-          (a) => a.imageIdentifier === "newcomer"
-        );
-        if (newcomer) {
-          const existing = await (prisma as any).userAchievement.findFirst({
-            where: { userId: user.id, achievementId: newcomer.id },
+    // Assign specific achievements to early users for demo purposes
+    if (users.length > 0) {
+      // First user gets Newcomer + Social Butterfly
+      const firstUser = users[0];
+      const newcomer = achievements.find(
+        (a) => a.imageIdentifier === "newcomer"
+      );
+      if (newcomer) {
+        const existing = await (prisma as any).userAchievement.findFirst({
+          where: { userId: firstUser.id, achievementId: newcomer.id },
+        });
+        if (!existing) {
+          await (prisma as any).userAchievement.create({
+            data: {
+              userId: firstUser.id,
+              achievementId: newcomer.id,
+              unlockedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 60 days ago
+              currentProgress: 1,
+            },
           });
-          if (!existing) {
-            await (prisma as any).userAchievement.create({
-              data: {
-                userId: user.id,
-                achievementId: newcomer.id,
-                unlockedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
-                currentProgress: 1, // Set to max progress since it's unlocked
-              },
-            });
-            achievementsUnlocked++;
-          }
+          achievementsUnlocked++;
         }
       }
 
-      // Social Butterfly achievement - unlock if they have 2+ ratings
-      if (meetingCount >= 2) {
-        const socialButterfly = achievements.find(
-          (a) => a.imageIdentifier === "social-butterfly"
-        );
-        if (socialButterfly) {
-          const existing = await (prisma as any).userAchievement.findFirst({
-            where: { userId: user.id, achievementId: socialButterfly.id },
+      const socialButterfly = achievements.find(
+        (a) => a.imageIdentifier === "social-butterfly"
+      );
+      if (socialButterfly) {
+        const existing = await (prisma as any).userAchievement.findFirst({
+          where: { userId: firstUser.id, achievementId: socialButterfly.id },
+        });
+        if (!existing) {
+          await (prisma as any).userAchievement.create({
+            data: {
+              userId: firstUser.id,
+              achievementId: socialButterfly.id,
+              unlockedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // 45 days ago
+              currentProgress: 2,
+            },
           });
-          if (!existing) {
-            await (prisma as any).userAchievement.create({
-              data: {
-                userId: user.id,
-                achievementId: socialButterfly.id,
-                unlockedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
-                currentProgress: 2, // Set to max progress since it's unlocked
-              },
-            });
-            achievementsUnlocked++;
-          }
+          achievementsUnlocked++;
+        }
+      }
+    }
+
+    if (users.length > 1) {
+      // Second user gets Pairing Legend
+      const secondUser = users[1];
+      const pairingLegend = achievements.find(
+        (a) => a.imageIdentifier === "pairing-legend"
+      );
+      if (pairingLegend) {
+        const existing = await (prisma as any).userAchievement.findFirst({
+          where: { userId: secondUser.id, achievementId: pairingLegend.id },
+        });
+        if (!existing) {
+          await (prisma as any).userAchievement.create({
+            data: {
+              userId: secondUser.id,
+              achievementId: pairingLegend.id,
+              unlockedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+              currentProgress: 3,
+            },
+          });
+          achievementsUnlocked++;
         }
       }
 
-      // Pairing Legend - unlock for users with 3+ ratings
-      if (meetingCount >= 3) {
-        const pairingLegend = achievements.find(
-          (a) => a.imageIdentifier === "pairing-legend"
-        );
-        if (pairingLegend) {
-          const existing = await (prisma as any).userAchievement.findFirst({
-            where: { userId: user.id, achievementId: pairingLegend.id },
+      // Second user also gets partial progress on Bridge Builder
+      const bridgeBuilder = achievements.find(
+        (a) => a.imageIdentifier === "bridge-builder"
+      );
+      if (bridgeBuilder) {
+        const existing = await (prisma as any).userAchievement.findFirst({
+          where: { userId: secondUser.id, achievementId: bridgeBuilder.id },
+        });
+        if (!existing) {
+          await (prisma as any).userAchievement.create({
+            data: {
+              userId: secondUser.id,
+              achievementId: bridgeBuilder.id,
+              unlockedAt: null, // Explicitly set to null for in-progress achievements
+              currentProgress: 8, // 8 out of 20 ratings from different people
+            },
           });
-          if (!existing) {
-            await (prisma as any).userAchievement.create({
-              data: {
-                userId: user.id,
-                achievementId: pairingLegend.id,
-                unlockedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-                currentProgress: 3, // Set to max progress since it's unlocked
-              },
-            });
-            achievementsUnlocked++;
-          }
+          progressCreated++;
+        }
+      }
+    }
+
+    if (users.length > 2) {
+      // Third user gets Newcomer + partial progress on Regular Participant
+      const thirdUser = users[2];
+      const newcomer = achievements.find(
+        (a) => a.imageIdentifier === "newcomer"
+      );
+      if (newcomer) {
+        const existing = await (prisma as any).userAchievement.findFirst({
+          where: { userId: thirdUser.id, achievementId: newcomer.id },
+        });
+        if (!existing) {
+          await (prisma as any).userAchievement.create({
+            data: {
+              userId: thirdUser.id,
+              achievementId: newcomer.id,
+              unlockedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
+              currentProgress: 1,
+            },
+          });
+          achievementsUnlocked++;
         }
       }
 
-      // Add partial progress for locked achievements
+      // Third user has partial progress on Regular Participant
+      const regularParticipant = achievements.find(
+        (a) => a.imageIdentifier === "regular-participant"
+      );
+      if (regularParticipant) {
+        const existing = await (prisma as any).userAchievement.findFirst({
+          where: { userId: thirdUser.id, achievementId: regularParticipant.id },
+        });
+        if (!existing) {
+          await (prisma as any).userAchievement.create({
+            data: {
+              userId: thirdUser.id,
+              achievementId: regularParticipant.id,
+              unlockedAt: null, // Explicitly set to null for in-progress achievements
+              currentProgress: 5, // 5 out of 10 cycles
+            },
+          });
+          progressCreated++;
+        }
+      }
+    }
+
+    // For remaining users, add partial progress on locked achievements
+    for (let i = 3; i < users.length; i++) {
+      const user = users[i];
+
       const regularParticipant = achievements.find(
         (a) => a.imageIdentifier === "regular-participant"
       );
@@ -1985,12 +2130,13 @@ async function unlockDemoAchievements(prisma: PrismaClient): Promise<void> {
           where: { userId: user.id, achievementId: regularParticipant.id },
         });
         if (!existing) {
-          // Set progress to 1 out of 10 cycles
+          // Set progress to 1-3 out of 10 cycles
           await (prisma as any).userAchievement.create({
             data: {
               userId: user.id,
               achievementId: regularParticipant.id,
-              currentProgress: 1,
+              unlockedAt: null, // Explicitly set to null for in-progress achievements
+              currentProgress: Math.floor(Math.random() * 3) + 1,
             },
           });
           progressCreated++;
@@ -2005,12 +2151,13 @@ async function unlockDemoAchievements(prisma: PrismaClient): Promise<void> {
           where: { userId: user.id, achievementId: bridgeBuilder.id },
         });
         if (!existing) {
-          // Set progress to 1 out of 20 ratings from different people
+          // Set progress to 0-5 out of 20 ratings from different people
           await (prisma as any).userAchievement.create({
             data: {
               userId: user.id,
               achievementId: bridgeBuilder.id,
-              currentProgress: Math.min(meetingCount, 19), // Show progress based on ratings
+              unlockedAt: null, // Explicitly set to null for in-progress achievements
+              currentProgress: Math.floor(Math.random() * 5),
             },
           });
           progressCreated++;
@@ -2330,6 +2477,10 @@ async function main(): Promise<void> {
       console.log("\n🗓️  Creating pairing periods...");
       const { activePeriodId, upcomingPeriodId } =
         await createPairingPeriodsForOrg(prisma, orgId);
+
+      // 2c.5. Create algorithm settings for the organization
+      console.log("\n⚙️  Creating algorithm settings...");
+      await createAlgorithmSettingsForOrg(prisma, orgId);
 
       // 2d. Create pairings (only for active period)
       console.log("\n🤝 Creating pairings...");

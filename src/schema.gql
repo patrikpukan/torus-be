@@ -63,6 +63,7 @@ type AlgorithmSettings {
   organizationId: String!
   periodLengthDays: Int!
   randomSeed: Int!
+  startDate: DateTime
   updatedAt: DateTime!
 }
 
@@ -72,6 +73,7 @@ type AlgorithmSettingsResponse {
   organizationId: String!
   periodLengthDays: Int!
   randomSeed: Int!
+  startDate: DateTime
   updatedAt: DateTime!
   warning: String
 }
@@ -521,7 +523,7 @@ type Query {
   organizations: [OrganizationType!]!
   pendingMeetingConfirmations: [MeetingEvent!]!
   reportById(id: ID!): UserReport
-    reports(organizationId: ID): [UserReport!]!
+  reports(organizationId: ID): [UserReport!]!
   statistics(filter: StatisticsFilterInputType): StatisticsResponseType!
 
   """Get meetings that can still be rated by the current user"""
@@ -546,7 +548,15 @@ type RatingType {
   meetingEventId: ID!
   stars: Int!
   updatedAt: DateTime!
+  user: RatingUserType
   userId: ID!
+}
+
+type RatingUserType {
+  firstName: String
+  id: ID!
+  lastName: String
+  profileImageUrl: String
 }
 
 input RegisterOrganizationInputType {
@@ -661,6 +671,7 @@ input UpdateAlgorithmSettingsInput {
   organizationId: String!
   periodLengthDays: Int
   randomSeed: Int
+  startDate: DateTime
 }
 
 input UpdateCalendarEventInput {
@@ -739,7 +750,7 @@ type User {
   isActive: Boolean!
   lastName: String
   location: String
-    organization: SimpleOrganizationType
+  organization: SimpleOrganizationType
   organizationId: ID!
   position: String
   preferredActivity: String

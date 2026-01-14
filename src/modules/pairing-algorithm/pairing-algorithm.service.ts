@@ -58,7 +58,7 @@ export class InsufficientUsersException extends Error {
     public readonly userCount: number
   ) {
     super(
-      `Not enough users to create pairings for organization ${organizationId}`
+      `Not enough users to create pairings (need at least 2 eligible users)`
     );
     this.name = InsufficientUsersException.name;
   }

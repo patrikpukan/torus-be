@@ -1,9 +1,12 @@
-import { Field, InputType, Int } from "@nestjs/graphql";
+import { Field, InputType, Int, GraphQLISODateTime } from "@nestjs/graphql";
 
 @InputType()
 export class UpdateAlgorithmSettingsInput {
   @Field()
   organizationId!: string;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  startDate?: Date | null;
 
   @Field(() => Int, { nullable: true })
   periodLengthDays?: number | null;
