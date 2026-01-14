@@ -219,6 +219,213 @@ function formatDateShort(date: Date): string {
 }
 
 /**
+ * Predefined message templates for realistic conversations
+ */
+const MESSAGE_TEMPLATES = {
+  greetings: ["Hi!", "Hey!", "Hello!", "Hi there!", "Hey there!"],
+  openings: {
+    general: [
+      "How's it going?",
+      "What's new with you?",
+      "How have you been?",
+      "Good to connect with you!",
+      "Excited to chat!",
+    ],
+    work: [
+      "Hope you're having a productive week!",
+      "I'd love to hear about what you're working on.",
+      "Been wondering what projects you have on your plate.",
+      "Curious to learn more about what you do.",
+      "Let's catch up on work stuff!",
+    ],
+    personal: [
+      "I'd love to get to know you better!",
+      "Would be great to learn more about you.",
+      "Keen to discover some common interests!",
+      "Let's find out what we have in common.",
+      "Excited to learn about you outside of work!",
+    ],
+  },
+  questions: {
+    general: [
+      "What's something interesting you've discovered lately?",
+      "What's your go-to way to relax?",
+      "Any hobbies you're passionate about?",
+      "What's been on your mind recently?",
+      "What's something you're proud of?",
+      "What do you enjoy doing in your free time?",
+      "Any upcoming plans you're excited about?",
+      "What's a book or show you'd recommend?",
+    ],
+    work: [
+      "What's the most interesting project you're working on?",
+      "What aspect of your role do you enjoy the most?",
+      "What skills have you been developing lately?",
+      "What's a challenge you're currently tackling?",
+      "What would be your ideal project to work on?",
+      "How do you approach problem-solving?",
+      "What's your experience with new technologies?",
+      "What's the best career advice you've received?",
+    ],
+    personal: [
+      "What's your favorite way to spend a weekend?",
+      "Where are you originally from?",
+      "What's a goal you're working towards?",
+      "What do you value most in friendships?",
+      "What's a skill you'd like to learn?",
+      "What's your ideal vacation like?",
+      "What's something that always makes you smile?",
+      "What's a recent win you've had, big or small?",
+    ],
+  },
+  responses: [
+    "That's a great question! 👀",
+    "Interesting! I never thought about it that way.",
+    "Totally agree with you! ✅",
+    "100% with you on that 💯",
+    "Couldn't agree more!",
+    "Great insight!",
+    "Definitely agree!",
+    "Love this perspective!",
+  ],
+  closers: [
+    "Thanks for the chat!",
+    "Really enjoyed this conversation!",
+    "Hope we can do this again soon!",
+    "This was great! 😊",
+    "Looking forward to connecting again!",
+    "Thanks for taking the time!",
+  ],
+};
+
+/**
+ * Generates realistic conversation messages between two users
+ * Uses predefined templates 70% of the time, random messages 30%
+ * Generates at least 3 message exchanges for a conversation
+ * @returns Array of messages ready to be inserted
+ */
+function generateConversationMessages(
+  pairingId: string,
+  userAId: string,
+  userBId: string,
+  meetingDate: Date
+): Array<{ pairingId: string; senderId: string; content: string; createdAt: Date }> {
+  const messages: Array<{
+    pairingId: string;
+    senderId: string;
+    content: string;
+    createdAt: Date;
+  }> = [];
+
+  // 3-6 message exchanges (alternating between users)
+  const exchangeCount = 3 + Math.floor(Math.random() * 4);
+  const topics = ["general", "work", "personal"] as const;
+  const topic = topics[Math.floor(Math.random() * topics.length)];
+
+  // First message: user A initiates
+  const greeting =
+    MESSAGE_TEMPLATES.greetings[
+      Math.floor(Math.random() * MESSAGE_TEMPLATES.greetings.length)
+    ];
+  const opening =
+    MESSAGE_TEMPLATES.openings[topic][
+      Math.floor(Math.random() * MESSAGE_TEMPLATES.openings[topic].length)
+    ];
+
+  let firstMessage = `${greeting} ${opening}`;
+  // 30% chance to add a question
+  if (Math.random() < 0.3) {
+    const question =
+      MESSAGE_TEMPLATES.questions[topic][
+        Math.floor(Math.random() * MESSAGE_TEMPLATES.questions[topic].length)
+      ];
+    firstMessage += ` ${question}`;
+  }
+
+  messages.push({
+    pairingId,
+    senderId: userAId,
+    content: firstMessage,
+    createdAt: addDays(meetingDate, -3),
+  });
+
+  let currentSenderId = userBId;
+
+  for (let i = 1; i < exchangeCount; i++) {
+    const isResponse = i % 2 === 1; // Odd indices are responses
+    let message: string;
+
+    if (Math.random() < 0.7) {
+      // 70% predefined templates
+      if (isResponse) {
+        message =
+          MESSAGE_TEMPLATES.responses[
+            Math.floor(Math.random() * MESSAGE_TEMPLATES.responses.length)
+          ];
+        // 50% add a question after response
+        if (Math.random() < 0.5) {
+          const question =
+            MESSAGE_TEMPLATES.questions[topic][
+              Math.floor(Math.random() * MESSAGE_TEMPLATES.questions[topic].length)
+            ];
+          message += ` ${question}`;
+        }
+      } else {
+        // Not a direct response, send a new question
+        const question =
+          MESSAGE_TEMPLATES.questions[topic][
+            Math.floor(Math.random() * MESSAGE_TEMPLATES.questions[topic].length)
+          ];
+        message = question;
+      }
+    } else {
+      // 30% random messages
+      const randomMessages = [
+        "That's awesome! How long have you been doing that?",
+        "I completely relate to that. Do you have any tips?",
+        "That's really interesting! Tell me more.",
+        "I'd love to learn more about that.",
+        "Have you always been interested in that?",
+        "That sounds amazing! 🙌",
+        "Wow, I didn't know that!",
+        "That's so cool! I'd love to try that sometime.",
+        "I really admire that about you.",
+        "That's a great approach!",
+      ];
+      message =
+        randomMessages[Math.floor(Math.random() * randomMessages.length)];
+    }
+
+    messages.push({
+      pairingId,
+      senderId: currentSenderId,
+      content: message,
+      createdAt: addDays(meetingDate, -2 + i),
+    });
+
+    // Alternate sender
+    currentSenderId =
+      currentSenderId === userAId ? userBId : userAId;
+  }
+
+  // Final message: closer
+  if (Math.random() < 0.6) {
+    const closer =
+      MESSAGE_TEMPLATES.closers[
+        Math.floor(Math.random() * MESSAGE_TEMPLATES.closers.length)
+      ];
+    messages.push({
+      pairingId,
+      senderId: currentSenderId === userAId ? userBId : userAId,
+      content: closer,
+      createdAt: addDays(meetingDate, -1),
+    });
+  }
+
+  return messages;
+}
+
+/**
  * Seeds predefined tags for hobbies and interests
  * Idempotent: checks if tags exist before creating
  * @param prisma - Prisma client instance
@@ -497,6 +704,98 @@ async function createPairingPeriodsForOrg(
 }
 
 /**
+ * Creates historical pairing periods for an organization
+ * Generates 4 past periods (84 days back) + current period
+ * Each period is 21 days (3 weeks), with "closed" status for past periods
+ * @param prisma - Prisma client instance
+ * @param orgId - Organization ID
+ * @returns Array of all period IDs (oldest to newest)
+ */
+async function createHistoricalPairingPeriodsForOrg(
+  prisma: PrismaClient,
+  orgId: string
+): Promise<string[]> {
+  try {
+    const today = new Date();
+    const PERIOD_LENGTH = 21; // 21 days per period
+    const NUM_PAST_PERIODS = 4; // 4 historical periods
+
+    // Get or create 4 past periods
+    const periodIds: string[] = [];
+
+    // Create historical periods (from oldest to newest)
+    for (let i = NUM_PAST_PERIODS; i > 0; i--) {
+      const daysBack = i * PERIOD_LENGTH;
+      const startDate = addDays(today, -daysBack);
+      const endDate = addDays(startDate, PERIOD_LENGTH);
+
+      // Check if period already exists for this date range
+      const existing = await prisma.pairingPeriod.findFirst({
+        where: {
+          organizationId: orgId,
+          startDate: startDate,
+        },
+      });
+
+      let period;
+      if (existing) {
+        period = existing;
+      } else {
+        period = await prisma.pairingPeriod.create({
+          data: {
+            organizationId: orgId,
+            startDate,
+            endDate,
+            status: "closed",
+          },
+        });
+      }
+      periodIds.push(period.id);
+    }
+
+    // Create current active period
+    const activeStartDate = addDays(today, -7);
+    const activeEndDate = addDays(today, 14);
+
+    const existingActive = await prisma.pairingPeriod.findFirst({
+      where: {
+        organizationId: orgId,
+        status: "active",
+      },
+    });
+
+    let activePeriod;
+    if (existingActive) {
+      activePeriod = existingActive;
+    } else {
+      activePeriod = await prisma.pairingPeriod.create({
+        data: {
+          organizationId: orgId,
+          startDate: activeStartDate,
+          endDate: activeEndDate,
+          status: "active",
+        },
+      });
+    }
+
+    periodIds.push(activePeriod.id);
+
+    console.log(
+      `  ✓ Created ${NUM_PAST_PERIODS} historical periods + 1 active period (total: ${periodIds.length})`
+    );
+
+    return periodIds;
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error(
+      `❌ Error creating historical pairing periods for org ${orgId}:`,
+      err
+    );
+    throw error;
+  }
+}
+
+/**
  * Creates algorithm settings for an organization
  * Sets up the pairing algorithm configuration with sensible defaults
  * Idempotent: checks if settings already exist before creating
@@ -515,25 +814,21 @@ async function createAlgorithmSettingsForOrg(
   randomSeed: number | null;
 }> {
   try {
-    // Check if algorithm settings already exist for this org
-    const existingSettings = await prisma.algorithmSetting.findUnique({
-      where: { organizationId: orgId },
-    });
-
-    if (existingSettings) {
-      console.log(
-        `  ⚠️  Algorithm settings already exist for this org, skipping creation...`
-      );
-      return existingSettings;
-    }
-
-    // Create with default values
-    const startDate = new Date(); // Start from today
+    // Create with default values - start date is 84 days in the past (4 periods * 21 days)
+    const startDate = addDays(new Date(), -84);
     const periodLengthDays = 21; // 3-week periods
     const randomSeed = Math.floor(Math.random() * 2147483647); // Random seed for reproducibility
 
-    const settings = await prisma.algorithmSetting.create({
-      data: {
+    // Upsert: update if exists, create if not
+    const settings = await prisma.algorithmSetting.upsert({
+      where: { organizationId: orgId },
+      update: {
+        startDate,
+        periodLengthDays,
+        randomSeed,
+        updatedAt: new Date(),
+      },
+      create: {
         organizationId: orgId,
         startDate,
         periodLengthDays,
@@ -550,6 +845,182 @@ async function createAlgorithmSettingsForOrg(
     const err = error instanceof Error ? error.message : String(error);
     console.error(
       `❌ Error creating algorithm settings for org ${orgId}:`,
+      err
+    );
+    throw error;
+  }
+}
+
+/**
+ * Creates pairings for multiple pairing periods (both historical and active)
+ * Generates realistic pairings with historical meetings and ratings
+ * @param prisma - Prisma client instance
+ * @param orgId - Organization ID
+ * @param periodIds - Array of period IDs (oldest to newest)
+ * @param users - All users from the organization
+ * @returns Array of all created Pairing records
+ */
+async function createHistoricalAndActivePairingsForOrg(
+  prisma: PrismaClient,
+  orgId: string,
+  periodIds: string[],
+  users: {
+    id: string;
+    role: string;
+    isActive: boolean;
+    firstName?: string | null;
+    lastName?: string | null;
+  }[]
+): Promise<
+  {
+    id: string;
+    periodId: string;
+    userAId: string;
+    userBId: string;
+    status: string;
+    createdAt: Date;
+  }[]
+> {
+  try {
+    const allPairings: {
+      id: string;
+      periodId: string;
+      userAId: string;
+      userBId: string;
+      status: string;
+      createdAt: Date;
+    }[] = [];
+
+    // Filter eligible users
+    const eligibleUsers = users.filter(
+      (user) => user.role === "user" && user.isActive === true
+    );
+
+    console.log(
+      `  Eligible users for pairing: ${eligibleUsers.length} of ${users.length}`
+    );
+
+    // Create pairings for each period
+    for (let periodIndex = 0; periodIndex < periodIds.length; periodIndex++) {
+      const periodId = periodIds[periodIndex];
+      const isCurrentPeriod = periodIndex === periodIds.length - 1;
+
+      // Get period dates for calculating realistic createdAt values
+      const period = await prisma.pairingPeriod.findUnique({
+        where: { id: periodId },
+        select: { startDate: true, endDate: true, status: true },
+      });
+
+      if (!period || !period.startDate) {
+        console.warn(`  ⚠️  Period ${periodId} not found or missing dates`);
+        continue;
+      }
+
+      // Delete existing pairings for this period
+      const existingCount = await prisma.pairing.count({
+        where: { periodId },
+      });
+
+      if (existingCount > 0) {
+        const pairingsToDelete = await prisma.pairing.findMany({
+          where: { periodId },
+          select: { id: true },
+        });
+
+        const pairingIds = pairingsToDelete.map((p) => p.id);
+
+        if (pairingIds.length > 0) {
+          await prisma.report.deleteMany({
+            where: { pairingId: { in: pairingIds } },
+          });
+          await prisma.meetingEvent.deleteMany({
+            where: { pairingId: { in: pairingIds } },
+          });
+          await prisma.message.deleteMany({
+            where: { pairingId: { in: pairingIds } },
+          });
+        }
+
+        await prisma.pairing.deleteMany({
+          where: { periodId },
+        });
+        console.log(`  🔄 Cleaned up ${existingCount} existing pairings`);
+      }
+
+      // Shuffle eligible users with period-specific seed for deterministic but different shuffles
+      const shuffled = [...eligibleUsers];
+      // Use prime multiplier for better seed distribution across periods
+      const seed = (periodIndex * 2654435761 + 2246822519) >>> 0;
+      const random = seededRandom(seed);
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        // Use seeded randomness for reproducible but different shuffles per period (Fisher-Yates)
+        const j = Math.floor(random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      // Pair users sequentially
+      for (let i = 0; i < shuffled.length - 1; i += 2) {
+        const userA = shuffled[i];
+        const userB = shuffled[i + 1];
+
+        let status: "met" | "matched" | "planned" | "not_met";
+        let daysFromStart: number;
+
+        if (isCurrentPeriod) {
+          // Current period: mix of statuses
+          const rand = Math.random();
+          if (rand < 0.3) {
+            status = "met";
+            daysFromStart = 1 + Math.floor(Math.random() * 6);
+          } else if (rand < 0.7) {
+            status = "matched";
+            daysFromStart = 3 + Math.floor(Math.random() * 7);
+          } else if (rand < 0.9) {
+            status = "planned";
+            daysFromStart = 7 + Math.floor(Math.random() * 6);
+          } else {
+            status = "not_met";
+            daysFromStart = 1 + Math.floor(Math.random() * 6);
+          }
+        } else {
+          // Past periods: mostly "met" status (90%), some "not_met" (10%)
+          if (Math.random() < 0.9) {
+            status = "met";
+            daysFromStart = 1 + Math.floor(Math.random() * 20);
+          } else {
+            status = "not_met";
+            daysFromStart = 1 + Math.floor(Math.random() * 20);
+          }
+        }
+
+        const pairing = await prisma.pairing.create({
+          data: {
+            periodId,
+            organizationId: orgId,
+            userAId: userA.id,
+            userBId: userB.id,
+            status,
+            createdAt: addDays(period.startDate, daysFromStart),
+          },
+        });
+
+        allPairings.push({
+          ...pairing,
+          periodId,
+        });
+      }
+
+      const pairingCount = Math.floor((shuffled.length - (shuffled.length % 2)) / 2);
+      console.log(
+        `  ✓ Created ${pairingCount} pairings for period ${periodIndex + 1}/${periodIds.length}`
+      );
+    }
+
+    return allPairings;
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.error(
+      `❌ Error creating pairings for org ${orgId}:`,
       err
     );
     throw error;
@@ -953,7 +1424,7 @@ async function createMeetingEventForPairing(
       const createdByUserId =
         Math.random() > 0.5 ? pairing.userAId : pairing.userBId;
 
-      await prisma.meetingEvent.create({
+      const meeting = await prisma.meetingEvent.create({
         data: {
           pairingId: pairing.id,
           userAId: pairing.userAId,
@@ -966,6 +1437,24 @@ async function createMeetingEventForPairing(
           userANote,
         },
       });
+      // Create messages for past meetings only
+      let messagesCount = 0;
+      if (isPast) {
+        const messages = generateConversationMessages(
+          pairing.id,
+          pairing.userAId,
+          pairing.userBId,
+          meetingDate
+        );
+
+        messagesCount = messages.length;
+
+        for (const msg of messages) {
+          await prisma.message.create({
+            data: msg,
+          });
+        }
+      }
 
       const dateStr = meetingDate.toLocaleDateString("en-US", {
         month: "short",
@@ -977,7 +1466,7 @@ async function createMeetingEventForPairing(
         hour12: true,
       });
       console.log(
-        `    ✓ Created meeting event (${dateStr} @ ${timeStr}, ${pairing.status})`
+        `    ✓ Created meeting event (${dateStr} @ ${timeStr}, ${pairing.status})${isPast ? ` with ${messagesCount} messages` : ""}`
       );
     }
   } catch (error) {
@@ -989,6 +1478,7 @@ async function createMeetingEventForPairing(
     // Don't throw - meeting events are optional for demo
   }
 }
+
 
 /**
  * Creates ratings for past meeting events
@@ -1179,6 +1669,137 @@ async function createUserReportsForPairings(
 }
 
 /**
+ * Creates invitations for users to send to other users
+ * Generates realistic invitation exchanges connected to pairings
+ * Shows invitation acceptance/rejection behavior
+ * @param prisma - Prisma client instance
+ * @param orgId - Organization ID
+ * @param users - Array of users in the organization
+ * @returns Promise<void>
+ */
+async function createInvitationsForOrg(
+  prisma: PrismaClient,
+  orgId: string,
+  users: Array<{ id: string; role: string; firstName?: string | null; lastName?: string | null }>
+): Promise<void> {
+  try {
+    const regularUsers = users.filter((u) => u.role === "user");
+    if (regularUsers.length < 2) {
+      return; // Need at least 2 users
+    }
+
+    // Get recent pairings to connect invitations to
+    const recentPairings = await prisma.pairing.findMany({
+      where: {
+        organizationId: orgId,
+        createdAt: {
+          gte: addDays(new Date(), -30), // Last 30 days
+        },
+      },
+      take: 20,
+    });
+
+    // Invitation types and reasons
+    const invitationTypes = [
+      "connect",
+      "mentor",
+      "collaborate",
+      "casual_chat",
+    ];
+    const reasons = [
+      "I'd like to learn from your experience",
+      "Let's collaborate on a project",
+      "Would love to grab coffee and chat",
+      "I think we could help each other grow",
+      "Interested in your perspective on tech",
+      "Let's connect - I admire your work",
+      "Would be great to exchange ideas",
+      "Looking for a mentorship opportunity",
+    ];
+
+    let invitationsCreated = 0;
+
+    // Create invitations from ~40% of users to random other users
+    const inviterCount = Math.ceil(regularUsers.length * 0.4);
+    for (let i = 0; i < inviterCount; i++) {
+      const inviter = regularUsers[Math.floor(Math.random() * regularUsers.length)];
+      let invitee = regularUsers[Math.floor(Math.random() * regularUsers.length)];
+      
+      // Ensure inviter and invitee are different
+      while (invitee.id === inviter.id) {
+        invitee = regularUsers[Math.floor(Math.random() * regularUsers.length)];
+      }
+
+      // Check if invitation already exists
+      const existing = await (prisma as any).invitation?.findFirst?.({
+        where: {
+          senderId: inviter.id,
+          recipientId: invitee.id,
+        },
+      });
+
+      if (existing) {
+        continue;
+      }
+
+      // Check if there's a recent pairing between these users
+      const relatedPairing = recentPairings.find(
+        (p) =>
+          (p.userAId === inviter.id && p.userBId === invitee.id) ||
+          (p.userAId === invitee.id && p.userBId === inviter.id)
+      );
+
+      const type = invitationTypes[Math.floor(Math.random() * invitationTypes.length)];
+      const reason = reasons[Math.floor(Math.random() * reasons.length)];
+
+      // ~70% accepted, ~20% pending, ~10% declined
+      const rand = Math.random();
+      const status = rand < 0.7 ? "accepted" : rand < 0.9 ? "pending" : "declined";
+
+      // Create invitation date in past
+      const createdDate = addDays(
+        new Date(),
+        -(Math.floor(Math.random() * 20) + 1) // 1-20 days ago
+      );
+
+      // If accepted, set respondedAt 1-5 days later
+      const respondedAt =
+        status !== "pending"
+          ? addDays(createdDate, Math.floor(Math.random() * 5) + 1)
+          : null;
+
+      try {
+        // Try to create invitation if model exists
+        await (prisma as any).invitation?.create?.({
+          data: {
+            senderId: inviter.id,
+            recipientId: invitee.id,
+            type,
+            reason,
+            status,
+            pairingId: relatedPairing?.id,
+            createdAt: createdDate,
+            respondedAt,
+            organizationId: orgId,
+          },
+        });
+        invitationsCreated++;
+      } catch {
+        // Invitation model may not exist yet, skip gracefully
+      }
+    }
+
+    if (invitationsCreated > 0) {
+      console.log(`    ✓ Created ${invitationsCreated} invitations between users`);
+    }
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Warning: Could not create invitations: ${err}`);
+    // Don't throw - invitations are optional for demo
+  }
+}
+
+/**
  * Creates user bans for some users in each organization
  * Generates realistic bans with various reasons
  * Idempotent: checks if bans already exist before creating
@@ -1267,6 +1888,24 @@ function generateRandomCode(length: number = 6): string {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
+}
+
+/**
+ * Seeded pseudo-random number generator (linear congruential generator)
+ * Produces deterministic but period-specific results
+ * @param seed - Seed value
+ * @returns Function that returns values between 0 and 1
+ */
+function seededRandom(seed: number): () => number {
+  return function () {
+    // Mulberry32: A simple but highly effective seeded random number generator
+    // Produces much better distribution than simple LCG
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 /**
@@ -1843,17 +2482,19 @@ async function displayEnhancedSummary(prisma: PrismaClient): Promise<void> {
     // Display login credentials and highlights
     console.log("\n🔐 Sample Login Credentials:");
     console.log("   Organization: Torus Technologies Inc");
-    console.log("   Email: super_admin_torus@torus.com");
-    console.log("   Password: Password123!");
+    console.log("   Super Admin Email: alex.morrison_torus@torus.com");
+    console.log("   Org Admin Email: marcus.chen_torus@torus.com");
+    console.log("   Regular User Email: james.wilson_torus@torus.com");
+    console.log("   Password (all users): Password123!");
 
     console.log("\n✨ Demo Data Highlights:");
-    console.log("   - Pairing periods: 3-week cycles (active + upcoming)");
-    console.log("   - Active period: 1 week in, 2 weeks remaining");
-    console.log("   - Mixed pairing statuses for realistic scenarios");
-    console.log(
-      "   - Calendar events show availability/unavailability patterns"
-    );
-    console.log("   - Meeting events scheduled for matched/met pairings");
+    console.log("   - 4 historical pairing periods + 1 active period (21 days each)");
+    console.log("   - Algorithm start date: 84 days in the past");
+    console.log("   - Each user has 3+ meetings with historical ratings");
+    console.log("   - Chat messages: 70% predefined templates, 30% random");
+    console.log("   - Achievements unlock dynamically based on actual data");
+    console.log("   - Cross-department connections tracked for Bridge Builder");
+
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
     console.error("❌ Error generating summary:", err);
@@ -1965,12 +2606,34 @@ async function unlockDemoAchievements(prisma: PrismaClient): Promise<void> {
       return;
     }
 
-    // Get all regular users (role = 'user') ordered by creation date
+    // Get all regular users with their data
     const users = await prisma.user.findMany({
       where: { role: UserRole.user, isActive: true },
-      orderBy: { createdAt: "asc" },
       include: {
-        ratings: true,
+        organization: true,
+        pairingsAsUserA: {
+          where: { status: "met" }, // Only count "met" pairings
+          include: {
+            userB: { select: { departmentId: true } },
+            period: true,
+          },
+        },
+        pairingsAsUserB: {
+          where: { status: "met" }, // Only count "met" pairings
+          include: {
+            userA: { select: { departmentId: true } },
+            period: true,
+          },
+        },
+        ratings: {
+          include: {
+            meetingEvent: {
+              include: {
+                pairing: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -1979,199 +2642,259 @@ async function unlockDemoAchievements(prisma: PrismaClient): Promise<void> {
       return;
     }
 
-    // For demo purposes, unlock achievements for users with ratings
     let achievementsUnlocked = 0;
     let progressCreated = 0;
 
-    // Assign specific achievements to early users for demo purposes
-    if (users.length > 0) {
-      // First user gets Newcomer + Social Butterfly
-      const firstUser = users[0];
-      const newcomer = achievements.find(
-        (a) => a.imageIdentifier === "newcomer"
+    // Dynamically unlock achievements based on actual data
+    for (const user of users) {
+      // Count meetings (from ratings, each rating is from a meeting)
+      const uniqueMeetingIds = new Set(
+        user.ratings.map((r) => r.meetingEventId)
       );
-      if (newcomer) {
-        const existing = await (prisma as any).userAchievement.findFirst({
-          where: { userId: firstUser.id, achievementId: newcomer.id },
-        });
-        if (!existing) {
-          await (prisma as any).userAchievement.create({
-            data: {
-              userId: firstUser.id,
-              achievementId: newcomer.id,
-              unlockedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 60 days ago
-              currentProgress: 1,
-            },
+      const meetingCount = uniqueMeetingIds.size;
+
+      // Count unique users met
+      const uniqueUserIds = new Set<string>();
+      user.pairingsAsUserA.forEach((p) => uniqueUserIds.add(p.userBId));
+      user.pairingsAsUserB.forEach((p) => uniqueUserIds.add(p.userAId));
+      const uniqueUsersMet = uniqueUserIds.size;
+
+      // Check for cross-department connections
+      const crossDepartmentMeetings = new Set<string>();
+      user.pairingsAsUserA.forEach((p) => {
+        if (user.departmentId && p.userB.departmentId !== user.departmentId) {
+          crossDepartmentMeetings.add(p.userBId);
+        }
+      });
+      user.pairingsAsUserB.forEach((p) => {
+        if (user.departmentId && p.userA.departmentId !== user.departmentId) {
+          crossDepartmentMeetings.add(p.userAId);
+        }
+      });
+
+      // Count pairing cycles participated in
+      const cycleSet = new Set<string>();
+      user.pairingsAsUserA.forEach((p) => cycleSet.add(p.periodId));
+      user.pairingsAsUserB.forEach((p) => cycleSet.add(p.periodId));
+      const cyclesParticipated = cycleSet.size;
+
+      // Achievement 1: Newcomer - has at least 1 meeting (unique meeting IDs from ratings)
+      if (user.ratings.length > 0) {
+        const newcomer = achievements.find(
+          (a) => a.imageIdentifier === "newcomer"
+        );
+        if (newcomer) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: newcomer.id },
           });
-          achievementsUnlocked++;
+          if (!existing) {
+            const earliestRating = user.ratings.reduce((min, r) =>
+              r.createdAt < min.createdAt ? r : min
+            );
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: newcomer.id,
+                unlockedAt: new Date(
+                  earliestRating.createdAt.getTime() + 24 * 60 * 60 * 1000
+                ), // Day after first rating
+                currentProgress: 1,
+              },
+            });
+            achievementsUnlocked++;
+          }
         }
       }
 
-      const socialButterfly = achievements.find(
-        (a) => a.imageIdentifier === "social-butterfly"
-      );
-      if (socialButterfly) {
-        const existing = await (prisma as any).userAchievement.findFirst({
-          where: { userId: firstUser.id, achievementId: socialButterfly.id },
-        });
-        if (!existing) {
-          await (prisma as any).userAchievement.create({
-            data: {
-              userId: firstUser.id,
-              achievementId: socialButterfly.id,
-              unlockedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // 45 days ago
-              currentProgress: 2,
-            },
+      // Achievement 2: Social Butterfly - has at least 10 meetings
+      if (meetingCount >= 10) {
+        const socialButterfly = achievements.find(
+          (a) => a.imageIdentifier === "social-butterfly"
+        );
+        if (socialButterfly) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: socialButterfly.id },
           });
-          achievementsUnlocked++;
+          if (!existing) {
+            const tenthRating = Array.from(user.ratings)
+              .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+              [9];
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: socialButterfly.id,
+                unlockedAt: new Date(
+                  tenthRating.createdAt.getTime() + 24 * 60 * 60 * 1000
+                ),
+                currentProgress: Math.min(meetingCount, 10),
+              },
+            });
+            achievementsUnlocked++;
+          }
+        }
+      } else if (meetingCount > 0) {
+        // Track progress towards Social Butterfly
+        const socialButterfly = achievements.find(
+          (a) => a.imageIdentifier === "social-butterfly"
+        );
+        if (socialButterfly) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: socialButterfly.id },
+          });
+          if (!existing) {
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: socialButterfly.id,
+                unlockedAt: null,
+                currentProgress: meetingCount,
+              },
+            });
+            progressCreated++;
+          }
+        }
+      }
+
+      // Achievement 3: Bridge Builder - connected with someone from different department
+      if (crossDepartmentMeetings.size > 0) {
+        const bridgeBuilder = achievements.find(
+          (a) => a.imageIdentifier === "bridge-builder"
+        );
+        if (bridgeBuilder) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: bridgeBuilder.id },
+          });
+          if (!existing) {
+            // Find the first cross-department meeting
+            const firstCrossDept = user.ratings
+              .filter((r) => {
+                const otherUserId =
+                  user.pairingsAsUserA.find(
+                    (p) => p.id === r.meetingEvent?.pairing?.id
+                  )?.userBId ||
+                  user.pairingsAsUserB.find(
+                    (p) => p.id === r.meetingEvent?.pairing?.id
+                  )?.userAId;
+                return crossDepartmentMeetings.has(otherUserId || "");
+              })
+              .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: bridgeBuilder.id,
+                unlockedAt: firstCrossDept
+                  ? new Date(
+                      firstCrossDept.createdAt.getTime() + 24 * 60 * 60 * 1000
+                    )
+                  : new Date(),
+                currentProgress: crossDepartmentMeetings.size,
+              },
+            });
+            achievementsUnlocked++;
+          }
+        }
+      }
+
+      // Achievement 4: Regular Participant - participated in 10+ cycles
+      if (cyclesParticipated >= 10) {
+        const regularParticipant = achievements.find(
+          (a) => a.imageIdentifier === "regular-participant"
+        );
+        if (regularParticipant) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: regularParticipant.id },
+          });
+          if (!existing) {
+            // Find when user participated in 10th cycle
+            const sortedCycles = Array.from(cycleSet)
+              .map((periodId) => {
+                const period = user.pairingsAsUserA.find(
+                  (p) => p.periodId === periodId
+                )?.period ||
+                  user.pairingsAsUserB.find((p) => p.periodId === periodId)
+                    ?.period;
+                return period?.startDate || new Date();
+              })
+              .sort(
+                (a, b) => a.getTime() - b.getTime()
+              );
+
+            const tenthCycleDate = sortedCycles[9] || new Date();
+
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: regularParticipant.id,
+                unlockedAt: new Date(
+                  tenthCycleDate.getTime() + 21 * 24 * 60 * 60 * 1000
+                ), // End of 10th cycle
+                currentProgress: cyclesParticipated,
+              },
+            });
+            achievementsUnlocked++;
+          }
+        }
+      } else if (cyclesParticipated > 0) {
+        // Track progress towards Regular Participant
+        const regularParticipant = achievements.find(
+          (a) => a.imageIdentifier === "regular-participant"
+        );
+        if (regularParticipant) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: regularParticipant.id },
+          });
+          if (!existing) {
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: regularParticipant.id,
+                unlockedAt: null,
+                currentProgress: cyclesParticipated,
+              },
+            });
+            progressCreated++;
+          }
+        }
+      }
+
+      // Achievement 5: Pairing Legend - 50+ meetings
+      if (meetingCount >= 50) {
+        const pairingLegend = achievements.find(
+          (a) => a.imageIdentifier === "pairing-legend"
+        );
+        if (pairingLegend) {
+          const existing = await (prisma as any).userAchievement.findFirst({
+            where: { userId: user.id, achievementId: pairingLegend.id },
+          });
+          if (!existing) {
+            const fiftiethRating = Array.from(user.ratings)
+              .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+              [49];
+            await (prisma as any).userAchievement.create({
+              data: {
+                userId: user.id,
+                achievementId: pairingLegend.id,
+                unlockedAt: new Date(
+                  fiftiethRating.createdAt.getTime() + 24 * 60 * 60 * 1000
+                ),
+                currentProgress: meetingCount,
+              },
+            });
+            achievementsUnlocked++;
+          }
         }
       }
     }
 
-    if (users.length > 1) {
-      // Second user gets Pairing Legend
-      const secondUser = users[1];
-      const pairingLegend = achievements.find(
-        (a) => a.imageIdentifier === "pairing-legend"
-      );
-      if (pairingLegend) {
-        const existing = await (prisma as any).userAchievement.findFirst({
-          where: { userId: secondUser.id, achievementId: pairingLegend.id },
-        });
-        if (!existing) {
-          await (prisma as any).userAchievement.create({
-            data: {
-              userId: secondUser.id,
-              achievementId: pairingLegend.id,
-              unlockedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
-              currentProgress: 3,
-            },
-          });
-          achievementsUnlocked++;
-        }
-      }
-
-      // Second user also gets partial progress on Bridge Builder
-      const bridgeBuilder = achievements.find(
-        (a) => a.imageIdentifier === "bridge-builder"
-      );
-      if (bridgeBuilder) {
-        const existing = await (prisma as any).userAchievement.findFirst({
-          where: { userId: secondUser.id, achievementId: bridgeBuilder.id },
-        });
-        if (!existing) {
-          await (prisma as any).userAchievement.create({
-            data: {
-              userId: secondUser.id,
-              achievementId: bridgeBuilder.id,
-              unlockedAt: null, // Explicitly set to null for in-progress achievements
-              currentProgress: 8, // 8 out of 20 ratings from different people
-            },
-          });
-          progressCreated++;
-        }
-      }
-    }
-
-    if (users.length > 2) {
-      // Third user gets Newcomer + partial progress on Regular Participant
-      const thirdUser = users[2];
-      const newcomer = achievements.find(
-        (a) => a.imageIdentifier === "newcomer"
-      );
-      if (newcomer) {
-        const existing = await (prisma as any).userAchievement.findFirst({
-          where: { userId: thirdUser.id, achievementId: newcomer.id },
-        });
-        if (!existing) {
-          await (prisma as any).userAchievement.create({
-            data: {
-              userId: thirdUser.id,
-              achievementId: newcomer.id,
-              unlockedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
-              currentProgress: 1,
-            },
-          });
-          achievementsUnlocked++;
-        }
-      }
-
-      // Third user has partial progress on Regular Participant
-      const regularParticipant = achievements.find(
-        (a) => a.imageIdentifier === "regular-participant"
-      );
-      if (regularParticipant) {
-        const existing = await (prisma as any).userAchievement.findFirst({
-          where: { userId: thirdUser.id, achievementId: regularParticipant.id },
-        });
-        if (!existing) {
-          await (prisma as any).userAchievement.create({
-            data: {
-              userId: thirdUser.id,
-              achievementId: regularParticipant.id,
-              unlockedAt: null, // Explicitly set to null for in-progress achievements
-              currentProgress: 5, // 5 out of 10 cycles
-            },
-          });
-          progressCreated++;
-        }
-      }
-    }
-
-    // For remaining users, add partial progress on locked achievements
-    for (let i = 3; i < users.length; i++) {
-      const user = users[i];
-
-      const regularParticipant = achievements.find(
-        (a) => a.imageIdentifier === "regular-participant"
-      );
-      if (regularParticipant) {
-        const existing = await (prisma as any).userAchievement.findFirst({
-          where: { userId: user.id, achievementId: regularParticipant.id },
-        });
-        if (!existing) {
-          // Set progress to 1-3 out of 10 cycles
-          await (prisma as any).userAchievement.create({
-            data: {
-              userId: user.id,
-              achievementId: regularParticipant.id,
-              unlockedAt: null, // Explicitly set to null for in-progress achievements
-              currentProgress: Math.floor(Math.random() * 3) + 1,
-            },
-          });
-          progressCreated++;
-        }
-      }
-
-      const bridgeBuilder = achievements.find(
-        (a) => a.imageIdentifier === "bridge-builder"
-      );
-      if (bridgeBuilder) {
-        const existing = await (prisma as any).userAchievement.findFirst({
-          where: { userId: user.id, achievementId: bridgeBuilder.id },
-        });
-        if (!existing) {
-          // Set progress to 0-5 out of 20 ratings from different people
-          await (prisma as any).userAchievement.create({
-            data: {
-              userId: user.id,
-              achievementId: bridgeBuilder.id,
-              unlockedAt: null, // Explicitly set to null for in-progress achievements
-              currentProgress: Math.floor(Math.random() * 5),
-            },
-          });
-          progressCreated++;
-        }
-      }
-    }
-
-    console.log(`  ✓ Unlocked ${achievementsUnlocked} demo achievements`);
+    console.log(`  ✓ Unlocked ${achievementsUnlocked} achievements dynamically`);
     console.log(`  ✓ Created ${progressCreated} achievement progress entries`);
   } catch (error) {
     const err = error instanceof Error ? error.message : String(error);
     console.warn(`⚠️  Warning: Could not unlock demo achievements: ${err}`);
   }
 }
+
 
 async function seedCycleParticipation(prisma: PrismaClient): Promise<void> {
   try {
@@ -2317,7 +3040,59 @@ async function cleanupSupabaseAuthUsers(): Promise<void> {
 }
 
 /**
- * Main orchestrator function for seeding demo data
+ * Cleans up demo data from the database
+ * Deletes all demo organizations and their related data (cascades via foreign keys)
+ * @param prisma - Prisma client instance
+ */
+async function cleanupDatabase(prisma: PrismaClient): Promise<void> {
+  console.log("🧹 Cleaning up database demo data...\n");
+
+  try {
+    // Get all demo organizations by code
+    const organizations = await prisma.organization.findMany({
+      where: {
+        code: { in: ORGANIZATIONS.map((o) => o.code) },
+      },
+    });
+
+    if (organizations.length === 0) {
+      console.log("ℹ️  No demo organizations found");
+      return;
+    }
+
+    const orgIds = organizations.map((o) => o.id);
+    console.log(`  Found ${orgIds.length} demo organizations to delete`);
+
+    // Delete organizations - this will cascade delete:
+    // - All users in those orgs
+    // - All pairings
+    // - All meetings
+    // - All messages
+    // - All ratings
+    // - All reports
+    // - All calendar events
+    // - All pairing periods
+    // - All algorithm settings
+    // - All user tags, achievements, blocks, bans, cycle participations
+    console.log("  Deleting organizations and all related data...");
+    const deleteResult = await prisma.organization.deleteMany({
+      where: {
+        id: { in: orgIds },
+      },
+    });
+
+    console.log(
+      `\n✅ Cleaned up database: ${deleteResult.count} organizations and all related data\n`
+    );
+  } catch (error) {
+    const err = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Warning: Database cleanup incomplete: ${err}`);
+    console.warn("   Proceeding with seeding anyway...\n");
+  }
+}
+
+
+/**
  * Orchestrates seeding in phases:
  * - Phase 0: Cleanup (delete demo users from Supabase Auth)
  * - Phase 1: Organizations
@@ -2384,11 +3159,12 @@ async function main(): Promise<void> {
     console.log("📦 Connected to database\n");
 
     // ========================================
-    // PHASE 0: Cleanup Supabase Auth Users
+    // PHASE 0: Cleanup Supabase Auth Users & Database
     // ========================================
-    console.log("🧹 PHASE 0: Cleaning up demo users from Supabase Auth");
+    console.log("🧹 PHASE 0: Cleaning up demo data");
     console.log("=".repeat(50));
     await cleanupSupabaseAuthUsers();
+    await cleanupDatabase(prisma);
 
     // ========================================
     // PHASE 1: Organizations
@@ -2473,23 +3249,26 @@ async function main(): Promise<void> {
         }
       }
 
-      // 2c. Create pairing periods (3 weeks each)
-      console.log("\n🗓️  Creating pairing periods...");
-      const { activePeriodId, upcomingPeriodId } =
-        await createPairingPeriodsForOrg(prisma, orgId);
+      // 2c. Create historical + active pairing periods (4 past + 1 current)
+      console.log("\n🗓️  Creating historical pairing periods...");
+      const periodIds = await createHistoricalPairingPeriodsForOrg(
+        prisma,
+        orgId
+      );
 
-      // 2c.5. Create algorithm settings for the organization
+      // 2c.5. Create algorithm settings for the organization (with start date 84 days ago)
       console.log("\n⚙️  Creating algorithm settings...");
       await createAlgorithmSettingsForOrg(prisma, orgId);
 
-      // 2d. Create pairings (only for active period)
-      console.log("\n🤝 Creating pairings...");
-      const pairings = await createPairingsForOrg(
-        prisma,
-        orgId,
-        activePeriodId,
-        users
-      );
+      // 2d. Create pairings for all periods (historical + active)
+      console.log("\n🤝 Creating historical and active pairings...");
+      const allPairings =
+        await createHistoricalAndActivePairingsForOrg(
+          prisma,
+          orgId,
+          periodIds,
+          users
+        );
 
       // 2e. Create calendar events for each regular user
       console.log("\n📅 Creating calendar events...");
@@ -2498,9 +3277,9 @@ async function main(): Promise<void> {
         await createCalendarEventsForUser(prisma, user.id);
       }
 
-      // 2f. Create meeting events for matched/met pairings
-      console.log("\n📆 Creating meeting events...");
-      for (const pairing of pairings) {
+      // 2f. Create meeting events for matched/met pairings (including historical)
+      console.log("\n📆 Creating meeting events and messages...");
+      for (const pairing of allPairings) {
         if (pairing.status === "matched" || pairing.status === "met") {
           await createMeetingEventForPairing(prisma, pairing);
         }
@@ -2512,11 +3291,15 @@ async function main(): Promise<void> {
 
       // 2h. Create user reports for some pairings
       console.log("\n📋 Creating user reports...");
-      await createUserReportsForPairings(prisma, pairings, users);
+      await createUserReportsForPairings(prisma, allPairings, users);
 
       // 2i. Create user bans for organization
       console.log("\n🚫 Creating user bans...");
       await createUserBansForOrg(prisma, orgId, users);
+
+      // 2j. Create invitations for some users
+      console.log("\n📧 Creating invitations...");
+      await createInvitationsForOrg(prisma, orgId, users);
     }
 
     // ========================================
